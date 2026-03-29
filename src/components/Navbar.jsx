@@ -23,7 +23,7 @@ export default function Navbar({ toggleTheme, theme }) {
     const isActive = (path) => location.pathname === path;
 
     return (
-        <nav className={`sticky top-0 z-50 border-b backdrop-blur-md transition-colors duration-300 ${theme === 'dark'
+        <nav className={`sticky top-0 z-50 border-b backdrop-blur-md transition-colors duration-300 backdrop-blur-10 ${theme === 'dark'
             ? 'bg-gray-950/90 border-gray-800'
             : 'bg-white/90 border-gray-200'
             }`}>
