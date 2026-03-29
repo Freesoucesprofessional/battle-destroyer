@@ -14,7 +14,7 @@
   body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:14px;min-height:100vh}
 
   /* ── LOGIN SCREEN ── */
-  #login-screen{display:flex;align-items:center;justify-content:center;min-height:100vh}
+  #login-screen{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:16px}
   .login-box{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:40px;width:100%;max-width:380px}
   .login-box h1{font-size:22px;font-weight:800;color:var(--red);margin-bottom:4px}
   .login-box p{color:var(--muted);font-size:13px;margin-bottom:28px}
@@ -36,8 +36,8 @@
   #app{display:none;flex-direction:column;min-height:100vh}
   header{background:var(--surface);border-bottom:1px solid var(--border);padding:0 24px;height:56px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
   header .logo{font-size:16px;font-weight:900;color:var(--red);letter-spacing:.1em}
+  header .logo-short{display:none;font-size:15px;font-weight:900;color:var(--red)}
   header .hright{display:flex;align-items:center;gap:12px}
-  header .api-badge{background:var(--input);border:1px solid var(--border);border-radius:8px;padding:4px 10px;font-size:11px;color:var(--muted)}
   main{flex:1;padding:24px;max-width:1400px;margin:0 auto;width:100%}
 
   /* ── TABS ── */
@@ -48,7 +48,7 @@
   .tab-pane{display:none}.tab-pane.active{display:block}
 
   /* ── STATS ── */
-  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:24px}
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:24px}
   .stat-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px 20px}
   .stat-card .label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:6px}
   .stat-card .value{font-size:28px;font-weight:900}
@@ -60,14 +60,14 @@
 
   /* ── TOOLBAR ── */
   .toolbar{display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap}
-  .search-wrap{position:relative;flex:1;min-width:200px}
+  .search-wrap{position:relative;flex:1;min-width:160px}
   .search-wrap input{width:100%;background:var(--input);border:1px solid var(--border);border-radius:10px;padding:9px 14px 9px 36px;color:var(--text);font-size:13px;outline:none;transition:border-color .2s}
   .search-wrap input:focus{border-color:var(--red)}
   .search-wrap .ico{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:15px}
 
   /* ── TABLE ── */
-  .table-wrap{background:var(--card);border:1px solid var(--border);border-radius:14px;overflow:hidden}
-  table{width:100%;border-collapse:collapse}
+  .table-wrap{background:var(--card);border:1px solid var(--border);border-radius:14px;overflow:hidden;overflow-x:auto;-webkit-overflow-scrolling:touch}
+  table{width:100%;border-collapse:collapse;min-width:600px}
   thead th{background:var(--surface);padding:10px 14px;text-align:left;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);white-space:nowrap}
   tbody tr{border-top:1px solid var(--border);transition:background .15s}
   tbody tr:hover{background:rgba(255,255,255,.03)}
@@ -89,7 +89,7 @@
   /* ── PAGINATION ── */
   .pagination{display:flex;align-items:center;justify-content:space-between;margin-top:16px;flex-wrap:wrap;gap:8px}
   .pagination .info{color:var(--muted);font-size:13px}
-  .pages{display:flex;gap:6px}
+  .pages{display:flex;gap:6px;flex-wrap:wrap}
   .page-btn{background:var(--input);border:1px solid var(--border);border-radius:8px;padding:6px 12px;cursor:pointer;color:var(--text);font-size:13px;transition:all .2s}
   .page-btn:hover,.page-btn.active{background:var(--red);border-color:var(--red);color:#fff}
   .page-btn:disabled{opacity:.4;cursor:not-allowed}
@@ -103,7 +103,7 @@
   .modal-close{background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;line-height:1}
   .modal-close:hover{color:var(--text)}
   .modal-body{padding:20px 24px}
-  .modal-footer{padding:0 24px 20px;display:flex;gap:8px;justify-content:flex-end}
+  .modal-footer{padding:0 24px 20px;display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
   .row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
   .toggle-row{display:flex;align-items:center;justify-content:space-between;background:var(--input);border:1px solid var(--border);border-radius:10px;padding:10px 14px}
   .toggle-row label{font-size:13px;font-weight:600}
@@ -130,6 +130,55 @@
   .info-box{background:var(--input);border:1px solid var(--border);border-radius:10px;padding:12px 14px;font-size:12px;color:var(--muted);margin-bottom:16px;line-height:1.6}
   .info-box strong{color:var(--text)}
   .section-divider{border:none;border-top:1px solid var(--border);margin:16px 0}
+
+  /* ── RESPONSIVE ── */
+  @media(max-width:768px){
+    header{padding:0 16px}
+    header .logo{display:none}
+    header .logo-short{display:block}
+    main{padding:16px}
+
+    .stats{grid-template-columns:repeat(2,1fr);gap:8px}
+    .stat-card{padding:12px 14px}
+    .stat-card .value{font-size:22px}
+
+    .tabs{width:100%}
+    .tab{flex:1;padding:8px 10px;font-size:12px;text-align:center}
+
+    .toolbar{gap:8px}
+    .toolbar .btn{padding:9px 12px;font-size:12px}
+
+    .table-wrap{border-radius:10px}
+    /* hide less important columns on mobile */
+    table thead th:nth-child(3),
+    table tbody td:nth-child(3){display:none} /* User ID */
+    table thead th:nth-child(5),
+    table tbody td:nth-child(5){display:none} /* Referrals */
+    table thead th:nth-child(7),
+    table tbody td:nth-child(7){display:none} /* Joined / Created */
+
+    .row2{grid-template-columns:1fr}
+
+    .modal-footer{flex-direction:column-reverse}
+    .modal-footer .btn{width:100%;justify-content:center}
+
+    .pagination{flex-direction:column;align-items:flex-start}
+
+    #toast{bottom:16px;right:16px;left:16px}
+    .toast-msg{max-width:100%}
+  }
+
+  @media(max-width:480px){
+    .login-box{padding:28px 20px}
+    .stat-card .label{font-size:10px}
+    .tab{font-size:11px;padding:7px 8px}
+
+    /* hide email on very small screens too */
+    table thead th:nth-child(2),
+    table tbody td:nth-child(2){display:none}
+
+    .btn{padding:9px 12px}
+  }
 </style>
 </head>
 <body>
@@ -152,22 +201,21 @@
 <div id="app">
   <header>
     <span class="logo">⚔ BATTLE DESTROYER ADMIN</span>
+    <span class="logo-short">⚔ ADMIN</span>
     <div class="hright">
       <button class="btn btn-ghost" onclick="logout()">Logout</button>
     </div>
   </header>
 
   <main>
-    <!-- Stats -->
     <div class="stats" id="stats-row">
       <div class="stat-card red"><div class="label">Total Users</div><div class="value" id="s-total">—</div></div>
       <div class="stat-card green"><div class="label">Pro Users</div><div class="value" id="s-pro">—</div></div>
       <div class="stat-card blue"><div class="label">Have Credits</div><div class="value" id="s-credits">—</div></div>
-      <div class="stat-card yellow"><div class="label">Joined Today</div><div class="value" id="s-today">—</div></div>
+      <div class="stat-card yellow"><div class="label">Today</div><div class="value" id="s-today">—</div></div>
       <div class="stat-card purple"><div class="label">Resellers</div><div class="value" id="s-resellers">—</div></div>
     </div>
 
-    <!-- Tabs -->
     <div class="tabs">
       <button class="tab active" onclick="switchTab('users')">👥 Users</button>
       <button class="tab" onclick="switchTab('resellers')">🤝 Resellers</button>
@@ -178,7 +226,7 @@
       <div class="toolbar">
         <div class="search-wrap">
           <span class="ico">🔍</span>
-          <input id="search-input" type="text" placeholder="Search by username, email or userId…" oninput="debounceSearch()"/>
+          <input id="search-input" type="text" placeholder="Search username, email or userId…" oninput="debounceSearch()"/>
         </div>
         <button class="btn btn-red" onclick="loadUsers(1)">Refresh</button>
       </div>
@@ -208,7 +256,7 @@
           <span class="ico">🔍</span>
           <input id="rsearch-input" type="text" placeholder="Search resellers…" oninput="debounceRSearch()"/>
         </div>
-        <button class="btn btn-purple" onclick="openCreateReseller()">➕ New Reseller</button>
+        <button class="btn btn-purple" onclick="openCreateReseller()">➕ New</button>
         <button class="btn btn-red" onclick="loadResellers(1)">Refresh</button>
       </div>
       <div class="table-wrap">
@@ -331,16 +379,15 @@
   </div>
 </div>
 
-<!-- ── TOAST ── -->
 <div id="toast"></div>
 
 <script>
-let API = '', TOKEN = '';
+const API = 'https://backend-battle-destroyer.onrender.com';
+let TOKEN = '';
 let currentPage = 1, currentRPage = 1;
 let searchTimer = null, rsearchTimer = null;
 let heartbeatInterval = null;
 
-// ── TAB SWITCHING ──────────────────────────────────────────────────────────────
 function switchTab(tab) {
   document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', ['users','resellers'][i] === tab));
   document.getElementById('tab-users').classList.toggle('active', tab === 'users');
@@ -348,24 +395,19 @@ function switchTab(tab) {
   if (tab === 'resellers') loadResellers(1);
 }
 
-// ── LOGIN ─────────────────────────────────────────────────────────────────────
-// Exchanges the raw ADMIN_SECRET for a one-time session token.
-// Issuing a new token immediately revokes any token held by another device.
 async function doLogin() {
-  const url    = 'https://backend-battle-destroyer.onrender.com';
   const secret = document.getElementById('admin-secret').value.trim();
   const errEl  = document.getElementById('login-error');
   errEl.style.display = 'none';
-  if (!url || !secret) { showLoginError('Both fields are required.'); return; }
+  if (!secret) { showLoginError('Secret is required.'); return; }
   try {
-    const r = await fetch(`${url}/api/admin/session`, {
+    const r = await fetch(`${API}/api/admin/session`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ secret }),
     });
     const data = await r.json();
     if (!r.ok) throw new Error(data.message || 'Login failed');
-    API   = url;
     TOKEN = data.token;
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('app').style.display = 'flex';
@@ -378,16 +420,15 @@ function showLoginError(msg) {
   el.textContent = '⚠ ' + msg; el.style.display = 'block';
 }
 async function logout() {
-  if (API && TOKEN) {
+  if (TOKEN) {
     try { await fetch(`${API}/api/admin/session`, { method: 'DELETE', headers: { 'x-admin-token': TOKEN } }); } catch {}
   }
   clearInterval(heartbeatInterval);
-  API = ''; TOKEN = '';
+  TOKEN = '';
   document.getElementById('login-screen').style.display = 'flex';
   document.getElementById('app').style.display = 'none';
 }
 
-// ── HEARTBEAT — detects if another device stole the session ───────────────────
 function startHeartbeat() {
   clearInterval(heartbeatInterval);
   heartbeatInterval = setInterval(async () => {
@@ -401,18 +442,17 @@ function startHeartbeat() {
           : '⚠ Another device logged in as admin. You have been signed out.');
       }
     } catch {}
-  }, 15000); // poll every 15 seconds
+  }, 15000);
 }
 function forceLogout(reason) {
   clearInterval(heartbeatInterval);
-  API = ''; TOKEN = '';
+  TOKEN = '';
   document.getElementById('app').style.display = 'none';
   document.getElementById('login-screen').style.display = 'flex';
   const el = document.getElementById('login-error');
   el.textContent = reason; el.style.display = 'block';
 }
 
-// ── API HELPER ────────────────────────────────────────────────────────────────
 async function api(path, method = 'GET', body) {
   const opts = { method, headers: { 'x-admin-token': TOKEN, 'Content-Type': 'application/json' } };
   if (body) opts.body = JSON.stringify(body);
@@ -430,7 +470,6 @@ async function api(path, method = 'GET', body) {
   return data;
 }
 
-// ── STATS ─────────────────────────────────────────────────────────────────────
 async function loadStats() {
   try {
     const s = await api('/api/admin/stats');
@@ -442,7 +481,6 @@ async function loadStats() {
   } catch {}
 }
 
-// ── USERS TABLE ───────────────────────────────────────────────────────────────
 async function loadUsers(page = 1) {
   currentPage = page;
   const search = document.getElementById('search-input').value.trim();
@@ -478,7 +516,6 @@ async function loadUsers(page = 1) {
 }
 function debounceSearch() { clearTimeout(searchTimer); searchTimer = setTimeout(() => loadUsers(1), 350); }
 
-// ── RESELLERS TABLE ───────────────────────────────────────────────────────────
 async function loadResellers(page = 1) {
   currentRPage = page;
   const search = document.getElementById('rsearch-input').value.trim();
@@ -515,7 +552,6 @@ async function loadResellers(page = 1) {
 }
 function debounceRSearch() { clearTimeout(rsearchTimer); rsearchTimer = setTimeout(() => loadResellers(1), 350); }
 
-// ── PAGINATION HELPER ─────────────────────────────────────────────────────────
 function renderPagination(infoId, pagesId, page, pages, total, limit, fn) {
   const start = (page-1)*limit+1, end = Math.min(page*limit, total);
   document.getElementById(infoId).textContent = `Showing ${start}–${end} of ${total}`;
@@ -529,7 +565,6 @@ function renderPagination(infoId, pagesId, page, pages, total, limit, fn) {
   }
 }
 
-// ── USER MODAL ────────────────────────────────────────────────────────────────
 function openEdit(u) {
   document.getElementById('edit-id').value             = u._id;
   document.getElementById('edit-username').value       = u.username;
@@ -577,7 +612,6 @@ async function quickDelete(id, name) {
   } catch(e) { toast(e.message, 'error'); }
 }
 
-// ── RESELLER MODALS ───────────────────────────────────────────────────────────
 function openCreateReseller() {
   ['cr-username','cr-email','cr-password'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('cr-credits').value = 0;
@@ -649,7 +683,6 @@ async function quickDeleteReseller(id, name) {
   } catch(e) { toast(e.message, 'error'); }
 }
 
-// ── UTILS ─────────────────────────────────────────────────────────────────────
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
 function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function fmtDate(d) { if (!d) return '—'; return new Date(d).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}); }
@@ -661,7 +694,6 @@ function toast(msg, type = 'success') {
   setTimeout(() => el.remove(), 3500);
 }
 
-// Close modals on backdrop click
 ['edit-modal','create-reseller-modal','edit-reseller-modal'].forEach(id => {
   document.getElementById(id).addEventListener('click', function(e) { if (e.target===this) closeModal(id); });
 });
