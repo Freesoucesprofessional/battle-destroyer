@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Battle Destroyer — Reseller Panel</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --bg:#07080f;--surface:#0e0f1a;--card:#131422;--border:#1e2035;
+    --accent:#7c3aed;--accent2:#6d28d9;--green:#10b981;--yellow:#f59e0b;
+    --red:#ef4444;--blue:#3b82f6;--text:#e2e8f0;--muted:#64748b;
+    --input:#0d0e1c;--glow:rgba(124,58,237,.25);
+  }
+  body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:14px;min-height:100vh}
+
+  /* ── BG GRID ── */
+  body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(124,58,237,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(124,58,237,.03) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0}
+
+  /* ── LOGIN SCREEN ── */
+  #login-screen{position:relative;z-index:1;display:flex;align-items:center;justify-content:center;min-height:100vh}
+  .login-box{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:44px;width:100%;max-width:400px;box-shadow:0 0 60px var(--glow)}
+  .login-logo{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.15em;color:var(--accent);margin-bottom:8px}
+  .login-box h1{font-size:26px;font-weight:900;color:var(--text);margin-bottom:4px}
+  .login-box p{color:var(--muted);font-size:13px;margin-bottom:32px}
+  .field{margin-bottom:18px}
+  .field label{display:block;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:7px}
+  .field input{width:100%;background:var(--input);border:1px solid var(--border);border-radius:12px;padding:11px 16px;color:var(--text);font-size:14px;outline:none;transition:all .2s}
+  .field input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--glow)}
+  .btn{display:inline-flex;align-items:center;gap:7px;padding:11px 20px;border-radius:12px;font-weight:700;font-size:13px;cursor:pointer;border:none;transition:all .2s}
+  .btn-accent{background:var(--accent);color:#fff}.btn-accent:hover{background:var(--accent2);transform:translateY(-1px);box-shadow:0 4px 20px var(--glow)}
+  .btn-green{background:var(--green);color:#fff}.btn-green:hover{filter:brightness(1.1);transform:translateY(-1px)}
+  .btn-ghost{background:transparent;color:var(--muted);border:1px solid var(--border)}.btn-ghost:hover{border-color:var(--accent);color:var(--accent)}
+  .btn-full{width:100%;justify-content:center}
+  .btn-sm{padding:7px 14px;font-size:12px;border-radius:9px}
+  #login-error{background:#1a0a0a;border:1px solid #7f1d1d;border-radius:10px;color:#fca5a5;font-size:13px;padding:10px 14px;margin-bottom:16px;display:none}
+
+  /* ── APP ── */
+  #app{display:none;flex-direction:column;min-height:100vh;position:relative;z-index:1}
+  header{background:var(--surface);border-bottom:1px solid var(--border);padding:0 24px;height:60px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;backdrop-filter:blur(12px)}
+  .logo{display:flex;align-items:center;gap:10px}
+  .logo-icon{width:32px;height:32px;background:var(--accent);border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:16px}
+  .logo-text{font-size:15px;font-weight:900;letter-spacing:.05em}
+  .logo-sub{font-size:11px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+  .hright{display:flex;align-items:center;gap:12px}
+  .credit-pill{background:var(--input);border:1px solid var(--border);border-radius:20px;padding:6px 14px;font-size:13px;font-weight:700;color:var(--green);display:flex;align-items:center;gap:6px}
+  main{flex:1;padding:28px 24px;max-width:900px;margin:0 auto;width:100%}
+
+  /* ── WELCOME BANNER ── */
+  .welcome{background:linear-gradient(135deg,#1a0533 0%,#0d0f2a 100%);border:1px solid #2d1b5e;border-radius:16px;padding:24px 28px;margin-bottom:28px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+  .welcome h2{font-size:20px;font-weight:800;margin-bottom:4px}
+  .welcome p{color:var(--muted);font-size:13px}
+  .welcome-stats{display:flex;gap:20px;flex-wrap:wrap}
+  .wstat{text-align:center}
+  .wstat .wval{font-size:22px;font-weight:900;color:var(--accent)}
+  .wstat .wlbl{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+
+  /* ── SECTION ── */
+  .section{background:var(--card);border:1px solid var(--border);border-radius:16px;overflow:hidden;margin-bottom:24px}
+  .section-head{padding:18px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+  .section-head h3{font-size:15px;font-weight:800;display:flex;align-items:center;gap:8px}
+  .section-body{padding:24px}
+
+  /* ── SEARCH USER ── */
+  .search-row{display:flex;gap:10px}
+  .search-row input{flex:1;background:var(--input);border:1px solid var(--border);border-radius:12px;padding:11px 16px;color:var(--text);font-size:14px;outline:none;transition:all .2s}
+  .search-row input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--glow)}
+
+  /* ── USER CARD ── */
+  .user-card{background:var(--input);border:1px solid var(--border);border-radius:14px;padding:20px;margin-top:16px;display:none}
+  .user-card.visible{display:block}
+  .user-card-top{display:flex;align-items:center;gap:14px;margin-bottom:16px}
+  .avatar{width:48px;height:48px;border-radius:12px;background:linear-gradient(135deg,var(--accent),var(--blue));display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:900;color:#fff;flex-shrink:0}
+  .user-card-info h4{font-size:15px;font-weight:800;margin-bottom:2px}
+  .user-card-info p{color:var(--muted);font-size:12px}
+  .user-meta{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px}
+  .meta-chip{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:5px 12px;font-size:12px;font-weight:600}
+  .meta-chip.pro{color:var(--accent);border-color:var(--accent)}
+  .meta-chip.credits{color:var(--green);border-color:var(--green)}
+
+  /* ── GIVE CREDITS FORM ── */
+  .give-row{display:flex;gap:10px;align-items:flex-end}
+  .give-row .field{flex:1;margin-bottom:0}
+  .give-row .field label{margin-bottom:6px}
+  .give-row input{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:10px 14px;color:var(--text);font-size:14px;outline:none;transition:all .2s}
+  .give-row input:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(16,185,129,.15)}
+
+  /* ── HISTORY ── */
+  .history-item{display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--border)}
+  .history-item:last-child{border-bottom:none}
+  .history-item .hi-left{display:flex;align-items:center;gap:10px}
+  .history-icon{width:34px;height:34px;border-radius:9px;background:#0d2e1f;border:1px solid #064e3b;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0}
+  .history-item .hi-name{font-weight:600;font-size:13px}
+  .history-item .hi-time{font-size:11px;color:var(--muted)}
+  .history-item .hi-amount{font-weight:700;color:var(--green);font-size:14px}
+
+  /* ── ALERT ── */
+  .alert{border-radius:12px;padding:12px 16px;font-size:13px;margin-top:12px;display:none}
+  .alert.show{display:flex;align-items:center;gap:10px}
+  .alert-success{background:#022c22;border:1px solid #065f46;color:#6ee7b7}
+  .alert-error{background:#1a0a0a;border:1px solid #7f1d1d;color:#fca5a5}
+  .alert-warn{background:#1c1a07;border:1px solid #78350f;color:#fcd34d}
+
+  /* ── TOAST ── */
+  #toast{position:fixed;bottom:24px;right:24px;z-index:999;display:flex;flex-direction:column;gap:8px}
+  .toast-msg{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:13px 18px;font-size:13px;display:flex;align-items:center;gap:8px;animation:slideIn .25s ease;max-width:320px;box-shadow:0 8px 32px rgba(0,0,0,.5)}
+  .toast-msg.success{border-color:var(--green);color:var(--green)}
+  .toast-msg.error{border-color:var(--red);color:#fca5a5}
+  @keyframes slideIn{from{transform:translateX(110%);opacity:0}to{transform:none;opacity:1}}
+  .empty-state{text-align:center;padding:40px;color:var(--muted)}
+  .empty-state .ei{font-size:36px;margin-bottom:12px}
+  .spinner{display:inline-block;width:18px;height:18px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:6px}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .badge-pro-label{display:inline-flex;align-items:center;gap:4px;background:#2e1065;color:#c4b5fd;border:1px solid #4c1d95;border-radius:20px;padding:2px 10px;font-size:11px;font-weight:700}
+  .badge-free{background:#1e293b;color:#94a3b8;border:1px solid #334155;border-radius:20px;padding:2px 10px;font-size:11px;font-weight:700}
+</style>
+</head>
+<body>
+
+<!-- ── LOGIN ── -->
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-logo">⚔ Battle Destroyer</div>
+    <h1>Reseller Portal</h1>
+    <p>Login with your reseller credentials to manage credits</p>
+    <div id="login-error"></div>
+    <div class="field">
+      <label>API Base URL</label>
+      <input id="api-url" type="text" value="https://backend-battle-destroyer.onrender.com" placeholder="https://your-api.com"/>
+    </div>
+    <div class="field">
+      <label>Username or Email</label>
+      <input id="r-username" type="text" placeholder="your_username"/>
+    </div>
+    <div class="field">
+      <label>Password</label>
+      <input id="r-password" type="password" placeholder="••••••••"/>
+    </div>
+    <button class="btn btn-accent btn-full" onclick="doLogin()" id="login-btn">🔐 Sign In</button>
+  </div>
+</div>
+
+<!-- ── APP ── -->
+<div id="app">
+  <header>
+    <div class="logo">
+      <div class="logo-icon">⚔</div>
+      <div>
+        <div class="logo-text">BATTLE DESTROYER</div>
+        <div class="logo-sub">Reseller Portal</div>
+      </div>
+    </div>
+    <div class="hright">
+      <div class="credit-pill">💎 <span id="header-credits">0</span> Credits</div>
+      <button class="btn btn-ghost btn-sm" onclick="logout()">Logout</button>
+    </div>
+  </header>
+
+  <main>
+    <!-- Welcome -->
+    <div class="welcome">
+      <div>
+        <h2>Welcome back, <span id="w-username">—</span> 👋</h2>
+        <p>Give credits to users and grow your network</p>
+      </div>
+      <div class="welcome-stats">
+        <div class="wstat"><div class="wval" id="w-credits">0</div><div class="wlbl">Credits Left</div></div>
+        <div class="wstat"><div class="wval" id="w-given">0</div><div class="wlbl">Total Given</div></div>
+      </div>
+    </div>
+
+    <!-- Search & Give Credits -->
+    <div class="section">
+      <div class="section-head">
+        <h3>🔍 Find User & Give Credits</h3>
+      </div>
+      <div class="section-body">
+        <div class="search-row">
+          <input id="user-query" type="text" placeholder="Enter User ID or email address…" onkeydown="if(event.key==='Enter')searchUser()"/>
+          <button class="btn btn-accent" onclick="searchUser()" id="search-btn">Search</button>
+        </div>
+        <div id="search-alert" class="alert"></div>
+
+        <!-- User Result Card -->
+        <div class="user-card" id="user-card">
+          <div class="user-card-top">
+            <div class="avatar" id="uc-avatar">?</div>
+            <div class="user-card-info">
+              <h4 id="uc-name">—</h4>
+              <p id="uc-email">—</p>
+            </div>
+          </div>
+          <div class="user-meta">
+            <div class="meta-chip credits">💎 <span id="uc-credits">0</span> credits</div>
+            <div id="uc-pro-badge"></div>
+            <div class="meta-chip" style="color:var(--muted)">ID: <span id="uc-userid" style="font-family:monospace;font-size:11px">—</span></div>
+          </div>
+          <hr style="border:none;border-top:1px solid var(--border);margin-bottom:16px"/>
+          <div class="give-row">
+            <div class="field">
+              <label>Credits to Give</label>
+              <input id="give-amount" type="number" min="1" placeholder="e.g. 100" onkeydown="if(event.key==='Enter')giveCredits()"/>
+            </div>
+            <button class="btn btn-green" onclick="giveCredits()" id="give-btn">💸 Give Credits</button>
+          </div>
+          <div id="give-alert" class="alert"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Recent Activity -->
+    <div class="section">
+      <div class="section-head">
+        <h3>📋 Recent Activity</h3>
+        <button class="btn btn-ghost btn-sm" onclick="refreshMe()">↻ Refresh</button>
+      </div>
+      <div class="section-body" id="activity-body">
+        <div class="empty-state"><div class="ei">📭</div><p>Your credit transfer history will appear here</p></div>
+      </div>
+    </div>
+
+    <!-- Account Info -->
+    <div class="section">
+      <div class="section-head"><h3>👤 Account Info</h3></div>
+      <div class="section-body">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div style="background:var(--input);border:1px solid var(--border);border-radius:10px;padding:14px">
+            <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Username</div>
+            <div style="font-weight:700" id="info-username">—</div>
+          </div>
+          <div style="background:var(--input);border:1px solid var(--border);border-radius:10px;padding:14px">
+            <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Email</div>
+            <div style="font-weight:700;font-size:13px" id="info-email">—</div>
+          </div>
+          <div style="background:var(--input);border:1px solid var(--border);border-radius:10px;padding:14px">
+            <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Credits Available</div>
+            <div style="font-weight:900;font-size:22px;color:var(--green)" id="info-credits">—</div>
+          </div>
+          <div style="background:var(--input);border:1px solid var(--border);border-radius:10px;padding:14px">
+            <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Total Given</div>
+            <div style="font-weight:900;font-size:22px;color:var(--accent)" id="info-given">—</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div id="toast"></div>
+
+<script>
+let API = '', TOKEN = '', resellerData = null;
+const history = []; // in-session activity log
+
+// ── LOGIN ──────────────────────────────────────────────────────────────────────
+async function doLogin() {
+  const url  = document.getElementById('api-url').value.trim().replace(/\/$/, '');
+  const user = document.getElementById('r-username').value.trim();
+  const pass = document.getElementById('r-password').value;
+  const errEl = document.getElementById('login-error');
+  errEl.style.display = 'none';
+
+  if (!url || !user || !pass) { showLoginError('All fields are required.'); return; }
+
+  const btn = document.getElementById('login-btn');
+  btn.textContent = '⏳ Signing in…'; btn.disabled = true;
+
+  try {
+    const r = await fetch(`${url}/api/reseller/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: user, password: pass }),
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.message || 'Login failed');
+
+    API   = url;
+    TOKEN = data.token;
+    resellerData = data.reseller;
+    initApp();
+  } catch(e) {
+    showLoginError(e.message);
+  } finally {
+    btn.textContent = '🔐 Sign In'; btn.disabled = false;
+  }
+}
+function showLoginError(msg) {
+  const el = document.getElementById('login-error');
+  el.textContent = '⚠ ' + msg; el.style.display = 'block';
+}
+function logout() {
+  API = ''; TOKEN = ''; resellerData = null;
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('r-password').value = '';
+}
+
+// ── INIT APP ──────────────────────────────────────────────────────────────────
+function initApp() {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'flex';
+  updateUI(resellerData);
+}
+function updateUI(r) {
+  document.getElementById('w-username').textContent   = r.username;
+  document.getElementById('w-credits').textContent    = r.credits;
+  document.getElementById('w-given').textContent      = r.totalGiven || 0;
+  document.getElementById('header-credits').textContent = r.credits;
+  document.getElementById('info-username').textContent = r.username;
+  document.getElementById('info-email').textContent   = r.email;
+  document.getElementById('info-credits').textContent = r.credits;
+  document.getElementById('info-given').textContent   = r.totalGiven || 0;
+}
+
+// ── API HELPER ────────────────────────────────────────────────────────────────
+async function apiCall(path, method = 'GET', body) {
+  const opts = {
+    method,
+    headers: { 'Authorization': `Bearer ${TOKEN}`, 'Content-Type': 'application/json' }
+  };
+  if (body) opts.body = JSON.stringify(body);
+  const r = await fetch(API + path, opts);
+  const data = await r.json();
+  if (!r.ok) throw new Error(data.message || 'Request failed');
+  return data;
+}
+
+// ── REFRESH ME ────────────────────────────────────────────────────────────────
+async function refreshMe() {
+  try {
+    const r = await apiCall('/api/reseller/me');
+    resellerData = r;
+    updateUI(r);
+    toast('Refreshed', 'success');
+  } catch(e) {
+    if (e.message.includes('blocked') || e.message.includes('Unauthorized')) {
+      toast('Session expired or account blocked', 'error');
+      setTimeout(logout, 1500);
+    }
+  }
+}
+
+// ── SEARCH USER ───────────────────────────────────────────────────────────────
+let foundUser = null;
+async function searchUser() {
+  const query = document.getElementById('user-query').value.trim();
+  const alertEl = document.getElementById('search-alert');
+  const card    = document.getElementById('user-card');
+
+  hideAlert(alertEl); card.classList.remove('visible');
+  foundUser = null;
+
+  if (!query || query.length < 3) {
+    showAlert(alertEl, 'warn', '⚠ Enter at least 3 characters to search.');
+    return;
+  }
+
+  const btn = document.getElementById('search-btn');
+  btn.innerHTML = '<span class="spinner"></span>'; btn.disabled = true;
+
+  try {
+    const user = await apiCall(`/api/reseller/search-user?query=${encodeURIComponent(query)}`);
+    foundUser = user;
+
+    // Populate card
+    document.getElementById('uc-avatar').textContent   = user.username.charAt(0).toUpperCase();
+    document.getElementById('uc-name').textContent     = user.username;
+    document.getElementById('uc-email').textContent    = user.email;
+    document.getElementById('uc-credits').textContent  = user.credits;
+    document.getElementById('uc-userid').textContent   = user.userId || user._id;
+    document.getElementById('uc-pro-badge').innerHTML  = user.isPro
+      ? '<span class="badge-pro-label">⭐ Pro</span>'
+      : '<span class="badge-free">Free</span>';
+    document.getElementById('give-amount').value = '';
+    hideAlert(document.getElementById('give-alert'));
+    card.classList.add('visible');
+  } catch(e) {
+    showAlert(alertEl, 'error', '❌ ' + e.message);
+  } finally {
+    btn.textContent = 'Search'; btn.disabled = false;
+  }
+}
+
+// ── GIVE CREDITS ──────────────────────────────────────────────────────────────
+async function giveCredits() {
+  const alertEl = document.getElementById('give-alert');
+  hideAlert(alertEl);
+
+  if (!foundUser) { showAlert(alertEl, 'warn', 'Search for a user first.'); return; }
+
+  const amount = parseInt(document.getElementById('give-amount').value, 10);
+  if (!amount || amount < 1) { showAlert(alertEl, 'warn', '⚠ Enter a valid amount (minimum 1).'); return; }
+  if (amount > resellerData.credits) {
+    showAlert(alertEl, 'error', `❌ Insufficient credits. You have ${resellerData.credits}.`); return;
+  }
+
+  const btn = document.getElementById('give-btn');
+  btn.innerHTML = '<span class="spinner"></span> Processing…'; btn.disabled = true;
+
+  try {
+    const res = await apiCall('/api/reseller/give-credits', 'POST', {
+      userId: foundUser.userId || foundUser.email,
+      amount,
+    });
+
+    // Update local state
+    resellerData.credits   -= amount;
+    resellerData.totalGiven = (resellerData.totalGiven || 0) + amount;
+    updateUI(resellerData);
+
+    // Update user card
+    document.getElementById('uc-credits').textContent = res.userNewCredits;
+    document.getElementById('uc-pro-badge').innerHTML = '<span class="badge-pro-label">⭐ Pro</span>';
+    document.getElementById('give-amount').value = '';
+
+    showAlert(alertEl, 'success', `✅ ${amount} credits sent to ${foundUser.username}! They are now Pro.`);
+    toast(`Sent ${amount} credits to ${foundUser.username}`, 'success');
+
+    // Log activity
+    history.unshift({ user: foundUser.username, amount, time: new Date() });
+    renderActivity();
+  } catch(e) {
+    showAlert(alertEl, 'error', '❌ ' + e.message);
+    toast(e.message, 'error');
+  } finally {
+    btn.textContent = '💸 Give Credits'; btn.disabled = false;
+  }
+}
+
+// ── ACTIVITY LOG (in-session) ─────────────────────────────────────────────────
+function renderActivity() {
+  const el = document.getElementById('activity-body');
+  if (!history.length) {
+    el.innerHTML = `<div class="empty-state"><div class="ei">📭</div><p>No activity this session yet</p></div>`;
+    return;
+  }
+  el.innerHTML = history.slice(0, 20).map(h => `
+    <div class="history-item">
+      <div class="hi-left">
+        <div class="history-icon">💸</div>
+        <div>
+          <div class="hi-name">${esc(h.user)}</div>
+          <div class="hi-time">${fmtTime(h.time)}</div>
+        </div>
+      </div>
+      <div class="hi-amount">+${h.amount} credits</div>
+    </div>`).join('');
+}
+
+// ── UTILS ─────────────────────────────────────────────────────────────────────
+function showAlert(el, type, msg) {
+  el.className = `alert alert-${type} show`;
+  el.textContent = msg;
+}
+function hideAlert(el) { el.className = 'alert'; el.textContent = ''; }
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function fmtTime(d) {
+  return new Date(d).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+}
+function toast(msg, type = 'success') {
+  const el = document.createElement('div');
+  el.className = `toast-msg ${type}`;
+  el.innerHTML = `${type==='success'?'✅':'❌'} ${msg}`;
+  document.getElementById('toast').appendChild(el);
+  setTimeout(() => el.remove(), 3500);
+}
+
+// Enter key support
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && document.getElementById('login-screen').style.display !== 'none') doLogin();
+});
+</script>
+</body>
+</html>
