@@ -144,7 +144,7 @@ export default function Signup({ toggleTheme, theme }) {
 
                 <div className="w-full max-w-sm py-4">
                     <div className="lg:hidden text-center mb-6">
-                        <div className="inline-flex items-center justify-center w-50 h-50 rounded-2xl mb-3">
+                        <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl mb-3">
                             <img src="/logo512.png" alt="Battle Destroyer" className="w-20 h-20 object-contain" />
                         </div>
                         <h1 className="text-2xl font-black text-red-500 tracking-widest">BATTLE-DESTROYER</h1>
