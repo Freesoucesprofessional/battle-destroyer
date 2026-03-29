@@ -1,68 +1,58 @@
-import React, { useEffect, useRef, useState } from 'react';
+// ─── TurnstileWidget.jsx ─────────────────────────────────────────────────────
+// FIX: expose a reset() method via ref so the parent can reset the exact widget
+// by its ID instead of calling window.turnstile.reset() with no arguments,
+// which silently does nothing.
 
-export default function TurnstileWidget({ onVerify, onExpire, onError }) {
+import React, { useEffect, useRef, useState, useImperativeHandle, forwardRef } from 'react';
+
+const TurnstileWidget = forwardRef(function TurnstileWidget({ onVerify, onExpire, onError }, ref) {
     const containerRef = useRef(null);
     const widgetId     = useRef(null);
     const [ready, setReady] = useState(false);
 
-    // ── Store callbacks in refs so the widget effect never re-runs when the
-    //    parent passes a new function reference (even after re-renders).
-    //    This is the root cause of the blinking on Vercel.
-    const onVerifyRef  = useRef(onVerify);
-    const onExpireRef  = useRef(onExpire);
-    const onErrorRef   = useRef(onError);
+    const onVerifyRef = useRef(onVerify);
+    const onExpireRef = useRef(onExpire);
+    const onErrorRef  = useRef(onError);
 
-    // Keep refs in sync with latest props without triggering re-renders
     useEffect(() => { onVerifyRef.current = onVerify; }, [onVerify]);
     useEffect(() => { onExpireRef.current = onExpire; }, [onExpire]);
     useEffect(() => { onErrorRef.current  = onError;  }, [onError]);
 
-    // ── Wait for Cloudflare's script to load ──────────────────────────────────
-    useEffect(() => {
-        // Already loaded (e.g. hot reload)
-        if (window.turnstile) { setReady(true); return; }
-
-        const interval = setInterval(() => {
-            if (window.turnstile) {
-                setReady(true);
-                clearInterval(interval);
+    // FIX: expose reset() to parent via ref
+    useImperativeHandle(ref, () => ({
+        reset() {
+            if (widgetId.current !== null && window.turnstile) {
+                try { window.turnstile.reset(widgetId.current); } catch {}
             }
-        }, 100);
+        }
+    }), []);
 
-        return () => clearInterval(interval);
-    }, []); // ← runs once, no deps
-
-    // ── Render the widget exactly once when ready ─────────────────────────────
     useEffect(() => {
-        // Not ready yet, container not mounted, or already rendered
+        if (window.turnstile) { setReady(true); return; }
+        const interval = setInterval(() => {
+            if (window.turnstile) { setReady(true); clearInterval(interval); }
+        }, 100);
+        return () => clearInterval(interval);
+    }, []);
+
+    useEffect(() => {
         if (!ready || !containerRef.current || widgetId.current !== null) return;
 
-        // Small defer so the DOM is fully painted before Turnstile measures it
         const timer = setTimeout(() => {
             try {
                 widgetId.current = window.turnstile.render(containerRef.current, {
                     sitekey: process.env.REACT_APP_TURNSTILE_SITE_KEY,
                     theme:   'dark',
                     retry:   'auto',
-
-                    // Use ref wrappers — these closures never go stale and
-                    // never cause the effect to re-run
-                    callback: (token) => {
-                        onVerifyRef.current?.(token);
-                    },
-                    'expired-callback': () => {
-                        onExpireRef.current?.();
-                    },
-                    'error-callback': () => {
-                        onErrorRef.current?.();
-                    },
+                    callback:           (token) => onVerifyRef.current?.(token),
+                    'expired-callback': ()      => onExpireRef.current?.(),
+                    'error-callback':   ()      => onErrorRef.current?.(),
                 });
             } catch (e) {
                 console.warn('Turnstile render error:', e);
             }
         }, 200);
 
-        // Cleanup: remove widget when component unmounts
         return () => {
             clearTimeout(timer);
             if (widgetId.current !== null && window.turnstile) {
@@ -70,7 +60,7 @@ export default function TurnstileWidget({ onVerify, onExpire, onError }) {
                 widgetId.current = null;
             }
         };
-    }, [ready]); // ← ONLY depends on `ready` — never on callback props
+    }, [ready]);
 
     return (
         <div className="my-2">
@@ -82,4 +72,6 @@ export default function TurnstileWidget({ onVerify, onExpire, onError }) {
             <div ref={containerRef} />
         </div>
     );
-}
+});
+
+export default TurnstileWidget;

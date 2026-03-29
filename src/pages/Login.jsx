@@ -5,67 +5,58 @@ import { FaCrosshairs, FaGem, FaLink, FaBolt } from 'react-icons/fa';
 import TurnstileWidget from '../components/TurnstileWidget';
 import PasswordInput from '../components/PasswordInput';
 
-// Turnstile tokens are valid for 300 seconds (5 min).
-// We treat anything older than 270s as stale to give a safety margin.
 const TOKEN_MAX_AGE_MS = 270_000;
 
 export default function Login({ toggleTheme, theme }) {
-    const [form, setForm]           = useState({ email: '', password: '' });
+    const [form, setForm]               = useState({ email: '', password: '' });
     const [captchaReady, setCaptchaReady] = useState(false);
-    const [error, setError]         = useState('');
-    const [loading, setLoading]     = useState(false);
+    const [error, setError]             = useState('');
+    const [loading, setLoading]         = useState(false);
 
-    // Use a ref for the token so the submit handler always reads the
-    // latest value — avoids the React stale-closure problem.
     const captchaTokenRef  = useRef('');
-    const captchaIssuedRef = useRef(null); // timestamp when token was received
+    const captchaIssuedRef = useRef(null);
     const expiryTimerRef   = useRef(null);
+
+    // FIX: ref pointing to the TurnstileWidget instance so we can call
+    // widget.reset() with the correct widgetId — window.turnstile.reset()
+    // with no arguments silently does nothing, which meant the old token
+    // was reused on every retry and login always failed after the first attempt.
+    const turnstileRef = useRef(null);
 
     const navigate = useNavigate();
     const API_URL  = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 
     const handle = e => setForm(f => ({ ...f, [e.target.name]: e.target.value }));
 
-    // ─── Reset CAPTCHA helper ─────────────────────────────────────────────────
     const resetCaptcha = useCallback(() => {
         captchaTokenRef.current  = '';
         captchaIssuedRef.current = null;
         setCaptchaReady(false);
         clearTimeout(expiryTimerRef.current);
-        if (window.turnstile) window.turnstile.reset();
+        // FIX: call reset on the widget ref (passes the widgetId internally)
+        // instead of window.turnstile.reset() which resets nothing without an ID
+        turnstileRef.current?.reset();
     }, []);
 
-    // ─── Called by TurnstileWidget when user solves the challenge ────────────
     const handleVerify = useCallback((token) => {
         captchaTokenRef.current  = token;
         captchaIssuedRef.current = Date.now();
         setCaptchaReady(true);
-
-        // Clear any previous timer, then start a new one.
         clearTimeout(expiryTimerRef.current);
-        expiryTimerRef.current = setTimeout(() => {
-            // Token is about to expire — silently reset so user re-solves.
-            resetCaptcha();
-        }, TOKEN_MAX_AGE_MS);
+        expiryTimerRef.current = setTimeout(resetCaptcha, TOKEN_MAX_AGE_MS);
     }, [resetCaptcha]);
 
-    // Cleanup timer on unmount
     useEffect(() => () => clearTimeout(expiryTimerRef.current), []);
 
-    // ─── Submit ───────────────────────────────────────────────────────────────
     const submit = async e => {
         e.preventDefault();
         setError('');
 
-        const token     = captchaTokenRef.current;
-        const issuedAt  = captchaIssuedRef.current;
+        const token    = captchaTokenRef.current;
+        const issuedAt = captchaIssuedRef.current;
 
-        // Guard 1 — no token at all
-        if (!token) {
-            return setError('Please complete the CAPTCHA.');
-        }
+        if (!token) return setError('Please complete the CAPTCHA.');
 
-        // Guard 2 — token is too old (clock-based client-side check)
         if (!issuedAt || Date.now() - issuedAt > TOKEN_MAX_AGE_MS) {
             resetCaptcha();
             return setError('CAPTCHA expired. Please solve it again.');
@@ -86,9 +77,7 @@ export default function Login({ toggleTheme, theme }) {
         } catch (err) {
             const msg = err.response?.data?.message || 'Login failed. Please try again.';
             setError(msg);
-
-            // Always reset after ANY failure — Turnstile tokens are single-use.
-            // The next attempt needs a brand-new token.
+            // Token is consumed — reset so next attempt gets a fresh one
             resetCaptcha();
 
         } finally {
@@ -98,7 +87,6 @@ export default function Login({ toggleTheme, theme }) {
 
     const dark = theme === 'dark';
 
-    // Token age as a percentage (for optional freshness indicator)
     const tokenAgePercent = captchaIssuedRef.current
         ? Math.min(100, ((Date.now() - captchaIssuedRef.current) / TOKEN_MAX_AGE_MS) * 100)
         : 0;
@@ -111,7 +99,6 @@ export default function Login({ toggleTheme, theme }) {
                 <div className="absolute inset-0 bg-gradient-to-br from-red-900/40 via-gray-900 to-gray-950" />
                 <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-red-600/10 rounded-full blur-3xl" />
                 <div className="absolute bottom-1/4 right-1/4 w-48 h-48 bg-red-800/10 rounded-full blur-2xl" />
-
                 <div className="relative text-center px-12">
                     <div className="flex justify-center mb-6">
                         <FaCrosshairs className="text-red-500" size={100} />
@@ -138,7 +125,6 @@ export default function Login({ toggleTheme, theme }) {
             {/* Right panel */}
             <div className="flex-1 flex items-center justify-center px-4 sm:px-8 py-8 relative">
 
-                {/* Theme toggle */}
                 <button onClick={toggleTheme}
                     className={`absolute top-4 right-4 w-9 h-9 rounded-lg flex items-center justify-center text-base transition-all ${
                         dark ? 'bg-gray-800 hover:bg-gray-700 text-yellow-400' : 'bg-gray-200 hover:bg-gray-300 text-gray-600'
@@ -148,7 +134,6 @@ export default function Login({ toggleTheme, theme }) {
 
                 <div className="w-full max-w-sm">
 
-                    {/* Mobile logo */}
                     <div className="lg:hidden text-center mb-8">
                         <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-red-600/20 border border-red-600/30 mb-3">
                             <FaCrosshairs className="text-red-500" size={24} />
@@ -184,11 +169,15 @@ export default function Login({ toggleTheme, theme }) {
                             <PasswordInput name="password" value={form.password} onChange={handle} theme={theme} placeholder="Enter your password" />
                         </div>
 
-                        {/* CAPTCHA */}
                         <div>
-                            <TurnstileWidget onVerify={handleVerify} onExpire={resetCaptcha} onError={resetCaptcha} />
+                            {/* FIX: pass ref so resetCaptcha() can call widget.reset(widgetId) */}
+                            <TurnstileWidget
+                                ref={turnstileRef}
+                                onVerify={handleVerify}
+                                onExpire={resetCaptcha}
+                                onError={resetCaptcha}
+                            />
 
-                            {/* Status line */}
                             {!captchaReady ? (
                                 <p className="text-yellow-500 text-xs mt-1.5">
                                     ⏳ Complete the CAPTCHA to enable login
@@ -196,7 +185,6 @@ export default function Login({ toggleTheme, theme }) {
                             ) : (
                                 <div className="mt-1.5">
                                     <p className="text-green-500 text-xs mb-1">✅ CAPTCHA verified — submit within 4.5 min</p>
-                                    {/* Freshness bar */}
                                     <div className={`w-full h-1 rounded-full ${dark ? 'bg-gray-700' : 'bg-gray-200'}`}>
                                         <div
                                             className="h-1 rounded-full bg-green-500 transition-all duration-1000"
