@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Battle Destroyer — Admin</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --bg:#0a0a0f;--surface:#111118;--card:#16161f;--border:#2a2a3a;
+    --red:#e53e3e;--red2:#c53030;--green:#38a169;--yellow:#d69e2e;
+    --blue:#3182ce;--text:#e2e8f0;--muted:#718096;--input:#1a1a26;
+  }
+  body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:14px;min-height:100vh}
+
+  /* ── LOGIN SCREEN ── */
+  #login-screen{display:flex;align-items:center;justify-content:center;min-height:100vh}
+  .login-box{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:40px;width:100%;max-width:380px}
+  .login-box h1{font-size:22px;font-weight:800;color:var(--red);margin-bottom:4px}
+  .login-box p{color:var(--muted);font-size:13px;margin-bottom:28px}
+  .field{margin-bottom:16px}
+  .field label{display:block;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:6px}
+  .field input{width:100%;background:var(--input);border:1px solid var(--border);border-radius:10px;padding:10px 14px;color:var(--text);font-size:14px;outline:none;transition:border-color .2s}
+  .field input:focus{border-color:var(--red)}
+  .btn{display:inline-flex;align-items:center;gap:6px;padding:10px 18px;border-radius:10px;font-weight:700;font-size:13px;cursor:pointer;border:none;transition:all .2s}
+  .btn-red{background:var(--red);color:#fff}.btn-red:hover{background:var(--red2)}
+  .btn-green{background:var(--green);color:#fff}.btn-green:hover{filter:brightness(1.1)}
+  .btn-blue{background:var(--blue);color:#fff}.btn-blue:hover{filter:brightness(1.1)}
+  .btn-ghost{background:transparent;color:var(--muted);border:1px solid var(--border)}.btn-ghost:hover{border-color:var(--red);color:var(--red)}
+  .btn-danger{background:#742a2a;color:#feb2b2;border:1px solid #9b2c2c}.btn-danger:hover{background:#9b2c2c}
+  .btn-full{width:100%;justify-content:center}
+  #login-error{color:#fc8181;font-size:13px;margin-bottom:12px;display:none}
+
+  /* ── MAIN LAYOUT ── */
+  #app{display:none;flex-direction:column;min-height:100vh}
+  header{background:var(--surface);border-bottom:1px solid var(--border);padding:0 24px;height:56px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+  header .logo{font-size:16px;font-weight:900;color:var(--red);letter-spacing:.1em}
+  header .hright{display:flex;align-items:center;gap:12px}
+  header .api-badge{background:var(--input);border:1px solid var(--border);border-radius:8px;padding:4px 10px;font-size:11px;color:var(--muted)}
+  main{flex:1;padding:24px;max-width:1400px;margin:0 auto;width:100%}
+
+  /* ── STATS ── */
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:24px}
+  .stat-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px 20px}
+  .stat-card .label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:6px}
+  .stat-card .value{font-size:28px;font-weight:900}
+  .stat-card.red .value{color:var(--red)}
+  .stat-card.green .value{color:var(--green)}
+  .stat-card.blue .value{color:var(--blue)}
+  .stat-card.yellow .value{color:var(--yellow)}
+
+  /* ── TOOLBAR ── */
+  .toolbar{display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap}
+  .search-wrap{position:relative;flex:1;min-width:200px}
+  .search-wrap input{width:100%;background:var(--input);border:1px solid var(--border);border-radius:10px;padding:9px 14px 9px 36px;color:var(--text);font-size:13px;outline:none;transition:border-color .2s}
+  .search-wrap input:focus{border-color:var(--red)}
+  .search-wrap .ico{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:15px}
+
+  /* ── TABLE ── */
+  .table-wrap{background:var(--card);border:1px solid var(--border);border-radius:14px;overflow:hidden}
+  table{width:100%;border-collapse:collapse}
+  thead th{background:var(--surface);padding:10px 14px;text-align:left;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);white-space:nowrap}
+  tbody tr{border-top:1px solid var(--border);transition:background .15s}
+  tbody tr:hover{background:rgba(255,255,255,.03)}
+  tbody td{padding:11px 14px;vertical-align:middle}
+  .mono{font-family:monospace;font-size:12px;color:var(--muted)}
+  .badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700}
+  .badge-pro{background:#2d3748;color:#90cdf4;border:1px solid #4a5568}
+  .badge-pro.active{background:#1a365d;color:#63b3ed;border-color:#2b6cb0}
+  .badge-credits{background:#1a202c;color:#68d391;border:1px solid #276749}
+  .actions{display:flex;gap:6px}
+  .icon-btn{background:none;border:1px solid var(--border);border-radius:8px;padding:5px 8px;cursor:pointer;color:var(--muted);font-size:13px;transition:all .2s}
+  .icon-btn:hover{border-color:var(--red);color:var(--red)}
+  .icon-btn.edit:hover{border-color:var(--blue);color:var(--blue)}
+  .icon-btn.del:hover{border-color:var(--red);color:var(--red)}
+
+  /* ── PAGINATION ── */
+  .pagination{display:flex;align-items:center;justify-content:space-between;margin-top:16px;flex-wrap:wrap;gap:8px}
+  .pagination .info{color:var(--muted);font-size:13px}
+  .pages{display:flex;gap:6px}
+  .page-btn{background:var(--input);border:1px solid var(--border);border-radius:8px;padding:6px 12px;cursor:pointer;color:var(--text);font-size:13px;transition:all .2s}
+  .page-btn:hover,.page-btn.active{background:var(--red);border-color:var(--red);color:#fff}
+  .page-btn:disabled{opacity:.4;cursor:not-allowed}
+
+  /* ── MODAL ── */
+  .overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;display:none;align-items:center;justify-content:center;padding:16px}
+  .overlay.open{display:flex}
+  .modal{background:var(--card);border:1px solid var(--border);border-radius:16px;width:100%;max-width:500px;max-height:90vh;overflow-y:auto}
+  .modal-header{padding:20px 24px 0;display:flex;align-items:center;justify-content:space-between}
+  .modal-header h2{font-size:16px;font-weight:800}
+  .modal-close{background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;line-height:1}
+  .modal-close:hover{color:var(--text)}
+  .modal-body{padding:20px 24px}
+  .modal-footer{padding:0 24px 20px;display:flex;gap:8px;justify-content:flex-end}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .toggle-row{display:flex;align-items:center;justify-content:space-between;background:var(--input);border:1px solid var(--border);border-radius:10px;padding:10px 14px}
+  .toggle-row label{font-size:13px;font-weight:600}
+  .toggle{position:relative;width:36px;height:20px}
+  .toggle input{opacity:0;width:0;height:0}
+  .slider{position:absolute;inset:0;background:#2d3748;border-radius:20px;cursor:pointer;transition:.3s}
+  .slider:before{content:'';position:absolute;width:14px;height:14px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.3s}
+  input:checked+.slider{background:var(--green)}
+  input:checked+.slider:before{transform:translateX(16px)}
+
+  /* ── TOAST ── */
+  #toast{position:fixed;bottom:24px;right:24px;z-index:999;display:flex;flex-direction:column;gap:8px}
+  .toast-msg{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px 16px;font-size:13px;display:flex;align-items:center;gap:8px;animation:slideIn .2s ease;max-width:300px}
+  .toast-msg.success{border-color:var(--green);color:var(--green)}
+  .toast-msg.error{border-color:var(--red);color:#fc8181}
+  @keyframes slideIn{from{transform:translateX(100%);opacity:0}to{transform:none;opacity:1}}
+
+  .empty{text-align:center;padding:48px;color:var(--muted)}
+  .loading{text-align:center;padding:32px;color:var(--muted)}
+  .spinner{display:inline-block;width:20px;height:20px;border:2px solid var(--border);border-top-color:var(--red);border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:8px}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .danger-zone{margin-top:20px;padding:16px;background:#1a0a0a;border:1px solid #742a2a;border-radius:10px}
+  .danger-zone h4{color:#fc8181;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px}
+</style>
+</head>
+<body>
+
+<!-- ── LOGIN ─────────────────────────────────────────────────────────────── -->
+<div id="login-screen">
+  <div class="login-box">
+    <h1>⚔ ADMIN PANEL</h1>
+    <p>Battle Destroyer — Management Console</p>
+    <div id="login-error"></div>
+    <div class="field">
+      <label>API Base URL</label>
+      <input id="api-url" type="text" value="https://backend-battle-destroyer.onrender.com" placeholder="https://your-api.com"/>
+    </div>
+    <div class="field">
+      <label>Admin Secret</label>
+      <input id="admin-secret" type="password" placeholder="Your ADMIN_SECRET value"/>
+    </div>
+    <button class="btn btn-red btn-full" onclick="doLogin()">🔐 Login to Admin</button>
+  </div>
+</div>
+
+<!-- ── MAIN APP ───────────────────────────────────────────────────────────── -->
+<div id="app">
+  <header>
+    <span class="logo">⚔ BATTLE DESTROYER ADMIN</span>
+    <div class="hright">
+      <span class="api-badge" id="api-display"></span>
+      <button class="btn btn-ghost" onclick="logout()">Logout</button>
+    </div>
+  </header>
+
+  <main>
+    <!-- Stats -->
+    <div class="stats" id="stats-row">
+      <div class="stat-card red"><div class="label">Total Users</div><div class="value" id="s-total">—</div></div>
+      <div class="stat-card green"><div class="label">Pro Users</div><div class="value" id="s-pro">—</div></div>
+      <div class="stat-card blue"><div class="label">Have Credits</div><div class="value" id="s-credits">—</div></div>
+      <div class="stat-card yellow"><div class="label">Joined Today</div><div class="value" id="s-today">—</div></div>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="toolbar">
+      <div class="search-wrap">
+        <span class="ico">🔍</span>
+        <input id="search-input" type="text" placeholder="Search by username, email or userId…" oninput="debounceSearch()"/>
+      </div>
+      <button class="btn btn-red" onclick="loadUsers(1)">Refresh</button>
+    </div>
+
+    <!-- Table -->
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>User</th>
+            <th>Email</th>
+            <th>User ID</th>
+            <th>Credits</th>
+            <th>Referrals</th>
+            <th>Pro</th>
+            <th>Joined</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="user-tbody">
+          <tr><td colspan="8" class="loading"><span class="spinner"></span>Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Pagination -->
+    <div class="pagination">
+      <span class="info" id="page-info"></span>
+      <div class="pages" id="pages"></div>
+    </div>
+  </main>
+</div>
+
+<!-- ── EDIT MODAL ─────────────────────────────────────────────────────────── -->
+<div class="overlay" id="edit-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>✏️ Edit User</h2>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="edit-id"/>
+      <div class="row2">
+        <div class="field"><label>Username</label><input id="edit-username" type="text"/></div>
+        <div class="field"><label>Email</label><input id="edit-email" type="email"/></div>
+      </div>
+      <div class="row2">
+        <div class="field"><label>Credits</label><input id="edit-credits" type="number" min="0"/></div>
+        <div class="field"><label>Referral Count</label><input id="edit-refcount" type="number" min="0"/></div>
+      </div>
+      <div class="field"><label>New Password <span style="color:var(--muted);font-weight:400;text-transform:none">(leave blank to keep current)</span></label><input id="edit-password" type="password" placeholder="Min 8 characters"/></div>
+      <div class="toggle-row" style="margin-top:4px">
+        <label>Pro Account</label>
+        <label class="toggle"><input type="checkbox" id="edit-ispro"/><span class="slider"></span></label>
+      </div>
+      <div class="toggle-row" style="margin-top:8px">
+        <label>Credit Given</label>
+        <label class="toggle"><input type="checkbox" id="edit-creditgiven"/><span class="slider"></span></label>
+      </div>
+
+      <div class="danger-zone">
+        <h4>⚠ Danger Zone</h4>
+        <button class="btn btn-danger" onclick="deleteUser()">🗑 Delete This User</button>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-green" onclick="saveUser()">💾 Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── TOAST ──────────────────────────────────────────────────────────────── -->
+<div id="toast"></div>
+
+<script>
+let API = '';
+let SECRET = '';
+let currentPage = 1;
+let searchTimer = null;
+
+// ── LOGIN ─────────────────────────────────────────────────────────────────────
+async function doLogin() {
+  const url    = document.getElementById('api-url').value.trim().replace(/\/$/, '');
+  const secret = document.getElementById('admin-secret').value.trim();
+  const errEl  = document.getElementById('login-error');
+  errEl.style.display = 'none';
+
+  if (!url || !secret) { showLoginError('Both fields are required.'); return; }
+
+  try {
+    const r = await fetch(`${url}/api/admin/stats`, {
+      headers: { 'x-admin-secret': secret }
+    });
+    if (!r.ok) throw new Error('Invalid secret or unreachable API');
+    API    = url;
+    SECRET = secret;
+    document.getElementById('api-display').textContent = url.replace('https://','');
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('app').style.display = 'flex';
+    loadStats();
+    loadUsers(1);
+  } catch(e) {
+    showLoginError(e.message);
+  }
+}
+
+function showLoginError(msg) {
+  const el = document.getElementById('login-error');
+  el.textContent = '⚠ ' + msg;
+  el.style.display = 'block';
+}
+
+function logout() {
+  API = ''; SECRET = '';
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('app').style.display = 'none';
+}
+
+// ── API HELPER ────────────────────────────────────────────────────────────────
+async function api(path, method = 'GET', body) {
+  const opts = {
+    method,
+    headers: { 'x-admin-secret': SECRET, 'Content-Type': 'application/json' }
+  };
+  if (body) opts.body = JSON.stringify(body);
+  const r = await fetch(API + path, opts);
+  const data = await r.json();
+  if (!r.ok) throw new Error(data.message || 'Request failed');
+  return data;
+}
+
+// ── STATS ─────────────────────────────────────────────────────────────────────
+async function loadStats() {
+  try {
+    const s = await api('/api/admin/stats');
+    document.getElementById('s-total').textContent   = s.total;
+    document.getElementById('s-pro').textContent     = s.pro;
+    document.getElementById('s-credits').textContent = s.withCredits;
+    document.getElementById('s-today').textContent   = s.today;
+  } catch {}
+}
+
+// ── USERS TABLE ───────────────────────────────────────────────────────────────
+async function loadUsers(page = 1) {
+  currentPage = page;
+  const search = document.getElementById('search-input').value.trim();
+  const tbody  = document.getElementById('user-tbody');
+  tbody.innerHTML = `<tr><td colspan="8" class="loading"><span class="spinner"></span>Loading…</td></tr>`;
+
+  try {
+    const params = new URLSearchParams({ page, limit: 20 });
+    if (search) params.append('search', search);
+    const { users, total, pages } = await api(`/api/admin/users?${params}`);
+
+    if (!users.length) {
+      tbody.innerHTML = `<tr><td colspan="8" class="empty">No users found</td></tr>`;
+      document.getElementById('page-info').textContent = '';
+      document.getElementById('pages').innerHTML = '';
+      return;
+    }
+
+    tbody.innerHTML = users.map(u => `
+      <tr>
+        <td><strong>${esc(u.username)}</strong></td>
+        <td style="color:var(--muted)">${esc(u.email)}</td>
+        <td class="mono">${esc(u.userId || '—')}</td>
+        <td><span class="badge badge-credits">💎 ${u.credits}</span></td>
+        <td style="color:var(--muted)">${u.referralCount || 0}</td>
+        <td><span class="badge badge-pro ${u.isPro ? 'active' : ''}">${u.isPro ? '⭐ Pro' : 'Free'}</span></td>
+        <td style="color:var(--muted)">${fmtDate(u.createdAt)}</td>
+        <td>
+          <div class="actions">
+            <button class="icon-btn edit" onclick='openEdit(${JSON.stringify(u)})' title="Edit">✏️</button>
+            <button class="icon-btn del" onclick="quickDelete('${u._id}','${esc(u.username)}')" title="Delete">🗑</button>
+          </div>
+        </td>
+      </tr>
+    `).join('');
+
+    // Pagination
+    const start = (page - 1) * 20 + 1;
+    const end   = Math.min(page * 20, total);
+    document.getElementById('page-info').textContent = `Showing ${start}–${end} of ${total} users`;
+
+    const pagesEl = document.getElementById('pages');
+    pagesEl.innerHTML = '';
+    for (let i = 1; i <= pages; i++) {
+      if (pages > 7 && i > 2 && i < pages - 1 && Math.abs(i - page) > 1) {
+        if (i === 3 || i === pages - 2) pagesEl.innerHTML += `<span style="color:var(--muted);padding:0 4px">…</span>`;
+        continue;
+      }
+      pagesEl.innerHTML += `<button class="page-btn ${i===page?'active':''}" onclick="loadUsers(${i})">${i}</button>`;
+    }
+  } catch(e) {
+    tbody.innerHTML = `<tr><td colspan="8" class="empty">Error: ${e.message}</td></tr>`;
+  }
+}
+
+function debounceSearch() {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => loadUsers(1), 350);
+}
+
+// ── EDIT MODAL ────────────────────────────────────────────────────────────────
+function openEdit(u) {
+  document.getElementById('edit-id').value          = u._id;
+  document.getElementById('edit-username').value    = u.username;
+  document.getElementById('edit-email').value       = u.email;
+  document.getElementById('edit-credits').value     = u.credits;
+  document.getElementById('edit-refcount').value    = u.referralCount || 0;
+  document.getElementById('edit-password').value    = '';
+  document.getElementById('edit-ispro').checked     = !!u.isPro;
+  document.getElementById('edit-creditgiven').checked = !!u.creditGiven;
+  document.getElementById('edit-modal').classList.add('open');
+}
+
+function closeModal() {
+  document.getElementById('edit-modal').classList.remove('open');
+}
+
+async function saveUser() {
+  const id = document.getElementById('edit-id').value;
+  const pw = document.getElementById('edit-password').value;
+  const body = {
+    username:      document.getElementById('edit-username').value.trim(),
+    email:         document.getElementById('edit-email').value.trim(),
+    credits:       Number(document.getElementById('edit-credits').value),
+    referralCount: Number(document.getElementById('edit-refcount').value),
+    isPro:         document.getElementById('edit-ispro').checked,
+    creditGiven:   document.getElementById('edit-creditgiven').checked,
+  };
+  if (pw) body.password = pw;
+
+  try {
+    await api(`/api/admin/users/${id}`, 'PATCH', body);
+    toast('User updated successfully', 'success');
+    closeModal();
+    loadUsers(currentPage);
+    loadStats();
+  } catch(e) {
+    toast(e.message, 'error');
+  }
+}
+
+async function deleteUser() {
+  const id   = document.getElementById('edit-id').value;
+  const name = document.getElementById('edit-username').value;
+  if (!confirm(`Delete user "${name}"? This cannot be undone.`)) return;
+  try {
+    await api(`/api/admin/users/${id}`, 'DELETE');
+    toast('User deleted', 'success');
+    closeModal();
+    loadUsers(currentPage);
+    loadStats();
+  } catch(e) {
+    toast(e.message, 'error');
+  }
+}
+
+async function quickDelete(id, name) {
+  if (!confirm(`Delete user "${name}"? This cannot be undone.`)) return;
+  try {
+    await api(`/api/admin/users/${id}`, 'DELETE');
+    toast('User deleted', 'success');
+    loadUsers(currentPage);
+    loadStats();
+  } catch(e) {
+    toast(e.message, 'error');
+  }
+}
+
+// ── UTILS ─────────────────────────────────────────────────────────────────────
+function esc(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function fmtDate(d) {
+  if (!d) return '—';
+  const dt = new Date(d);
+  return dt.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+}
+
+function toast(msg, type = 'success') {
+  const el = document.createElement('div');
+  el.className = `toast-msg ${type}`;
+  el.innerHTML = `${type === 'success' ? '✅' : '❌'} ${msg}`;
+  document.getElementById('toast').appendChild(el);
+  setTimeout(() => el.remove(), 3500);
+}
+
+// Close modal on backdrop click
+document.getElementById('edit-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeModal();
+});
+
+// Enter key on login
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && document.getElementById('login-screen').style.display !== 'none') doLogin();
+});
+</script>
+</body>
+</html>
