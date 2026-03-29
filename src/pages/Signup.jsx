@@ -119,7 +119,7 @@ export default function Signup({ toggleTheme, theme }) {
                 <div className="absolute top-1/3 left-1/3 w-56 h-56 bg-red-600/10 rounded-full blur-3xl" />
                 <div className="relative text-center px-10">
                     <div className="flex justify-center mb-5">
-                        <img src="/logo512.png" alt="Battle Destroyer" className="w-50 h-50 object-contain drop-shadow-lg" />
+                        <img src="/logo512.png" alt="Battle Destroyer" className="w-35 h-35 object-contain drop-shadow-lg" />
                     </div>
                     <h2 className="text-3xl font-black text-white tracking-widest mb-2">BATTLE</h2>
                     <h2 className="text-3xl font-black text-red-500 tracking-widest mb-5">DESTROYER</h2>

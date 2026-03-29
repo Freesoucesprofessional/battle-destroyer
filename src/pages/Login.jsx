@@ -101,7 +101,7 @@ export default function Login({ toggleTheme, theme }) {
                 <div className="absolute bottom-1/4 right-1/4 w-48 h-48 bg-red-800/10 rounded-full blur-2xl" />
                 <div className="relative text-center px-12">
                     <div className="flex justify-center mb-6">
-                        <img src="/logo512.png" alt="Battle Destroyer" className="w-50 h-50 object-contain drop-shadow-lg" />
+                        <img src="/logo512.png" alt="Battle Destroyer" className="w-35 h-35 object-contain drop-shadow-lg" />
                     </div>
                     <h2 className="text-4xl font-black text-white tracking-widest mb-3">BATTLE</h2>
                     <h2 className="text-4xl font-black text-red-500 tracking-widest mb-6">DESTROYER</h2>
