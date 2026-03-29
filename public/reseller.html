@@ -3,7 +3,6 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src https://backend-battle-destroyer.onrender.com; style-src 'unsafe-inline'; script-src 'unsafe-inline';">
 <title>Battle Destroyer — Reseller Panel</title>
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
@@ -233,29 +232,45 @@ const API           = 'https://backend-battle-destroyer.onrender.com';
 const FETCH_TIMEOUT = 10000;
 const EMAIL_RE      = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
-let TOKEN = '', resellerData = null, foundUser = null;
-const activityLog = []; // in-memory only, cleared on logout
+let TOKEN = '', CSRF_TOKEN = '', resellerData = null, foundUser = null;
+const activityLog = [];
 
-// ── SAFE DOM HELPERS ──────────────────────────────────────────────────────────
 const $ = id => document.getElementById(id);
-// Always use textContent — NEVER innerHTML with user data
 function setText(id, val) { const e=$(id); if(e) e.textContent = String(val??''); }
 
-// ── FETCH WITH TIMEOUT ────────────────────────────────────────────────────────
 async function fetchT(url, opts={}) {
-  const ctrl = new AbortController();
-  const tid  = setTimeout(()=>ctrl.abort(), FETCH_TIMEOUT);
+  const ctrl=new AbortController();
+  const tid=setTimeout(()=>ctrl.abort(), FETCH_TIMEOUT);
+  try { return await fetch(url,{...opts,signal:ctrl.signal}); }
+  catch(e){ if(e.name==='AbortError') throw new Error('Request timed out. Please try again.'); throw e; }
+  finally { clearTimeout(tid); }
+}
+
+// ── CSRF ──────────────────────────────────────────────────────────────────────
+async function fetchCsrfToken() {
   try {
-    return await fetch(url, { ...opts, signal: ctrl.signal });
-  } catch(e) {
-    if (e.name==='AbortError') throw new Error('Request timed out. Please try again.');
-    throw e;
-  } finally { clearTimeout(tid); }
+    const r = await fetchT(`${API}/api/csrf-token`, { credentials: 'include' });
+    const d = await r.json();
+    CSRF_TOKEN = d.csrfToken || '';
+  } catch {
+    CSRF_TOKEN = '';
+  }
 }
 
 // ── API HELPER ────────────────────────────────────────────────────────────────
 async function apiCall(path, method='GET', body) {
-  const opts = { method, headers:{ 'Authorization':`Bearer ${TOKEN}`, 'Content-Type':'application/json' } };
+  if (method !== 'GET') {
+    await fetchCsrfToken();
+  }
+  const opts = {
+    method,
+    credentials: 'include',
+    headers: {
+      'Authorization': `Bearer ${TOKEN}`,
+      'Content-Type':  'application/json',
+      ...(method !== 'GET' ? { 'X-CSRF-Token': CSRF_TOKEN } : {})
+    }
+  };
   if (body) opts.body = JSON.stringify(body);
   const r    = await fetchT(API + path, opts);
   const data = await r.json();
@@ -269,30 +284,35 @@ async function doLogin() {
   const pass  = $('r-password').value;
   const errEl = $('login-error');
   errEl.style.display='none';
-  if (!user)  { errEl.textContent='⚠ Username is required.'; errEl.style.display='block'; return; }
-  if (!pass)  { errEl.textContent='⚠ Password is required.'; errEl.style.display='block'; return; }
-  if (pass.length > 128) { errEl.textContent='⚠ Invalid credentials.'; errEl.style.display='block'; return; }
+  if (!user) { errEl.textContent='⚠ Username is required.'; errEl.style.display='block'; return; }
+  if (!pass) { errEl.textContent='⚠ Password is required.'; errEl.style.display='block'; return; }
+  if (pass.length>128) { errEl.textContent='⚠ Invalid credentials.'; errEl.style.display='block'; return; }
   const btn=$('login-btn'); btn.textContent='⏳ Signing in…'; btn.disabled=true;
   try {
+    // Reseller login is a POST → needs CSRF token
+    await fetchCsrfToken();
+    if (!CSRF_TOKEN) throw new Error('Could not obtain CSRF token. Please refresh and try again.');
+
     const r = await fetchT(`${API}/api/reseller/login`, {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': CSRF_TOKEN },
       body: JSON.stringify({ username: user, password: pass }),
     });
     const data = await r.json();
     if (!r.ok) throw new Error(data.message || 'Login failed');
     TOKEN = data.token;
     resellerData = data.reseller;
-    $('r-password').value = ''; // clear password from DOM
+    $('r-password').value='';
     initApp();
   } catch(e) {
-    errEl.textContent = '⚠ ' + e.message;
-    errEl.style.display = 'block';
+    errEl.textContent='⚠ '+e.message;
+    errEl.style.display='block';
   } finally { btn.textContent='🔐 Sign In'; btn.disabled=false; }
 }
 
 function logout() {
-  TOKEN=''; resellerData=null; foundUser=null;
+  TOKEN=''; CSRF_TOKEN=''; resellerData=null; foundUser=null;
   activityLog.length=0;
   $('login-screen').style.display='flex';
   $('app').style.display='none';
@@ -300,7 +320,6 @@ function logout() {
   $('r-username').value=''; $('r-password').value='';
 }
 
-// ── INIT APP ──────────────────────────────────────────────────────────────────
 function initApp() {
   $('login-screen').style.display='none';
   $('app').style.display='flex';
@@ -308,7 +327,6 @@ function initApp() {
 }
 
 function updateUI(r) {
-  // All textContent — never innerHTML
   setText('w-username',    r.username);
   setText('w-credits',     r.credits);
   setText('w-given',       r.totalGiven||0);
@@ -319,44 +337,32 @@ function updateUI(r) {
   setText('info-given',    r.totalGiven||0);
 }
 
-// ── REFRESH ───────────────────────────────────────────────────────────────────
 async function refreshMe() {
   try {
-    const r = await apiCall('/api/reseller/me');
-    resellerData = r; updateUI(r); toast('Refreshed','success');
+    const r=await apiCall('/api/reseller/me');
+    resellerData=r; updateUI(r); toast('Refreshed','success');
   } catch(e) {
-    if (e.message.includes('blocked')||e.message.includes('Unauthorized')) {
-      toast('Session expired or account blocked','error');
-      setTimeout(logout,1500);
-    }
+    if(e.message.includes('blocked')||e.message.includes('Unauthorized')){ toast('Session expired or account blocked','error'); setTimeout(logout,1500); }
   }
 }
 
-// ── SEARCH USER ───────────────────────────────────────────────────────────────
 async function searchUser() {
   const query   = $('user-query').value.trim().slice(0,150);
   const alertEl = $('search-alert');
   const card    = $('user-card');
   hideAlert(alertEl); card.classList.remove('visible'); foundUser=null;
-  if (!query || query.length < 3) { showAlert(alertEl,'warn','⚠ Enter at least 3 characters to search.'); return; }
+  if(!query||query.length<3){ showAlert(alertEl,'warn','⚠ Enter at least 3 characters to search.'); return; }
   const btn=$('search-btn'); btn.innerHTML='<span class="spinner"></span>'; btn.disabled=true;
   try {
-    // Encode query to prevent injection in URL
-    const user = await apiCall(`/api/reseller/search-user?query=${encodeURIComponent(query)}`);
-    foundUser = user;
-    // Populate card using textContent only — zero XSS risk
-    $('uc-avatar').textContent  = (user.username||'?').charAt(0).toUpperCase();
-    $('uc-name').textContent    = user.username;
-    $('uc-email').textContent   = user.email;
-    $('uc-credits').textContent = Number(user.credits)||0;
-    $('uc-userid').textContent  = user.userId || user._id;
-    // Pro badge — only two possible values, built safely
-    const badge = $('uc-pro-badge');
-    badge.innerHTML = ''; // clear first
-    const span = document.createElement('span');
-    span.className = user.isPro ? 'badge-pro-label' : 'badge-free';
-    span.textContent = user.isPro ? '⭐ Pro' : 'Free';
-    badge.appendChild(span);
+    const user=await apiCall(`/api/reseller/search-user?query=${encodeURIComponent(query)}`);
+    foundUser=user;
+    $('uc-avatar').textContent=(user.username||'?').charAt(0).toUpperCase();
+    $('uc-name').textContent=user.username;
+    $('uc-email').textContent=user.email;
+    $('uc-credits').textContent=Number(user.credits)||0;
+    $('uc-userid').textContent=user.userId||user._id;
+    const badge=$('uc-pro-badge'); badge.innerHTML='';
+    const span=document.createElement('span'); span.className=user.isPro?'badge-pro-label':'badge-free'; span.textContent=user.isPro?'⭐ Pro':'Free'; badge.appendChild(span);
     $('give-amount').value=''; hideAlert($('give-alert'));
     card.classList.add('visible');
   } catch(e) {
@@ -364,34 +370,27 @@ async function searchUser() {
   } finally { btn.textContent='Search'; btn.disabled=false; }
 }
 
-// ── GIVE CREDITS ──────────────────────────────────────────────────────────────
 async function giveCredits() {
   const alertEl=$('give-alert'); hideAlert(alertEl);
-  if (!foundUser) { showAlert(alertEl,'warn','Search for a user first.'); return; }
-  const raw    = $('give-amount').value;
-  const amount = parseInt(raw, 10);
-  if (!Number.isFinite(amount)||amount<1)    { showAlert(alertEl,'warn','⚠ Enter a valid amount (minimum 1).'); return; }
-  if (amount>999999)                          { showAlert(alertEl,'warn','⚠ Amount too large.'); return; }
-  if (amount>resellerData.credits)            { showAlert(alertEl,'error',`❌ Insufficient credits. You have ${resellerData.credits}.`); return; }
+  if(!foundUser){ showAlert(alertEl,'warn','Search for a user first.'); return; }
+  const raw=$('give-amount').value;
+  const amount=parseInt(raw,10);
+  if(!Number.isFinite(amount)||amount<1){ showAlert(alertEl,'warn','⚠ Enter a valid amount (minimum 1).'); return; }
+  if(amount>999999){ showAlert(alertEl,'warn','⚠ Amount too large.'); return; }
+  if(amount>resellerData.credits){ showAlert(alertEl,'error',`❌ Insufficient credits. You have ${resellerData.credits}.`); return; }
   const btn=$('give-btn'); btn.innerHTML='<span class="spinner"></span> Processing…'; btn.disabled=true;
   try {
-    const res = await apiCall('/api/reseller/give-credits','POST',{
-      userId: foundUser.userId || foundUser.email,
-      amount,
-    });
-    resellerData.credits   -= amount;
-    resellerData.totalGiven = (resellerData.totalGiven||0)+amount;
+    const res=await apiCall('/api/reseller/give-credits','POST',{userId:foundUser.userId||foundUser.email,amount});
+    resellerData.credits-=amount;
+    resellerData.totalGiven=(resellerData.totalGiven||0)+amount;
     updateUI(resellerData);
-    // Update user card safely
-    setText('uc-credits', Number(res.userNewCredits)||0);
+    setText('uc-credits',Number(res.userNewCredits)||0);
     const badge=$('uc-pro-badge'); badge.innerHTML='';
-    const span=document.createElement('span'); span.className='badge-pro-label'; span.textContent='⭐ Pro';
-    badge.appendChild(span);
+    const span=document.createElement('span'); span.className='badge-pro-label'; span.textContent='⭐ Pro'; badge.appendChild(span);
     $('give-amount').value='';
     showAlert(alertEl,'success',`✅ ${amount} credits sent to ${foundUser.username}! They are now Pro.`);
     toast(`Sent ${amount} credits to ${foundUser.username}`,'success');
-    // Log activity in memory
-    activityLog.unshift({ user: foundUser.username, amount, time: new Date() });
+    activityLog.unshift({user:foundUser.username,amount,time:new Date()});
     renderActivity();
   } catch(e) {
     showAlert(alertEl,'error','❌ '+e.message);
@@ -399,21 +398,17 @@ async function giveCredits() {
   } finally { btn.textContent='💸 Give Credits'; btn.disabled=false; }
 }
 
-// ── ACTIVITY LOG ──────────────────────────────────────────────────────────────
 function renderActivity() {
   const el=$('activity-body');
-  if (!activityLog.length) {
-    el.innerHTML='<div class="empty-state"><div class="ei">📭</div><p>No activity this session yet</p></div>';
-    return;
-  }
+  if(!activityLog.length){ el.innerHTML='<div class="empty-state"><div class="ei">📭</div><p>No activity this session yet</p></div>'; return; }
   el.innerHTML='';
-  activityLog.slice(0,20).forEach(h => {
+  activityLog.slice(0,20).forEach(h=>{
     const item=document.createElement('div'); item.className='history-item';
     const left=document.createElement('div'); left.className='hi-left';
     const icon=document.createElement('div'); icon.className='history-icon'; icon.textContent='💸';
     const info=document.createElement('div');
     const name=document.createElement('div'); name.className='hi-name'; name.textContent=h.user;
-    const time=document.createElement('div'); time.className='hi-time';  time.textContent=fmtTime(h.time);
+    const time=document.createElement('div'); time.className='hi-time'; time.textContent=fmtTime(h.time);
     info.appendChild(name); info.appendChild(time);
     left.appendChild(icon); left.appendChild(info);
     const amt=document.createElement('div'); amt.className='hi-amount'; amt.textContent=`+${h.amount} credits`;
@@ -422,29 +417,21 @@ function renderActivity() {
   });
 }
 
-// ── UTILS ─────────────────────────────────────────────────────────────────────
-function showAlert(el, type, msg) { el.className=`alert alert-${type} show`; el.textContent=msg; }
-function hideAlert(el)            { el.className='alert'; el.textContent=''; }
-function fmtTime(d) { return new Date(d).toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',hour12:true}); }
-function toast(msg, type='success') {
-  const el=document.createElement('div');
-  el.className=`toast-msg ${type}`;
-  el.textContent=(type==='success'?'✅ ':'❌ ')+msg; // textContent only
-  $('toast').appendChild(el);
-  setTimeout(()=>el.remove(),3500);
-}
+function showAlert(el,type,msg){ el.className=`alert alert-${type} show`; el.textContent=msg; }
+function hideAlert(el){ el.className='alert'; el.textContent=''; }
+function fmtTime(d){ return new Date(d).toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',hour12:true}); }
+function toast(msg,type='success'){ const el=document.createElement('div'); el.className=`toast-msg ${type}`; el.textContent=(type==='success'?'✅ ':'❌ ')+msg; $('toast').appendChild(el); setTimeout(()=>el.remove(),3500); }
 
-// ── ALL EVENT LISTENERS — zero inline onclick in HTML ─────────────────────────
-document.addEventListener('DOMContentLoaded', ()=>{
-  $('login-btn').addEventListener('click', doLogin);
-  $('r-username').addEventListener('keydown', e=>{ if(e.key==='Enter') doLogin(); });
-  $('r-password').addEventListener('keydown', e=>{ if(e.key==='Enter') doLogin(); });
-  $('logout-btn').addEventListener('click', logout);
-  $('search-btn').addEventListener('click', searchUser);
-  $('user-query').addEventListener('keydown', e=>{ if(e.key==='Enter') searchUser(); });
-  $('give-btn').addEventListener('click', giveCredits);
-  $('give-amount').addEventListener('keydown', e=>{ if(e.key==='Enter') giveCredits(); });
-  $('refresh-btn').addEventListener('click', refreshMe);
+document.addEventListener('DOMContentLoaded',()=>{
+  $('login-btn').addEventListener('click',doLogin);
+  $('r-username').addEventListener('keydown',e=>{ if(e.key==='Enter') doLogin(); });
+  $('r-password').addEventListener('keydown',e=>{ if(e.key==='Enter') doLogin(); });
+  $('logout-btn').addEventListener('click',logout);
+  $('search-btn').addEventListener('click',searchUser);
+  $('user-query').addEventListener('keydown',e=>{ if(e.key==='Enter') searchUser(); });
+  $('give-btn').addEventListener('click',giveCredits);
+  $('give-amount').addEventListener('keydown',e=>{ if(e.key==='Enter') giveCredits(); });
+  $('refresh-btn').addEventListener('click',refreshMe);
 });
 </script>
 </body>

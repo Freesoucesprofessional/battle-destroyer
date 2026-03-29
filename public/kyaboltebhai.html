@@ -3,7 +3,6 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src https://backend-battle-destroyer.onrender.com; style-src 'unsafe-inline'; script-src 'unsafe-inline';">
 <title>Battle Destroyer — Admin</title>
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
@@ -263,7 +262,7 @@
   </div>
 </div>
 
-<!-- SAFE CONFIRM MODAL — replaces window.confirm() -->
+<!-- SAFE CONFIRM MODAL -->
 <div class="overlay" id="confirm-modal" role="dialog" aria-modal="true">
   <div class="modal" style="max-width:420px">
     <div class="modal-header"><h2 id="confirm-title">Confirm Delete</h2><button class="modal-close" data-close="confirm-modal">✕</button></div>
@@ -281,61 +280,56 @@
 <script>
 'use strict';
 
-// ── CONSTANTS ─────────────────────────────────────────────────────────────────
 const API            = 'https://backend-battle-destroyer.onrender.com';
 const FETCH_TIMEOUT  = 10000;
 const HEARTBEAT_MS   = 15000;
 const MONGO_ID_RE    = /^[a-f0-9]{24}$/i;
 const EMAIL_RE       = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
-// ── STATE ─────────────────────────────────────────────────────────────────────
-let TOKEN = '', currentPage = 1, currentRPage = 1;
+let TOKEN = '', CSRF_TOKEN = '', currentPage = 1, currentRPage = 1;
 let searchTimer = null, rsearchTimer = null, heartbeatInterval = null;
 let pendingDeleteFn = null;
 
-// In-memory caches keyed by MongoDB ObjectId (hex only — zero XSS surface)
 const USER_CACHE     = {};
 const RESELLER_CACHE = {};
 
-// ── SAFE DOM: never use innerHTML with user data ───────────────────────────────
 const $ = id => document.getElementById(id);
 function setText(id, val) { const e=$(id); if(e) e.textContent = String(val??''); }
 
-// ── INPUT VALIDATION ──────────────────────────────────────────────────────────
-function showErr(id, msg) {
-  const e=$(id);
-  if(!e) return;
-  e.textContent = msg;
-  e.style.display = msg ? 'block' : 'none';
-}
-function clearErrs(...ids) { ids.forEach(id => showErr(id,'')); }
+function showErr(id, msg) { const e=$(id); if(!e) return; e.textContent=msg; e.style.display=msg?'block':'none'; }
+function clearErrs(...ids) { ids.forEach(id=>showErr(id,'')); }
 
 function validateUserForm() {
   clearErrs('err-username','err-email','err-credits','err-password');
-  let ok = true;
-  const un = $('edit-username').value.trim();
-  const em = $('edit-email').value.trim();
-  const cr = Number($('edit-credits').value);
-  const pw = $('edit-password').value;
-  if (un.length < 2)  { showErr('err-username','Username must be at least 2 characters.'); ok=false; }
-  if (un.length > 50) { showErr('err-username','Username too long (max 50).'); ok=false; }
-  if (!EMAIL_RE.test(em)) { showErr('err-email','Invalid email address.'); ok=false; }
-  if (!Number.isFinite(cr) || cr < 0) { showErr('err-credits','Credits must be 0 or more.'); ok=false; }
-  if (pw && pw.length < 8)   { showErr('err-password','Password must be at least 8 characters.'); ok=false; }
-  if (pw && pw.length > 128) { showErr('err-password','Password too long.'); ok=false; }
+  let ok=true;
+  const un=$('edit-username').value.trim(), em=$('edit-email').value.trim();
+  const cr=Number($('edit-credits').value), pw=$('edit-password').value;
+  if(un.length<2){showErr('err-username','Username must be at least 2 characters.');ok=false;}
+  if(un.length>50){showErr('err-username','Username too long (max 50).');ok=false;}
+  if(!EMAIL_RE.test(em)){showErr('err-email','Invalid email address.');ok=false;}
+  if(!Number.isFinite(cr)||cr<0){showErr('err-credits','Credits must be 0 or more.');ok=false;}
+  if(pw&&pw.length<8){showErr('err-password','Password must be at least 8 characters.');ok=false;}
+  if(pw&&pw.length>128){showErr('err-password','Password too long.');ok=false;}
   return ok;
 }
 
-// ── FETCH WITH TIMEOUT ────────────────────────────────────────────────────────
 async function fetchT(url, opts={}) {
-  const ctrl = new AbortController();
-  const tid  = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT);
+  const ctrl=new AbortController();
+  const tid=setTimeout(()=>ctrl.abort(), FETCH_TIMEOUT);
+  try { return await fetch(url,{...opts,signal:ctrl.signal}); }
+  catch(e){ if(e.name==='AbortError') throw new Error('Request timed out. Please try again.'); throw e; }
+  finally { clearTimeout(tid); }
+}
+
+// ── CSRF: fetch a fresh token from the server ─────────────────────────────────
+async function fetchCsrfToken() {
   try {
-    return await fetch(url, { ...opts, signal: ctrl.signal });
-  } catch(e) {
-    if (e.name === 'AbortError') throw new Error('Request timed out. Please try again.');
-    throw e;
-  } finally { clearTimeout(tid); }
+    const r = await fetchT(`${API}/api/csrf-token`, { credentials: 'include' });
+    const d = await r.json();
+    CSRF_TOKEN = d.csrfToken || '';
+  } catch {
+    CSRF_TOKEN = '';
+  }
 }
 
 // ── AUTH ──────────────────────────────────────────────────────────────────────
@@ -343,74 +337,92 @@ async function doLogin() {
   const btn    = $('login-btn');
   const secret = $('admin-secret').value;
   const errEl  = $('login-error');
-  errEl.style.display = 'none';
-  if (!secret) { errEl.textContent = '⚠ Secret is required.'; errEl.style.display='block'; return; }
+  errEl.style.display='none';
+  if(!secret){ errEl.textContent='⚠ Secret is required.'; errEl.style.display='block'; return; }
   btn.textContent='⏳ Logging in…'; btn.disabled=true;
   try {
-    const r    = await fetchT(`${API}/api/admin/session`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({secret}) });
+    // Step 1: get CSRF token
+    await fetchCsrfToken();
+    if(!CSRF_TOKEN) throw new Error('Could not obtain CSRF token. Please refresh and try again.');
+
+    // Step 2: exchange secret for session token
+    const r    = await fetchT(`${API}/api/admin/session`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type':'application/json', 'X-CSRF-Token': CSRF_TOKEN },
+      body: JSON.stringify({ secret })
+    });
     const data = await r.json();
-    if (!r.ok) throw new Error(data.message || 'Login failed');
+    if(!r.ok) throw new Error(data.message || 'Login failed');
     TOKEN = data.token;
-    $('admin-secret').value = ''; // wipe secret from DOM immediately
-    $('login-screen').style.display = 'none';
-    $('app').style.display = 'flex';
+    $('admin-secret').value='';
+    $('login-screen').style.display='none';
+    $('app').style.display='flex';
     startHeartbeat();
     loadStats(); loadUsers(1);
   } catch(e) {
-    errEl.textContent = '⚠ ' + e.message;
-    errEl.style.display = 'block';
+    errEl.textContent='⚠ '+e.message;
+    errEl.style.display='block';
   } finally { btn.textContent='🔐 Login to Admin'; btn.disabled=false; }
 }
 
 async function logout() {
-  if (TOKEN) {
-    try { await fetchT(`${API}/api/admin/session`, { method:'DELETE', headers:{'x-admin-token':TOKEN} }); } catch{}
+  if(TOKEN){
+    try{ await fetchT(`${API}/api/admin/session`,{method:'DELETE',headers:{'x-admin-token':TOKEN}}); }catch{}
   }
   clearInterval(heartbeatInterval);
-  TOKEN = '';
-  $('login-screen').style.display = 'flex';
-  $('app').style.display = 'none';
+  TOKEN=''; CSRF_TOKEN='';
+  $('login-screen').style.display='flex';
+  $('app').style.display='none';
 }
 
 function startHeartbeat() {
   clearInterval(heartbeatInterval);
-  heartbeatInterval = setInterval(async () => {
-    try {
-      const r = await fetchT(`${API}/api/admin/session/check`, { headers:{'x-admin-token':TOKEN} });
-      if (!r.ok) {
-        const d = await r.json().catch(()=>({}));
+  heartbeatInterval=setInterval(async()=>{
+    try{
+      const r=await fetchT(`${API}/api/admin/session/check`,{headers:{'x-admin-token':TOKEN}});
+      if(!r.ok){
+        const d=await r.json().catch(()=>({}));
         clearInterval(heartbeatInterval);
-        forceLogout(d.message === 'SESSION_EXPIRED'
-          ? 'Session expired. Please log in again.'
-          : '⚠ Another device logged in. You have been signed out.');
+        forceLogout(d.message==='SESSION_EXPIRED'?'Session expired. Please log in again.':'⚠ Another device logged in. You have been signed out.');
       }
-    } catch { /* network blip — stay logged in */ }
+    }catch{}
   }, HEARTBEAT_MS);
 }
 
 function forceLogout(reason) {
   clearInterval(heartbeatInterval);
-  TOKEN = '';
-  $('app').style.display = 'none';
-  $('login-screen').style.display = 'flex';
-  $('login-error').textContent = reason;
-  $('login-error').style.display = 'block';
+  TOKEN=''; CSRF_TOKEN='';
+  $('app').style.display='none';
+  $('login-screen').style.display='flex';
+  $('login-error').textContent=reason;
+  $('login-error').style.display='block';
 }
 
-// ── API HELPER ────────────────────────────────────────────────────────────────
+// ── API HELPER — auto-attaches CSRF for mutating requests ─────────────────────
 async function api(path, method='GET', body) {
-  const opts = { method, headers:{ 'x-admin-token':TOKEN, 'Content-Type':'application/json' } };
-  if (body) opts.body = JSON.stringify(body);
-  const r    = await fetchT(API + path, opts);
+  // Refresh CSRF token before any state-changing request
+  if(method!=='GET'){
+    await fetchCsrfToken();
+  }
+  const opts={
+    method,
+    credentials: 'include',
+    headers:{
+      'x-admin-token': TOKEN,
+      'Content-Type':  'application/json',
+      ...(method!=='GET' ? {'X-CSRF-Token': CSRF_TOKEN} : {})
+    }
+  };
+  if(body) opts.body=JSON.stringify(body);
+  const r    = await fetchT(API+path, opts);
   const data = await r.json();
-  if (!r.ok) {
-    if (r.status === 401) {
-      forceLogout(data.message === 'SESSION_EXPIRED'
-        ? 'Session expired. Please log in again.'
-        : '⚠ Another device logged in. You have been signed out.');
+  if(!r.ok){
+    if(r.status===401){
+      forceLogout(data.message==='SESSION_EXPIRED'?'Session expired. Please log in again.':'⚠ Another device logged in. You have been signed out.');
       throw new Error('Session ended');
     }
-    throw new Error(data.message || 'Request failed');
+    throw new Error(data.message||'Request failed');
   }
   return data;
 }
@@ -418,70 +430,45 @@ async function api(path, method='GET', body) {
 // ── STATS ─────────────────────────────────────────────────────────────────────
 async function loadStats() {
   try {
-    const s = await api('/api/admin/stats');
-    setText('s-total',    s.total);
-    setText('s-pro',      s.pro);
-    setText('s-credits',  s.withCredits);
-    setText('s-today',    s.today);
-    setText('s-resellers',`${s.activeResellers}/${s.totalResellers}`);
-  } catch {}
+    const s=await api('/api/admin/stats');
+    setText('s-total',s.total); setText('s-pro',s.pro); setText('s-credits',s.withCredits);
+    setText('s-today',s.today); setText('s-resellers',`${s.activeResellers}/${s.totalResellers}`);
+  }catch{}
 }
 
-// ── USERS TABLE — all rows built with createElement, zero innerHTML on user data
+// ── USERS TABLE ───────────────────────────────────────────────────────────────
 async function loadUsers(page=1) {
-  currentPage = page;
-  const search = $('search-input').value.trim().slice(0,100);
-  const tbody  = $('user-tbody');
-  tbody.innerHTML = '<tr><td colspan="8" class="loading"><span class="spinner"></span>Loading…</td></tr>';
+  currentPage=page;
+  const search=$('search-input').value.trim().slice(0,100);
+  const tbody=$('user-tbody');
+  tbody.innerHTML='<tr><td colspan="8" class="loading"><span class="spinner"></span>Loading…</td></tr>';
   try {
-    const p = new URLSearchParams({ page, limit:20 });
-    if (search) p.append('search', search);
-    const { users, total, pages } = await api(`/api/admin/users?${p}`);
-    tbody.innerHTML = '';
-    if (!users.length) {
-      tbody.innerHTML = '<tr><td colspan="8" class="empty">No users found</td></tr>';
-      setText('page-info',''); $('pages').innerHTML=''; return;
-    }
-    users.forEach(u => {
-      if (MONGO_ID_RE.test(u._id)) USER_CACHE[u._id] = u;
-      const tr = document.createElement('tr');
-      const td = (text, cls, style) => {
-        const el = document.createElement('td');
-        if (cls)   el.className = cls;
-        if (style) el.style.cssText = style;
-        if (text !== undefined) el.textContent = text;
-        return el;
-      };
-      const nameTd = document.createElement('td');
-      const strong = document.createElement('strong');
-      strong.textContent = u.username; nameTd.appendChild(strong);
-      tr.appendChild(nameTd);
-      tr.appendChild(td(u.email, '', 'color:var(--muted)'));
+    const p=new URLSearchParams({page,limit:20});
+    if(search) p.append('search',search);
+    const {users,total,pages}=await api(`/api/admin/users?${p}`);
+    tbody.innerHTML='';
+    if(!users.length){ tbody.innerHTML='<tr><td colspan="8" class="empty">No users found</td></tr>'; setText('page-info',''); $('pages').innerHTML=''; return; }
+    users.forEach(u=>{
+      if(MONGO_ID_RE.test(u._id)) USER_CACHE[u._id]=u;
+      const tr=document.createElement('tr');
+      const td=(text,cls,style)=>{ const el=document.createElement('td'); if(cls) el.className=cls; if(style) el.style.cssText=style; if(text!==undefined) el.textContent=text; return el; };
+      const nameTd=document.createElement('td'); const strong=document.createElement('strong'); strong.textContent=u.username; nameTd.appendChild(strong); tr.appendChild(nameTd);
+      tr.appendChild(td(u.email,'','color:var(--muted)'));
       tr.appendChild(td(u.userId||'—','mono'));
-      const crTd = document.createElement('td');
-      const crBadge = document.createElement('span');
-      crBadge.className='badge badge-credits'; crBadge.textContent=`💎 ${Number(u.credits)||0}`;
-      crTd.appendChild(crBadge); tr.appendChild(crTd);
+      const crTd=document.createElement('td'); const crBadge=document.createElement('span'); crBadge.className='badge badge-credits'; crBadge.textContent=`💎 ${Number(u.credits)||0}`; crTd.appendChild(crBadge); tr.appendChild(crTd);
       tr.appendChild(td(u.referralCount||0,'','color:var(--muted)'));
-      const proTd = document.createElement('td');
-      const proBadge = document.createElement('span');
-      proBadge.className=`badge badge-pro${u.isPro?' active':''}`;
-      proBadge.textContent=u.isPro?'⭐ Pro':'Free';
-      proTd.appendChild(proBadge); tr.appendChild(proTd);
+      const proTd=document.createElement('td'); const proBadge=document.createElement('span'); proBadge.className=`badge badge-pro${u.isPro?' active':''}`; proBadge.textContent=u.isPro?'⭐ Pro':'Free'; proTd.appendChild(proBadge); tr.appendChild(proTd);
       tr.appendChild(td(fmtDate(u.createdAt),'','color:var(--muted)'));
-      // Actions — pass only ObjectId (hex), no user data in listeners
-      const actTd = document.createElement('td');
-      const div   = document.createElement('div'); div.className='actions';
-      const editBtn = makeBtn('✏️','icon-btn edit-btn','Edit', () => openEdit(u._id));
-      const delBtn  = makeBtn('🗑','icon-btn','Delete', () => confirmDeleteUser(u._id));
-      div.appendChild(editBtn); div.appendChild(delBtn);
+      const actTd=document.createElement('td'); const div=document.createElement('div'); div.className='actions';
+      div.appendChild(makeBtn('✏️','icon-btn edit-btn','Edit',()=>openEdit(u._id)));
+      div.appendChild(makeBtn('🗑','icon-btn','Delete',()=>confirmDeleteUser(u._id)));
       actTd.appendChild(div); tr.appendChild(actTd);
       tbody.appendChild(tr);
     });
     renderPagination('page-info','pages',page,pages,total,20,loadUsers);
-  } catch(e) {
+  }catch(e){
     tbody.innerHTML='';
-    const tr=document.createElement('tr'), td=document.createElement('td');
+    const tr=document.createElement('tr'),td=document.createElement('td');
     td.colSpan=8; td.className='empty'; td.textContent='Error: '+e.message;
     tr.appendChild(td); tbody.appendChild(tr);
   }
@@ -489,271 +476,165 @@ async function loadUsers(page=1) {
 
 // ── RESELLERS TABLE ───────────────────────────────────────────────────────────
 async function loadResellers(page=1) {
-  currentRPage = page;
-  const search = $('rsearch-input').value.trim().slice(0,100);
-  const tbody  = $('reseller-tbody');
-  tbody.innerHTML = '<tr><td colspan="8" class="loading"><span class="spinner"></span>Loading…</td></tr>';
+  currentRPage=page;
+  const search=$('rsearch-input').value.trim().slice(0,100);
+  const tbody=$('reseller-tbody');
+  tbody.innerHTML='<tr><td colspan="8" class="loading"><span class="spinner"></span>Loading…</td></tr>';
   try {
-    const p = new URLSearchParams({ page, limit:20 });
-    if (search) p.append('search', search);
-    const { resellers, total, pages } = await api(`/api/admin/resellers?${p}`);
+    const p=new URLSearchParams({page,limit:20});
+    if(search) p.append('search',search);
+    const {resellers,total,pages}=await api(`/api/admin/resellers?${p}`);
     tbody.innerHTML='';
-    if (!resellers.length) {
-      tbody.innerHTML='<tr><td colspan="8" class="empty">No resellers found</td></tr>';
-      setText('rpage-info',''); $('rpages').innerHTML=''; return;
-    }
-    resellers.forEach(r => {
-      if (MONGO_ID_RE.test(r._id)) RESELLER_CACHE[r._id] = r;
-      const tr = document.createElement('tr');
-      const nameTd = document.createElement('td');
-      const s = document.createElement('strong'); s.textContent=r.username; nameTd.appendChild(s);
-      tr.appendChild(nameTd);
-      const emailTd = document.createElement('td'); emailTd.style.color='var(--muted)'; emailTd.textContent=r.email;
-      tr.appendChild(emailTd);
-      const crTd=document.createElement('td'); const cb=document.createElement('span');
-      cb.className='badge badge-credits'; cb.textContent=`💎 ${Number(r.credits)||0}`;
-      crTd.appendChild(cb); tr.appendChild(crTd);
-      const givenTd=document.createElement('td'); givenTd.style.color='var(--muted)'; givenTd.textContent=`💸 ${r.totalGiven||0}`;
-      tr.appendChild(givenTd);
-      const stTd=document.createElement('td'); const sb=document.createElement('span');
-      sb.className=`badge ${r.isBlocked?'badge-blocked':'badge-active'}`;
-      sb.textContent=r.isBlocked?'🔒 Blocked':'✅ Active'; stTd.appendChild(sb); tr.appendChild(stTd);
-      const llTd=document.createElement('td'); llTd.style.color='var(--muted)'; llTd.textContent=r.lastLogin?fmtDate(r.lastLogin):'Never';
-      tr.appendChild(llTd);
-      const crTd2=document.createElement('td'); crTd2.style.color='var(--muted)'; crTd2.textContent=fmtDate(r.createdAt);
-      tr.appendChild(crTd2);
+    if(!resellers.length){ tbody.innerHTML='<tr><td colspan="8" class="empty">No resellers found</td></tr>'; setText('rpage-info',''); $('rpages').innerHTML=''; return; }
+    resellers.forEach(r=>{
+      if(MONGO_ID_RE.test(r._id)) RESELLER_CACHE[r._id]=r;
+      const tr=document.createElement('tr');
+      const nameTd=document.createElement('td'); const s=document.createElement('strong'); s.textContent=r.username; nameTd.appendChild(s); tr.appendChild(nameTd);
+      const emailTd=document.createElement('td'); emailTd.style.color='var(--muted)'; emailTd.textContent=r.email; tr.appendChild(emailTd);
+      const crTd=document.createElement('td'); const cb=document.createElement('span'); cb.className='badge badge-credits'; cb.textContent=`💎 ${Number(r.credits)||0}`; crTd.appendChild(cb); tr.appendChild(crTd);
+      const givenTd=document.createElement('td'); givenTd.style.color='var(--muted)'; givenTd.textContent=`💸 ${r.totalGiven||0}`; tr.appendChild(givenTd);
+      const stTd=document.createElement('td'); const sb=document.createElement('span'); sb.className=`badge ${r.isBlocked?'badge-blocked':'badge-active'}`; sb.textContent=r.isBlocked?'🔒 Blocked':'✅ Active'; stTd.appendChild(sb); tr.appendChild(stTd);
+      const llTd=document.createElement('td'); llTd.style.color='var(--muted)'; llTd.textContent=r.lastLogin?fmtDate(r.lastLogin):'Never'; tr.appendChild(llTd);
+      const crTd2=document.createElement('td'); crTd2.style.color='var(--muted)'; crTd2.textContent=fmtDate(r.createdAt); tr.appendChild(crTd2);
       const actTd=document.createElement('td'); const div=document.createElement('div'); div.className='actions';
-      const editBtn  = makeBtn('✏️','icon-btn edit-btn','Edit', ()=>openEditReseller(r._id));
-      const blockBtn = makeBtn(r.isBlocked?'🔓':'🔒','icon-btn block-btn',r.isBlocked?'Unblock':'Block', ()=>toggleBlock(r._id,r.isBlocked));
-      const delBtn   = makeBtn('🗑','icon-btn','Delete', ()=>confirmDeleteReseller(r._id));
-      div.appendChild(editBtn); div.appendChild(blockBtn); div.appendChild(delBtn);
+      div.appendChild(makeBtn('✏️','icon-btn edit-btn','Edit',()=>openEditReseller(r._id)));
+      div.appendChild(makeBtn(r.isBlocked?'🔓':'🔒','icon-btn block-btn',r.isBlocked?'Unblock':'Block',()=>toggleBlock(r._id,r.isBlocked)));
+      div.appendChild(makeBtn('🗑','icon-btn','Delete',()=>confirmDeleteReseller(r._id)));
       actTd.appendChild(div); tr.appendChild(actTd);
       tbody.appendChild(tr);
     });
     renderPagination('rpage-info','rpages',page,pages,total,20,loadResellers);
-  } catch(e) {
+  }catch(e){
     tbody.innerHTML='';
-    const tr=document.createElement('tr'), td=document.createElement('td');
+    const tr=document.createElement('tr'),td=document.createElement('td');
     td.colSpan=8; td.className='empty'; td.textContent='Error: '+e.message;
     tr.appendChild(td); tbody.appendChild(tr);
   }
 }
 
-function makeBtn(text, cls, title, handler) {
-  const b = document.createElement('button');
-  b.className=cls; b.title=title; b.textContent=text;
-  b.addEventListener('click', handler);
-  return b;
-}
+function makeBtn(text,cls,title,handler){ const b=document.createElement('button'); b.className=cls; b.title=title; b.textContent=text; b.addEventListener('click',handler); return b; }
 
-// ── PAGINATION ────────────────────────────────────────────────────────────────
-function renderPagination(infoId, pagesId, page, pages, total, limit, fn) {
-  const start=(page-1)*limit+1, end=Math.min(page*limit,total);
+function renderPagination(infoId,pagesId,page,pages,total,limit,fn){
+  const start=(page-1)*limit+1,end=Math.min(page*limit,total);
   setText(infoId,`Showing ${start}–${end} of ${total}`);
-  const container=$( pagesId); container.innerHTML='';
-  for (let i=1; i<=pages; i++) {
-    if (pages>7 && i>2 && i<pages-1 && Math.abs(i-page)>1) {
-      if (i===3||i===pages-2) { const d=document.createElement('span'); d.textContent='…'; d.style.cssText='color:var(--muted);padding:0 4px'; container.appendChild(d); }
-      continue;
-    }
-    const btn=document.createElement('button');
-    btn.className=`page-btn${i===page?' active':''}`;
-    btn.textContent=i;
-    btn.addEventListener('click', ()=>fn(i));
-    container.appendChild(btn);
+  const container=$(pagesId); container.innerHTML='';
+  for(let i=1;i<=pages;i++){
+    if(pages>7&&i>2&&i<pages-1&&Math.abs(i-page)>1){ if(i===3||i===pages-2){const d=document.createElement('span');d.textContent='…';d.style.cssText='color:var(--muted);padding:0 4px';container.appendChild(d);} continue; }
+    const btn=document.createElement('button'); btn.className=`page-btn${i===page?' active':''}`; btn.textContent=i; btn.addEventListener('click',()=>fn(i)); container.appendChild(btn);
   }
 }
 
-// ── OPEN MODALS ───────────────────────────────────────────────────────────────
-function openEdit(id) {
-  const u = USER_CACHE[id]; if(!u) return;
-  $('edit-id').value=u._id; $('edit-username').value=u.username; $('edit-email').value=u.email;
-  $('edit-credits').value=u.credits; $('edit-refcount').value=u.referralCount||0;
-  $('edit-password').value=''; $('edit-ispro').checked=!!u.isPro; $('edit-creditgiven').checked=!!u.creditGiven;
-  clearErrs('err-username','err-email','err-credits','err-password');
-  openModal('edit-modal');
-}
+function openEdit(id){ const u=USER_CACHE[id]; if(!u) return; $('edit-id').value=u._id; $('edit-username').value=u.username; $('edit-email').value=u.email; $('edit-credits').value=u.credits; $('edit-refcount').value=u.referralCount||0; $('edit-password').value=''; $('edit-ispro').checked=!!u.isPro; $('edit-creditgiven').checked=!!u.creditGiven; clearErrs('err-username','err-email','err-credits','err-password'); openModal('edit-modal'); }
+function openEditReseller(id){ const r=RESELLER_CACHE[id]; if(!r) return; $('er-id').value=r._id; $('er-username').value=r.username; $('er-email').value=r.email; $('er-credits').value=r.credits; $('er-password').value=''; $('er-blocked').checked=!!r.isBlocked; openModal('edit-reseller-modal'); }
+function openCreateReseller(){ ['cr-username','cr-email','cr-password'].forEach(id=>$(id).value=''); $('cr-credits').value=0; openModal('create-reseller-modal'); }
 
-function openEditReseller(id) {
-  const r = RESELLER_CACHE[id]; if(!r) return;
-  $('er-id').value=r._id; $('er-username').value=r.username; $('er-email').value=r.email;
-  $('er-credits').value=r.credits; $('er-password').value=''; $('er-blocked').checked=!!r.isBlocked;
-  openModal('edit-reseller-modal');
-}
-
-function openCreateReseller() {
-  ['cr-username','cr-email','cr-password'].forEach(id=>$(id).value='');
-  $('cr-credits').value=0; openModal('create-reseller-modal');
-}
-
-// ── SAVE / DELETE ─────────────────────────────────────────────────────────────
 async function saveUser() {
-  if (!validateUserForm()) return;
-  const id=parseInt($('edit-id').value); // just in case — ObjectId check below
+  if(!validateUserForm()) return;
   const rawId=$('edit-id').value;
-  if (!MONGO_ID_RE.test(rawId)) { toast('Invalid ID','error'); return; }
+  if(!MONGO_ID_RE.test(rawId)){toast('Invalid ID','error');return;}
   const pw=$('edit-password').value;
-  const body = {
-    username:      $('edit-username').value.trim().slice(0,50),
-    email:         $('edit-email').value.trim().slice(0,100),
-    credits:       Math.max(0, Math.floor(Number($('edit-credits').value))),
-    referralCount: Math.max(0, Math.floor(Number($('edit-refcount').value))),
-    isPro:         $('edit-ispro').checked,
-    creditGiven:   $('edit-creditgiven').checked,
-  };
-  if (pw) body.password = pw;
+  const body={username:$('edit-username').value.trim().slice(0,50),email:$('edit-email').value.trim().slice(0,100),credits:Math.max(0,Math.floor(Number($('edit-credits').value))),referralCount:Math.max(0,Math.floor(Number($('edit-refcount').value))),isPro:$('edit-ispro').checked,creditGiven:$('edit-creditgiven').checked};
+  if(pw) body.password=pw;
   const btn=$('save-user-btn'); btn.disabled=true; btn.textContent='⏳ Saving…';
-  try {
-    await api(`/api/admin/users/${rawId}`,'PATCH',body);
-    toast('User updated','success'); closeModal('edit-modal'); loadUsers(currentPage); loadStats();
-  } catch(e){ toast(e.message,'error'); }
-  finally { btn.disabled=false; btn.textContent='💾 Save Changes'; }
+  try{ await api(`/api/admin/users/${rawId}`,'PATCH',body); toast('User updated','success'); closeModal('edit-modal'); loadUsers(currentPage); loadStats(); }
+  catch(e){ toast(e.message,'error'); }
+  finally{ btn.disabled=false; btn.textContent='💾 Save Changes'; }
 }
 
 async function createReseller() {
   const username=$('cr-username').value.trim().slice(0,50);
-  const email   =$('cr-email').value.trim().slice(0,100);
+  const email=$('cr-email').value.trim().slice(0,100);
   const password=$('cr-password').value;
-  const credits =Math.max(0,Math.floor(Number($('cr-credits').value)||0));
-  if (username.length<2)        { toast('Username must be at least 2 characters','error'); return; }
-  if (!EMAIL_RE.test(email))    { toast('Invalid email address','error'); return; }
-  if (!password||password.length<8) { toast('Password must be 8+ characters','error'); return; }
-  if (password.length>128)      { toast('Password too long','error'); return; }
+  const credits=Math.max(0,Math.floor(Number($('cr-credits').value)||0));
+  if(username.length<2){toast('Username must be at least 2 characters','error');return;}
+  if(!EMAIL_RE.test(email)){toast('Invalid email address','error');return;}
+  if(!password||password.length<8){toast('Password must be 8+ characters','error');return;}
+  if(password.length>128){toast('Password too long','error');return;}
   const btn=$('create-reseller-btn'); btn.disabled=true; btn.textContent='⏳ Creating…';
-  try {
-    await api('/api/admin/resellers','POST',{username,email,password,credits});
-    toast(`Reseller "${username}" created`,'success');
-    closeModal('create-reseller-modal'); loadResellers(1); loadStats();
-  } catch(e){ toast(e.message,'error'); }
-  finally { btn.disabled=false; btn.textContent='✅ Create Reseller'; }
+  try{ await api('/api/admin/resellers','POST',{username,email,password,credits}); toast(`Reseller "${username}" created`,'success'); closeModal('create-reseller-modal'); loadResellers(1); loadStats(); }
+  catch(e){ toast(e.message,'error'); }
+  finally{ btn.disabled=false; btn.textContent='✅ Create Reseller'; }
 }
 
 async function saveReseller() {
   const rawId=$('er-id').value;
-  if (!MONGO_ID_RE.test(rawId)) { toast('Invalid ID','error'); return; }
+  if(!MONGO_ID_RE.test(rawId)){toast('Invalid ID','error');return;}
   const pw=$('er-password').value;
   const username=$('er-username').value.trim().slice(0,50);
-  const email   =$('er-email').value.trim().slice(0,100);
-  const credits =Math.max(0,Math.floor(Number($('er-credits').value)));
-  if (username.length<2)     { toast('Username too short','error'); return; }
-  if (!EMAIL_RE.test(email)) { toast('Invalid email','error'); return; }
-  if (pw&&pw.length<8)       { toast('Password must be 8+ characters','error'); return; }
-  if (pw&&pw.length>128)     { toast('Password too long','error'); return; }
+  const email=$('er-email').value.trim().slice(0,100);
+  const credits=Math.max(0,Math.floor(Number($('er-credits').value)));
+  if(username.length<2){toast('Username too short','error');return;}
+  if(!EMAIL_RE.test(email)){toast('Invalid email','error');return;}
+  if(pw&&pw.length<8){toast('Password must be 8+ characters','error');return;}
+  if(pw&&pw.length>128){toast('Password too long','error');return;}
   const body={username,email,credits,isBlocked:$('er-blocked').checked};
-  if (pw) body.password=pw;
+  if(pw) body.password=pw;
   const btn=$('save-reseller-btn'); btn.disabled=true; btn.textContent='⏳ Saving…';
-  try {
-    await api(`/api/admin/resellers/${rawId}`,'PATCH',body);
-    toast('Reseller updated','success'); closeModal('edit-reseller-modal'); loadResellers(currentRPage); loadStats();
-  } catch(e){ toast(e.message,'error'); }
-  finally { btn.disabled=false; btn.textContent='💾 Save Changes'; }
+  try{ await api(`/api/admin/resellers/${rawId}`,'PATCH',body); toast('Reseller updated','success'); closeModal('edit-reseller-modal'); loadResellers(currentRPage); loadStats(); }
+  catch(e){ toast(e.message,'error'); }
+  finally{ btn.disabled=false; btn.textContent='💾 Save Changes'; }
 }
 
-async function toggleBlock(id, isBlocked) {
-  if (!MONGO_ID_RE.test(id)) { toast('Invalid ID','error'); return; }
-  try {
-    await api(`/api/admin/resellers/${id}`,'PATCH',{isBlocked:!isBlocked});
-    toast(`Reseller ${isBlocked?'unblocked':'blocked'}`,'success'); loadResellers(currentRPage); loadStats();
-  } catch(e){ toast(e.message,'error'); }
+async function toggleBlock(id,isBlocked){
+  if(!MONGO_ID_RE.test(id)){toast('Invalid ID','error');return;}
+  try{ await api(`/api/admin/resellers/${id}`,'PATCH',{isBlocked:!isBlocked}); toast(`Reseller ${isBlocked?'unblocked':'blocked'}`,'success'); loadResellers(currentRPage); loadStats(); }
+  catch(e){ toast(e.message,'error'); }
 }
 
-// ── SAFE CONFIRM MODAL ────────────────────────────────────────────────────────
-// Replaces window.confirm() — requires typing the name to confirm deletion
-function showConfirm(title, message, matchWord, onConfirm) {
-  setText('confirm-title', title);
-  $('confirm-msg').textContent = message;
-  $('confirm-label').textContent = `Type "${matchWord}" to confirm:`;
+function showConfirm(title,message,matchWord,onConfirm){
+  setText('confirm-title',title); $('confirm-msg').textContent=message;
+  $('confirm-label').textContent=`Type "${matchWord}" to confirm:`;
   $('confirm-input').value=''; $('confirm-input').placeholder=matchWord;
-  pendingDeleteFn = { fn: onConfirm, word: matchWord };
-  openModal('confirm-modal');
-  setTimeout(()=>$('confirm-input').focus(), 80);
+  pendingDeleteFn={fn:onConfirm,word:matchWord}; openModal('confirm-modal');
+  setTimeout(()=>$('confirm-input').focus(),80);
 }
 
-function confirmDeleteUser(id) {
-  const u=USER_CACHE[id]; if(!u) return;
-  showConfirm('Delete User', `Permanently delete "${u.username}"? This cannot be undone.`, u.username, ()=>deleteUser(id));
-}
-async function deleteUser(id) {
-  if (!MONGO_ID_RE.test(id)) { toast('Invalid ID','error'); return; }
-  try {
-    await api(`/api/admin/users/${id}`,'DELETE');
-    delete USER_CACHE[id];
-    toast('User deleted','success'); closeModal('edit-modal'); loadUsers(currentPage); loadStats();
-  } catch(e){ toast(e.message,'error'); }
+function confirmDeleteUser(id){ const u=USER_CACHE[id]; if(!u) return; showConfirm('Delete User',`Permanently delete "${u.username}"? This cannot be undone.`,u.username,()=>deleteUser(id)); }
+async function deleteUser(id){
+  if(!MONGO_ID_RE.test(id)){toast('Invalid ID','error');return;}
+  try{ await api(`/api/admin/users/${id}`,'DELETE'); delete USER_CACHE[id]; toast('User deleted','success'); closeModal('edit-modal'); loadUsers(currentPage); loadStats(); }
+  catch(e){ toast(e.message,'error'); }
 }
 
-function confirmDeleteReseller(id) {
-  const r=RESELLER_CACHE[id]; if(!r) return;
-  showConfirm('Delete Reseller', `Permanently delete reseller "${r.username}"? This cannot be undone.`, r.username, ()=>deleteReseller(id));
-}
-async function deleteReseller(id) {
-  if (!MONGO_ID_RE.test(id)) { toast('Invalid ID','error'); return; }
-  try {
-    await api(`/api/admin/resellers/${id}`,'DELETE');
-    delete RESELLER_CACHE[id];
-    toast('Reseller deleted','success'); closeModal('edit-reseller-modal'); loadResellers(currentRPage); loadStats();
-  } catch(e){ toast(e.message,'error'); }
+function confirmDeleteReseller(id){ const r=RESELLER_CACHE[id]; if(!r) return; showConfirm('Delete Reseller',`Permanently delete reseller "${r.username}"? This cannot be undone.`,r.username,()=>deleteReseller(id)); }
+async function deleteReseller(id){
+  if(!MONGO_ID_RE.test(id)){toast('Invalid ID','error');return;}
+  try{ await api(`/api/admin/resellers/${id}`,'DELETE'); delete RESELLER_CACHE[id]; toast('Reseller deleted','success'); closeModal('edit-reseller-modal'); loadResellers(currentRPage); loadStats(); }
+  catch(e){ toast(e.message,'error'); }
 }
 
-// ── TAB SWITCHING ─────────────────────────────────────────────────────────────
-function switchTab(tab) {
-  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.tab===tab));
-  $('tab-users').classList.toggle('active',tab==='users');
-  $('tab-resellers').classList.toggle('active',tab==='resellers');
-  if (tab==='resellers') loadResellers(1);
-}
+function switchTab(tab){ document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.tab===tab)); $('tab-users').classList.toggle('active',tab==='users'); $('tab-resellers').classList.toggle('active',tab==='resellers'); if(tab==='resellers') loadResellers(1); }
+function openModal(id){ $(id).classList.add('open'); }
+function closeModal(id){ $(id).classList.remove('open'); }
 
-// ── MODAL HELPERS ─────────────────────────────────────────────────────────────
-function openModal(id)  { $(id).classList.add('open'); }
-function closeModal(id) { $(id).classList.remove('open'); }
+function toast(msg,type='success'){ const el=document.createElement('div'); el.className=`toast-msg ${type}`; el.textContent=(type==='success'?'✅ ':'❌ ')+msg; $('toast').appendChild(el); setTimeout(()=>el.remove(),3500); }
+function fmtDate(d){ if(!d) return '—'; try{ return new Date(d).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}); }catch{ return '—'; } }
+function debounceSearch(){ clearTimeout(searchTimer); searchTimer=setTimeout(()=>loadUsers(1),350); }
+function debounceRSearch(){ clearTimeout(rsearchTimer); rsearchTimer=setTimeout(()=>loadResellers(1),350); }
 
-// ── TOAST — uses textContent, never innerHTML ─────────────────────────────────
-function toast(msg, type='success') {
-  const el=document.createElement('div');
-  el.className=`toast-msg ${type}`;
-  el.textContent=(type==='success'?'✅ ':'❌ ')+msg;
-  $('toast').appendChild(el);
-  setTimeout(()=>el.remove(),3500);
-}
-
-// ── UTILS ─────────────────────────────────────────────────────────────────────
-function fmtDate(d) {
-  if (!d) return '—';
-  try { return new Date(d).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}); }
-  catch { return '—'; }
-}
-function debounceSearch()  { clearTimeout(searchTimer);  searchTimer =setTimeout(()=>loadUsers(1),350); }
-function debounceRSearch() { clearTimeout(rsearchTimer); rsearchTimer=setTimeout(()=>loadResellers(1),350); }
-
-// ── ALL EVENT LISTENERS — zero inline onclick in HTML ─────────────────────────
-document.addEventListener('DOMContentLoaded', () => {
-  $('login-btn').addEventListener('click', doLogin);
-  $('admin-secret').addEventListener('keydown', e=>{ if(e.key==='Enter') doLogin(); });
-  $('logout-btn').addEventListener('click', logout);
+document.addEventListener('DOMContentLoaded',()=>{
+  $('login-btn').addEventListener('click',doLogin);
+  $('admin-secret').addEventListener('keydown',e=>{ if(e.key==='Enter') doLogin(); });
+  $('logout-btn').addEventListener('click',logout);
   document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>switchTab(t.dataset.tab)));
-  $('search-input').addEventListener('input', debounceSearch);
-  $('rsearch-input').addEventListener('input', debounceRSearch);
-  $('refresh-users-btn').addEventListener('click', ()=>loadUsers(1));
-  $('refresh-resellers-btn').addEventListener('click', ()=>loadResellers(1));
-  $('new-reseller-btn').addEventListener('click', openCreateReseller);
-  $('save-user-btn').addEventListener('click', saveUser);
-  $('delete-user-btn').addEventListener('click', ()=>{ const id=$('edit-id').value; if(id) confirmDeleteUser(id); });
-  $('save-reseller-btn').addEventListener('click', saveReseller);
-  $('delete-reseller-btn').addEventListener('click', ()=>{ const id=$('er-id').value; if(id) confirmDeleteReseller(id); });
-  $('create-reseller-btn').addEventListener('click', createReseller);
-  // Confirm modal
-  $('confirm-ok-btn').addEventListener('click', ()=>{
+  $('search-input').addEventListener('input',debounceSearch);
+  $('rsearch-input').addEventListener('input',debounceRSearch);
+  $('refresh-users-btn').addEventListener('click',()=>loadUsers(1));
+  $('refresh-resellers-btn').addEventListener('click',()=>loadResellers(1));
+  $('new-reseller-btn').addEventListener('click',openCreateReseller);
+  $('save-user-btn').addEventListener('click',saveUser);
+  $('delete-user-btn').addEventListener('click',()=>{ const id=$('edit-id').value; if(id) confirmDeleteUser(id); });
+  $('save-reseller-btn').addEventListener('click',saveReseller);
+  $('delete-reseller-btn').addEventListener('click',()=>{ const id=$('er-id').value; if(id) confirmDeleteReseller(id); });
+  $('create-reseller-btn').addEventListener('click',createReseller);
+  $('confirm-ok-btn').addEventListener('click',()=>{
     const typed=$('confirm-input').value;
-    if (!pendingDeleteFn || typed !== pendingDeleteFn.word) { toast(`Type "${pendingDeleteFn?.word}" exactly`,'error'); return; }
-    closeModal('confirm-modal');
-    pendingDeleteFn.fn(); pendingDeleteFn=null;
+    if(!pendingDeleteFn||typed!==pendingDeleteFn.word){ toast(`Type "${pendingDeleteFn?.word}" exactly`,'error'); return; }
+    closeModal('confirm-modal'); pendingDeleteFn.fn(); pendingDeleteFn=null;
   });
-  $('confirm-input').addEventListener('keydown', e=>{ if(e.key==='Enter') $('confirm-ok-btn').click(); });
-  // All [data-close] buttons
+  $('confirm-input').addEventListener('keydown',e=>{ if(e.key==='Enter') $('confirm-ok-btn').click(); });
   document.querySelectorAll('[data-close]').forEach(btn=>btn.addEventListener('click',()=>closeModal(btn.dataset.close)));
-  // Backdrop click closes modal
   document.querySelectorAll('.overlay').forEach(ov=>ov.addEventListener('click',e=>{ if(e.target===ov) closeModal(ov.id); }));
-  // Escape closes top modal
   document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ const o=document.querySelector('.overlay.open'); if(o) closeModal(o.id); } });
 });
 </script>
