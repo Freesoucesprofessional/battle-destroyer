@@ -38,7 +38,8 @@ export default function Navbar({ toggleTheme, theme, setIsAuth }) {
                             alt="Battle Destroyer Logo"
                             className="w-10 h-10 rounded-lg object-contain group-hover:scale-110 transition-transform"
                         />
-                        <span className="font-black text-red-500 tracking-widest text-sm sm:text-base">
+                        <span style={{ fontFamily: "'Bebas Neue', cursive" }}
+                            className="text-red-500 tracking-widest text-xl sm:text-base">
                             BATTLE-DESTROYER
                         </span>
                     </Link>
