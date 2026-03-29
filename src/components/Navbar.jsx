@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { FaBolt, FaBullseye, FaSignOutAlt, FaGem, FaUser, FaBars, FaTimes } from 'react-icons/fa';
 
-export default function Navbar({ toggleTheme, theme, setIsAuth  }) {
+export default function Navbar({ toggleTheme, theme, setIsAuth }) {
     const [menuOpen, setMenuOpen] = useState(false);
     const navigate = useNavigate();
     const location = useLocation();
@@ -38,7 +38,7 @@ export default function Navbar({ toggleTheme, theme, setIsAuth  }) {
                             alt="Battle Destroyer Logo"
                             className="w-10 h-10 rounded-lg object-contain group-hover:scale-110 transition-transform"
                         />
-                        <span className="font-black text-red-500 tracking-widest text-sm sm:text-base hidden xs:block">
+                        <span className="font-black text-red-500 tracking-widest text-sm sm:text-base">
                             BATTLE-DESTROYER
                         </span>
                     </Link>
