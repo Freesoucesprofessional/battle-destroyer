@@ -367,7 +367,6 @@ async function doLogin() {
     if (!r.ok) throw new Error(data.message || 'Login failed');
     API   = url;
     TOKEN = data.token;
-    document.getElementById('api-display').textContent = url.replace('https://','');
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('app').style.display = 'flex';
     startHeartbeat();
