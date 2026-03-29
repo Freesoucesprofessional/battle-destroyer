@@ -8,6 +8,7 @@ export default function Dashboard({ toggleTheme, theme }) {
     const [user, setUser] = useState(null);
     const [copied, setCopied] = useState(false);
     const navigate = useNavigate();
+    const [copiedId, setCopiedId] = useState(false);
     const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 
 
@@ -26,6 +27,12 @@ export default function Dashboard({ toggleTheme, theme }) {
         navigator.clipboard.writeText(link);
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
+    };
+
+    const copyUserId = () => {
+        navigator.clipboard.writeText(user.userId);
+        setCopiedId(true);
+        setTimeout(() => setCopiedId(false), 2000);
     };
 
     const bg = theme === 'dark' ? 'bg-gray-950' : 'bg-gray-50';
@@ -55,12 +62,6 @@ export default function Dashboard({ toggleTheme, theme }) {
         { icon: FaLink, title: 'Refer Friends', desc: 'Share your referral link and earn +2 credits per successful signup' },
         { icon: FaBullseye, title: 'Use Credits', desc: 'Spend credits to launch attacks from the Attack page' },
     ];
-    const [copiedId, setCopiedId] = useState(false);
-    const copyUserId = () => {
-        navigator.clipboard.writeText(user.userId);
-        setCopiedId(true);
-        setTimeout(() => setCopiedId(false), 2000);
-    };
 
     return (
         <div className={`min-h-screen ${bg} transition-colors duration-300`}>
