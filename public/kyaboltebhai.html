@@ -352,7 +352,7 @@ function switchTab(tab) {
 // Exchanges the raw ADMIN_SECRET for a one-time session token.
 // Issuing a new token immediately revokes any token held by another device.
 async function doLogin() {
-  const url    = document.getElementById('api-url').value.trim().replace(/\/$/, '');
+  const url    = 'https://backend-battle-destroyer.onrender.com';
   const secret = document.getElementById('admin-secret').value.trim();
   const errEl  = document.getElementById('login-error');
   errEl.style.display = 'none';
