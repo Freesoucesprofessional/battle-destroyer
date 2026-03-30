@@ -14,7 +14,6 @@ export default function Attack({ toggleTheme, theme }) {
     const [launched, setLaunched] = useState(false);
     const [launchError, setLaunchError] = useState('');
     const [attackStatus, setAttackStatus] = useState(null);
-    const [checkingStatus, setCheckingStatus] = useState(false);
     const [stoppingAttack, setStoppingAttack] = useState(false);
     const [bgmiServer, setBgmiServer] = useState(null);
     const navigate = useNavigate();
@@ -27,30 +26,8 @@ export default function Attack({ toggleTheme, theme }) {
     const statusIntervalRef = useRef(null);
     const TOKEN_MAX_AGE_MS = 270_000;
 
-    // ── Load user ───────────────────────────────────────────────────────────────
-    useEffect(() => {
-        const token = localStorage.getItem('token');
-        axios.get(`${API_URL}/api/panel/me`, {
-            headers: { Authorization: `Bearer ${token}` }
-        }).then(r => {
-            setUser(r.data);
-            localStorage.setItem('user', JSON.stringify(r.data));
-        }).catch(() => {
-            localStorage.clear();
-            navigate('/login');
-        });
-
-        // Check for existing attack on mount
-        checkAttackStatus();
-
-        return () => {
-            if (statusIntervalRef.current) {
-                clearInterval(statusIntervalRef.current);
-            }
-        };
-    }, [navigate, API_URL]);
-
-    const checkAttackStatus = async () => {
+    // Memoize checkAttackStatus to avoid dependency warning
+    const checkAttackStatus = useCallback(async () => {
         try {
             const token = localStorage.getItem('token');
             const response = await axios.get(`${API_URL}/api/panel/attack-status`, {
@@ -65,9 +42,31 @@ export default function Attack({ toggleTheme, theme }) {
         } catch (err) {
             console.error('Error checking attack status:', err);
         }
-    };
+    }, [API_URL]);
 
-    const startStatusPolling = () => {
+    // ── Load user and check for existing attack ────────────────────────────────
+    useEffect(() => {
+        const token = localStorage.getItem('token');
+        axios.get(`${API_URL}/api/panel/me`, {
+            headers: { Authorization: `Bearer ${token}` }
+        }).then(r => {
+            setUser(r.data);
+            localStorage.setItem('user', JSON.stringify(r.data));
+        }).catch(() => {
+            localStorage.clear();
+            navigate('/login');
+        });
+
+        checkAttackStatus();
+
+        return () => {
+            if (statusIntervalRef.current) {
+                clearInterval(statusIntervalRef.current);
+            }
+        };
+    }, [navigate, API_URL, checkAttackStatus]);
+
+    const startStatusPolling = useCallback(() => {
         if (statusIntervalRef.current) {
             clearInterval(statusIntervalRef.current);
         }
@@ -90,7 +89,7 @@ export default function Attack({ toggleTheme, theme }) {
                 console.error('Error polling attack status:', err);
             }
         }, 10000); // Check every 10 seconds
-    };
+    }, [API_URL]);
 
     const handle = e => {
         setForm({ ...form, [e.target.name]: e.target.value });
@@ -309,7 +308,6 @@ export default function Attack({ toggleTheme, theme }) {
             <Navbar toggleTheme={toggleTheme} theme={theme} />
 
             <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
-
                 {/* Header */}
                 <div className="mb-6">
                     <p className={`text-xs font-medium uppercase tracking-widest mb-1 ${sub}`}>Attack Module</p>
@@ -342,11 +340,9 @@ export default function Attack({ toggleTheme, theme }) {
                 )}
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-
                     {/* Attack Form */}
                     <div className="lg:col-span-2">
                         <div className={`rounded-2xl border overflow-hidden ${card}`}>
-
                             {/* Form header */}
                             <div className={`px-5 sm:px-6 py-4 border-b flex items-center gap-3 ${theme === 'dark' ? 'border-gray-800 bg-gray-800/30' : 'border-gray-200 bg-gray-50'}`}>
                                 <div className="w-8 h-8 rounded-lg bg-red-600/20 border border-red-600/30 flex items-center justify-center">
@@ -359,7 +355,6 @@ export default function Attack({ toggleTheme, theme }) {
                             </div>
 
                             <div className="p-5 sm:p-6 space-y-5">
-
                                 {/* IP */}
                                 <div>
                                     <label className={`text-xs font-semibold uppercase tracking-wide mb-2 block ${sub}`}>Target IP Address</label>
@@ -526,7 +521,6 @@ export default function Attack({ toggleTheme, theme }) {
 
                     {/* Sidebar */}
                     <div className="space-y-4">
-
                         {/* Credits card */}
                         <div className={`rounded-2xl p-5 border ${card}`}>
                             <div className="flex items-center gap-2 mb-3">
