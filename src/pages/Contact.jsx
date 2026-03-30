@@ -49,23 +49,36 @@ export default function Contact({ toggleTheme, theme, setIsAuth }) {
             }
 
             // ── PLAN CARDS — grouped stagger, bottom-to-top + scale + fade ──
-            const cards = gridRef.current ? Array.from(gridRef.current.querySelectorAll('.plan-card')) : [];
+            // ── PLAN CARDS — smooth bidirectional scroll animation ──
+            const cards = gridRef.current
+                ? Array.from(gridRef.current.querySelectorAll('.plan-card'))
+                : [];
+
             if (cards.length) {
-                gsap.fromTo(
-                    cards,
-                    { opacity: 0, y: 60, scale: 0.88 },
-                    {
-                        opacity: 1, y: 0, scale: 1,
-                        duration: 0.5,
-                        ease: 'power3.out',
-                        stagger: 0.07,
-                        scrollTrigger: {
-                            trigger: gridRef.current,
-                            start: 'top 85%',
-                            toggleActions: 'play none none reverse',
+                cards.forEach((card, i) => {
+                    gsap.fromTo(
+                        card,
+                        {
+                            opacity: 0,
+                            y: 60,
+                            scale: 0.92,
                         },
-                    }
-                );
+                        {
+                            opacity: 1,
+                            y: 0,
+                            scale: 1,
+                            duration: 0.7,
+                            ease: 'power4.out',
+                            scrollTrigger: {
+                                trigger: card,
+                                start: 'top 90%',
+                                end: 'top 60%',
+                                scrub: 1.2,   
+                                toggleActions: 'play none none reverse',
+                            },
+                        }
+                    );
+                });
             }
 
             // ── CREDIT BARS — animate width on scroll, per card ──
@@ -77,12 +90,13 @@ export default function Contact({ toggleTheme, theme, setIsAuth }) {
                     { scaleX: 0, transformOrigin: 'left center' },
                     {
                         scaleX: 1,
-                        duration: 0.75,
+                        duration: 1,
                         ease: 'power2.out',
                         scrollTrigger: {
                             trigger: card,
                             start: 'top 88%',
-                            toggleActions: 'play none none reverse',
+                            end: 'top 55%',
+                            scrub: 1.5, 
                         },
                     }
                 );
@@ -275,10 +289,10 @@ export default function Contact({ toggleTheme, theme, setIsAuth }) {
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className={`w-full py-3 rounded-xl font-bold text-sm text-center flex items-center justify-center gap-2 transition-colors active:scale-95 mt-auto ${plan.popular
-                                            ? 'bg-red-600 hover:bg-red-500 text-white'
-                                            : dark
-                                                ? 'bg-white/[0.05] hover:bg-white/[0.08] border border-white/[0.1] text-slate-300 hover:text-white'
-                                                : 'bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700'
+                                        ? 'bg-red-600 hover:bg-red-500 text-white'
+                                        : dark
+                                            ? 'bg-white/[0.05] hover:bg-white/[0.08] border border-white/[0.1] text-slate-300 hover:text-white'
+                                            : 'bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700'
                                         }`}
                                     style={{
                                         fontFamily: "'Rajdhani', sans-serif",
