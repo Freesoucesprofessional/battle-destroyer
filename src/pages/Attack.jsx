@@ -23,6 +23,7 @@ export default function Attack({ toggleTheme, theme, setIsAuth }) {
     const [timeLeft, setTimeLeft] = useState(0);
     const [attackHistory, setAttackHistory] = useState([]);
     const [captchaReady, setCaptchaReady] = useState(false);
+    const [cooldown, setCooldown] = useState(0);
 
     const navigate = useNavigate();
     const dark = theme !== 'light';
@@ -215,7 +216,7 @@ export default function Attack({ toggleTheme, theme, setIsAuth }) {
             // ✅ Handle server overload / cooldown
             if (status === 429) {
                 const cooldown = err.response?.data?.cooldown || 5;
-                setLaunchError(`Server busy. Try again in ${cooldown}s`);
+                setLaunchError(`Server is busy. Too many attacks running. Please wait ${cooldown}seconds`);
 
                 // optional: start cooldown timer
                 setCooldown(cooldown);
