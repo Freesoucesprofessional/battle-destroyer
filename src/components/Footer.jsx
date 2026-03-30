@@ -31,7 +31,7 @@ export default function Footer({ theme }) {
                     {/* Brand */}
                     <div>
                         <Link to="/dashboard" className="inline-flex items-center gap-3 mb-3 group">
-                            <div className="w-9 h-9 bg-red-600/30 rounded-lg blur-md group-hover:blur-lg transition-all lex items-center justify-center">
+                            <div className="w-9 h-9 items-center justify-center">
                                 <img
                                     src="/logo512.png"
                                     alt="Battle Destroyer Logo"
