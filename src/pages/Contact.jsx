@@ -1,208 +1,273 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
+import gsap from 'gsap';
+import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import {
-    FaGem,
-    FaTelegram,
-    FaBolt,
-    FaCrown,
-    FaFire,
-    FaRupeeSign,
-    FaInfoCircle,
-    FaShoppingCart,
+  FaGem, FaTelegram, FaBolt, FaCrown, FaFire,
+  FaRupeeSign, FaInfoCircle, FaShoppingCart, FaChevronRight,
 } from 'react-icons/fa';
 import Navbar from '../components/Navbar';
+import Footer from '../components/Footer';
+import AnimatedBackground from '../components/AnimatedBackground';
+
+gsap.registerPlugin(ScrollTrigger);
 
 const TELEGRAM_URL = 'https://t.me/BattleDestroyerDDOS_Bot';
 
 const plans = [
-    {
-        credits: 50,
-        price: 499,
-        label: 'Starter',
-        icon: FaBolt,
-        color: 'text-blue-400',
-        bg: 'bg-blue-600/10 border-blue-600/20',
-        popular: false,
-    },
-    {
-        credits: 150,
-        price: 999,
-        label: 'Basic',
-        icon: FaGem,
-        color: 'text-green-400',
-        bg: 'bg-green-600/10 border-green-600/20',
-        popular: false,
-    },
-    {
-        credits: 250,
-        price: 1499,
-        label: 'Standard',
-        icon: FaFire,
-        color: 'text-orange-400',
-        bg: 'bg-orange-600/10 border-orange-600/20',
-        popular: true,
-    },
-    {
-        credits: 333,
-        price: 1999,
-        label: 'Advanced',
-        icon: FaFire,
-        color: 'text-red-400',
-        bg: 'bg-red-600/10 border-red-600/20',
-        popular: false,
-    },
-    {
-        credits: 400,
-        price: 2499,
-        label: 'Pro',
-        icon: FaCrown,
-        color: 'text-yellow-400',
-        bg: 'bg-yellow-600/10 border-yellow-600/20',
-        popular: false,
-    },
-    {
-        credits: 500,
-        price: 2999,
-        label: 'Elite',
-        icon: FaCrown,
-        color: 'text-purple-400',
-        bg: 'bg-purple-600/10 border-purple-600/20',
-        popular: false,
-    },
+  { credits: 50,  price: 499,  label: 'Starter',  icon: FaBolt,   color: 'text-blue-400',   bg: 'from-blue-600/10 to-blue-600/5',     border: 'border-blue-600/20',   popular: false },
+  { credits: 150, price: 999,  label: 'Basic',     icon: FaGem,    color: 'text-green-400',  bg: 'from-green-600/10 to-green-600/5',   border: 'border-green-600/20',  popular: false },
+  { credits: 250, price: 1499, label: 'Standard',  icon: FaFire,   color: 'text-orange-400', bg: 'from-orange-600/10 to-orange-600/5', border: 'border-orange-600/20', popular: true  },
+  { credits: 333, price: 1999, label: 'Advanced',  icon: FaFire,   color: 'text-red-400',    bg: 'from-red-600/10 to-red-600/5',       border: 'border-red-600/20',    popular: false },
+  { credits: 400, price: 2499, label: 'Pro',       icon: FaCrown,  color: 'text-yellow-400', bg: 'from-yellow-600/10 to-yellow-600/5', border: 'border-yellow-600/20', popular: false },
+  { credits: 500, price: 2999, label: 'Elite',     icon: FaCrown,  color: 'text-purple-400', bg: 'from-purple-600/10 to-purple-600/5', border: 'border-purple-600/20', popular: false },
 ];
 
-export default function Contact({ toggleTheme, theme }) {
-    const bg = theme === 'dark'
-        ? 'bg-gray-950 bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950'
-        : 'bg-gray-50 bg-gradient-to-br from-gray-100 via-gray-50 to-white';
-    const card = theme === 'dark'
-        ? 'bg-gray-900/60 border-gray-700/50 backdrop-blur-xl shadow-xl shadow-black/20'
-        : 'bg-white/70 border-gray-200/60 backdrop-blur-xl shadow-xl shadow-gray-200/50';
-    const text = theme === 'dark' ? 'text-white' : 'text-gray-900';
-    const sub = theme === 'dark' ? 'text-gray-400' : 'text-gray-500';
+export default function Contact({ toggleTheme, theme, setIsAuth }) {
+  const dark = theme !== 'light';
 
-    return (
-        <div className={`min-h-screen ${bg} transition-colors duration-300`}>
-            <Navbar toggleTheme={toggleTheme} theme={theme} />
+  const headerRef   = useRef(null);
+  const gridRef     = useRef(null);
+  const infoRef     = useRef(null);
 
-            <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
+  useEffect(() => {
+    const ctx = gsap.context(() => {
 
-                {/* Header */}
-                <div className="text-center mb-10">
-                    <p className={`text-xs font-medium uppercase tracking-widest mb-2 ${sub}`}>
-                        Pricing Plans
-                    </p>
-                    <h1 className={`text-3xl sm:text-4xl font-black mb-3 ${text}`}>
-                        Buy <span className="text-red-500">Credits</span>
-                    </h1>
-                    <p className={`text-sm max-w-md mx-auto ${sub}`}>
-                        Purchase credits to power your attacks. All payments handled securely via Telegram bot.
-                    </p>
-                    <a
-                        href={TELEGRAM_URL}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-2 mt-5 bg-blue-500 hover:bg-blue-600 active:scale-95 text-white font-bold px-6 py-3 rounded-xl transition-all shadow-lg shadow-blue-900/30 text-sm"
+      // Header section — fade + slide down
+      const headerEls = headerRef.current?.children;
+      if (headerEls) {
+        gsap.fromTo(
+          Array.from(headerEls),
+          { opacity: 0, y: -30 },
+          { opacity: 1, y: 0, duration: 0.65, ease: 'power3.out', stagger: 0.12, delay: 0.15 }
+        );
+      }
+
+      // Pricing cards — stagger in with a slight rotation twist
+      gsap.fromTo(
+        gridRef.current?.querySelectorAll('.plan-card'),
+        { opacity: 0, y: 60, rotateX: 8 },
+        {
+          opacity: 1, y: 0, rotateX: 0,
+          duration: 0.6,
+          ease: 'power3.out',
+          stagger: { amount: 0.5, from: 'start' },
+          scrollTrigger: { trigger: gridRef.current, start: 'top 82%' },
+        }
+      );
+
+      // Credit bars animate width from 0
+      gsap.fromTo(
+        gridRef.current?.querySelectorAll('.credit-bar-fill'),
+        { scaleX: 0, transformOrigin: 'left center' },
+        {
+          scaleX: 1,
+          duration: 0.8,
+          ease: 'power2.out',
+          stagger: { amount: 0.4 },
+          scrollTrigger: { trigger: gridRef.current, start: 'top 80%' },
+        }
+      );
+
+      // Popular badge pulse
+      gsap.to('.popular-badge', {
+        boxShadow: '0 4px 28px rgba(220,38,38,0.6)',
+        repeat: -1, yoyo: true, duration: 1.4, ease: 'sine.inOut',
+      });
+
+      // Info card slide up
+      gsap.fromTo(infoRef.current,
+        { opacity: 0, y: 40 },
+        { opacity: 1, y: 0, duration: 0.6, ease: 'power2.out',
+          scrollTrigger: { trigger: infoRef.current, start: 'top 90%' } }
+      );
+
+      // Telegram CTA button hover shimmer (continuous)
+      gsap.to('.tg-btn', {
+        boxShadow: '0 8px 36px rgba(37,99,235,0.5)',
+        repeat: -1, yoyo: true, duration: 1.8, ease: 'sine.inOut',
+      });
+
+    });
+    return () => ctx.revert();
+  }, []);
+
+  const cardCls = dark
+    ? 'bg-surface-800/70 border-white/[0.07] backdrop-blur-xl'
+    : 'bg-white border-slate-200 shadow-sm';
+
+  return (
+    <div className={`relative min-h-screen transition-colors duration-300 ${dark ? 'bg-surface-950' : 'bg-slate-50'}`}>
+      <AnimatedBackground intensity={0.35} />
+      <div className="fixed inset-0 bg-grid opacity-20 pointer-events-none z-0" />
+
+      <div className="relative z-10">
+        <Navbar toggleTheme={toggleTheme} theme={theme} setIsAuth={setIsAuth} />
+
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
+
+          {/* ── Header ── */}
+          <div ref={headerRef} className="text-center mb-12" style={{ perspective: '600px' }}>
+            <p className="bd-section-tag mb-2" style={{ opacity: 0 }}>Pricing Plans</p>
+            <h1
+              className={`text-3xl sm:text-5xl font-bold mb-3 ${dark ? 'text-white' : 'text-slate-900'}`}
+              style={{ fontFamily: "'Rajdhani', sans-serif", letterSpacing: '0.04em', opacity: 0 }}
+            >
+              Buy <span className="text-gradient-red">Credits</span>
+            </h1>
+            <p
+              className={`text-sm max-w-md mx-auto mb-6 ${dark ? 'text-slate-400' : 'text-slate-500'}`}
+              style={{ opacity: 0 }}
+            >
+              Purchase credits to power your attacks. All payments handled securely via Telegram bot.
+            </p>
+            <a
+              href={TELEGRAM_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="tg-btn inline-flex items-center gap-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold px-6 py-3 rounded-xl transition-all active:scale-95 text-sm"
+              style={{
+                fontFamily: "'Rajdhani', sans-serif",
+                letterSpacing: '0.06em',
+                boxShadow: '0 6px 24px rgba(37,99,235,0.35)',
+                opacity: 0,
+              }}
+            >
+              <FaTelegram size={16} />
+              CONTACT VIA TELEGRAM BOT
+              <FaChevronRight size={11} />
+            </a>
+          </div>
+
+          {/* ── Pricing Grid ── */}
+          <div
+            ref={gridRef}
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 mb-8"
+            style={{ perspective: '800px' }}
+          >
+            {plans.map((plan, i) => (
+              <div
+                key={i}
+                className={`plan-card relative rounded-2xl border p-5 sm:p-6 flex flex-col transition-all hover:-translate-y-1 hover:shadow-card-hover ${cardCls} ${
+                  plan.popular ? (dark ? 'border-red-500/40 ring-1 ring-red-500/20' : 'border-red-300 ring-1 ring-red-100') : ''
+                }`}
+                style={{ opacity: 0 }}
+              >
+                {/* Popular badge */}
+                {plan.popular && (
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                    <span
+                      className="popular-badge bg-red-600 text-white text-xs font-bold px-3 py-1 rounded-full tracking-wider flex items-center gap-1.5"
+                      style={{ fontFamily: "'Rajdhani', sans-serif", boxShadow: '0 4px 16px rgba(220,38,38,0.4)' }}
                     >
-                        <FaTelegram size={18} />
-                        Contact via Telegram Bot
-                    </a>
+                      <FaFire size={10} />
+                      MOST POPULAR
+                    </span>
+                  </div>
+                )}
+
+                {/* Plan header */}
+                <div className="flex items-center gap-3 mb-4">
+                  <div className={`w-10 h-10 rounded-xl border bg-gradient-to-br ${plan.bg} ${plan.border} flex items-center justify-center`}>
+                    <plan.icon className={plan.color} size={17} />
+                  </div>
+                  <div>
+                    <p
+                      className={`font-bold text-sm ${dark ? 'text-white' : 'text-slate-900'}`}
+                      style={{ fontFamily: "'Rajdhani', sans-serif", letterSpacing: '0.05em' }}
+                    >
+                      {plan.label}
+                    </p>
+                    <p className={`text-xs ${dark ? 'text-slate-500' : 'text-slate-400'}`}>Credit Pack</p>
+                  </div>
                 </div>
 
-                {/* Pricing Grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
-                    {plans.map((plan, i) => (
-                        <div
-                            key={i}
-                            className={`relative rounded-2xl border p-5 sm:p-6 flex flex-col transition-all hover:scale-[1.02] ${card} ${plan.popular ? 'ring-2 ring-red-500/50' : ''}`}
-                        >
-                            {/* Popular badge */}
-                            {plan.popular && (
-                                <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                                    <span className="bg-red-500 text-white text-xs font-black px-3 py-1 rounded-full tracking-wide shadow-lg flex items-center gap-1">
-                                        <FaFire size={11} />
-                                        MOST POPULAR
-                                    </span>
-                                </div>
-                            )}
-
-                            {/* Plan icon + label */}
-                            <div className="flex items-center gap-3 mb-4">
-                                <div className={`w-10 h-10 rounded-xl border flex items-center justify-center ${plan.bg}`}>
-                                    <plan.icon className={plan.color} size={18} />
-                                </div>
-                                <div>
-                                    <p className={`font-black text-sm ${text}`}>{plan.label}</p>
-                                    <p className={`text-xs ${sub}`}>Plan</p>
-                                </div>
-                            </div>
-
-                            {/* Credits */}
-                            <div className="flex items-end gap-2 mb-1">
-                                <span className={`text-5xl font-black ${plan.color}`}>{plan.credits}</span>
-                                <span className={`text-sm mb-2 font-semibold ${sub}`}>credits</span>
-                            </div>
-
-                            {/* Credit bar */}
-                            <div className={`w-full h-1.5 rounded-full mb-5 ${theme === 'dark' ? 'bg-gray-800' : 'bg-gray-200'}`}>
-                                <div
-                                    className="h-full rounded-full bg-gradient-to-r from-red-600 to-red-400"
-                                    style={{ width: `${(plan.credits / 500) * 100}%` }}
-                                />
-                            </div>
-
-                            {/* Price */}
-                            <div className={`rounded-xl px-4 py-3 mb-5 border ${theme === 'dark' ? 'bg-gray-800/50 border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
-                                <div className="flex items-center justify-between">
-                                    <span className={`text-xs font-medium ${sub}`}>Price</span>
-                                    <span className={`text-2xl font-black flex items-center gap-0.5 ${text}`}>
-                                        <FaRupeeSign size={18} />
-                                        {plan.price}
-                                    </span>
-                                </div>
-                                <div className="flex items-center justify-between mt-1">
-                                    <span className={`text-xs ${sub}`}>Per credit</span>
-                                    <span className={`text-xs font-semibold flex items-center gap-0.5 ${plan.color}`}>
-                                        <FaRupeeSign size={10} />
-                                        {(plan.price / plan.credits).toFixed(1)}/credit
-                                    </span>
-                                </div>
-                            </div>
-
-                            {/* Buy button */}
-                            <a
-                                href={TELEGRAM_URL}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className={`w-full py-3 rounded-xl font-bold text-sm text-center flex items-center justify-center gap-2 transition-all active:scale-95 ${plan.popular
-                                    ? 'bg-red-600 hover:bg-red-700 text-white shadow-lg shadow-red-900/30'
-                                    : 'bg-blue-500/10 hover:bg-blue-500 border border-blue-500/30 text-blue-400 hover:text-white'
-                                    }`}
-                            >
-                                <FaShoppingCart size={14} />
-                                Buy Now
-                            </a>
-                        </div>
-                    ))}
+                {/* Credits count */}
+                <div className="flex items-end gap-2 mb-1">
+                  <span className={`text-5xl font-black ${plan.color}`} style={{ fontFamily: "'Rajdhani', sans-serif" }}>
+                    {plan.credits}
+                  </span>
+                  <span className={`text-sm mb-2.5 font-semibold ${dark ? 'text-slate-500' : 'text-slate-400'}`}>
+                    credits
+                  </span>
                 </div>
 
-                {/* Info note */}
-                <div className={`mt-8 rounded-2xl border p-5 flex items-start gap-4 ${card}`}>
-                    <div className="w-9 h-9 rounded-xl bg-blue-600/10 border border-blue-600/20 flex items-center justify-center shrink-0 mt-0.5">
-                        <FaInfoCircle className="text-blue-400" size={16} />
-                    </div>
-                    <div>
-                        <p className={`font-bold text-sm mb-1 ${text}`}>How to Purchase</p>
-                        <p className={`text-xs leading-relaxed ${sub}`}>
-                            Click{' '}
-                            <span className="text-blue-400 font-semibold">Buy Now</span>
-                            {' '}on any plan to open our Telegram bot.
-                            Send the plan name and complete payment via UPI/bank transfer.
-                            Credits are added to your account within minutes after confirmation.
-                        </p>
-                    </div>
+                {/* Animated credit bar */}
+                <div className={`w-full h-1.5 rounded-full mb-5 overflow-hidden ${dark ? 'bg-white/[0.06]' : 'bg-slate-100'}`}>
+                  <div
+                    className="credit-bar-fill h-full rounded-full bg-gradient-to-r from-red-600 to-red-400"
+                    style={{ width: `${(plan.credits / 500) * 100}%` }}
+                  />
                 </div>
 
+                {/* Price box */}
+                <div className={`rounded-xl px-4 py-3 mb-5 border ${dark ? 'bg-white/[0.03] border-white/[0.07]' : 'bg-slate-50 border-slate-200'}`}>
+                  <div className="flex items-center justify-between">
+                    <span className={`text-xs font-medium ${dark ? 'text-slate-500' : 'text-slate-400'}`}>Price</span>
+                    <span
+                      className={`text-2xl font-black flex items-center gap-0.5 ${dark ? 'text-white' : 'text-slate-900'}`}
+                      style={{ fontFamily: "'Rajdhani', sans-serif" }}
+                    >
+                      <FaRupeeSign size={17} />
+                      {plan.price}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between mt-1">
+                    <span className={`text-xs ${dark ? 'text-slate-600' : 'text-slate-400'}`}>Per credit</span>
+                    <span className={`text-xs font-bold flex items-center gap-0.5 ${plan.color}`}>
+                      <FaRupeeSign size={10} />
+                      {(plan.price / plan.credits).toFixed(1)}/credit
+                    </span>
+                  </div>
+                </div>
+
+                {/* Buy button */}
+                <a
+                  href={TELEGRAM_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`w-full py-3 rounded-xl font-bold text-sm text-center flex items-center justify-center gap-2 transition-all active:scale-95 mt-auto ${
+                    plan.popular
+                      ? 'bg-red-600 hover:bg-red-500 text-white'
+                      : dark
+                        ? 'bg-white/[0.05] hover:bg-white/[0.08] border border-white/[0.1] text-slate-300 hover:text-white'
+                        : 'bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700'
+                  }`}
+                  style={{
+                    fontFamily: "'Rajdhani', sans-serif",
+                    letterSpacing: '0.06em',
+                    boxShadow: plan.popular ? '0 4px 20px rgba(220,38,38,0.3)' : 'none',
+                  }}
+                >
+                  <FaShoppingCart size={13} />
+                  BUY NOW
+                </a>
+              </div>
+            ))}
+          </div>
+
+          {/* ── Info note ── */}
+          <div ref={infoRef} className={`rounded-2xl border p-5 flex items-start gap-4 transition-all ${cardCls}`} style={{ opacity: 0 }}>
+            <div className="w-9 h-9 rounded-xl bg-blue-600/10 border border-blue-600/20 flex items-center justify-center shrink-0 mt-0.5">
+              <FaInfoCircle className="text-blue-400" size={15} />
             </div>
+            <div>
+              <p
+                className={`font-bold text-sm mb-1 ${dark ? 'text-white' : 'text-slate-900'}`}
+                style={{ fontFamily: "'Rajdhani', sans-serif", letterSpacing: '0.04em' }}
+              >
+                HOW TO PURCHASE
+              </p>
+              <p className={`text-xs leading-relaxed ${dark ? 'text-slate-400' : 'text-slate-500'}`}>
+                Click <span className="text-blue-400 font-semibold">Buy Now</span> on any plan to open our Telegram bot.
+                Send the plan name and complete payment via UPI/bank transfer.
+                Credits are added to your account within minutes after confirmation.
+              </p>
+            </div>
+          </div>
         </div>
-    );
+
+        <Footer theme={theme} />
+      </div>
+    </div>
+  );
 }
