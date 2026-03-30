@@ -24,6 +24,7 @@ export default function Attack({ toggleTheme, theme, setIsAuth }) {
     const [attackHistory, setAttackHistory] = useState([]);
     const [captchaReady, setCaptchaReady] = useState(false);
     const [cooldown, setCooldown] = useState(0);
+    const cooldownTimerRef = useRef(null);
 
     const navigate = useNavigate();
     const dark = theme !== 'light';
@@ -41,6 +42,10 @@ export default function Attack({ toggleTheme, theme, setIsAuth }) {
     useEffect(() => {
         const saved = localStorage.getItem('attackHistory');
         if (saved) { try { setAttackHistory(JSON.parse(saved)); } catch (e) { } }
+    }, []);
+
+    useEffect(() => {
+        return () => clearInterval(cooldownTimerRef.current);
     }, []);
 
     const saveAttackHistory = useCallback((h) => {
@@ -215,16 +220,18 @@ export default function Attack({ toggleTheme, theme, setIsAuth }) {
 
             // ✅ Handle server overload / cooldown
             if (status === 429) {
-                const cooldownTime  = err.response?.data?.cooldown || 5;
-                setLaunchError(`Server is busy. Too many attacks running. Please wait ${cooldownTime}seconds`);
+                const cooldownTime = err.response?.data?.cooldown || 5;
+                setLaunchError(`Server is busy. Too many attacks running. Please wait ${cooldownTime} seconds`);
 
                 // optional: start cooldown timer
                 setCooldown(cooldownTime);
 
-                const interval = setInterval(() => {
+                clearInterval(cooldownTimerRef.current);
+
+                cooldownTimerRef.current = setInterval(() => {
                     setCooldown(prev => {
                         if (prev <= 1) {
-                            clearInterval(interval);
+                            clearInterval(cooldownTimerRef.current);
                             return 0;
                         }
                         return prev - 1;
