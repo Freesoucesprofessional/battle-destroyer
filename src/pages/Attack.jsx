@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { FaExclamationTriangle, FaCheckCircle, FaStopCircle, FaTrash, FaHistory, FaGem } from 'react-icons/fa';
+import { FaExclamationTriangle, FaCheckCircle, FaTrash, FaHistory, FaGem } from 'react-icons/fa';
 import Navbar from '../components/Navbar';
 import TurnstileWidget from '../components/TurnstileWidget';
 
@@ -14,7 +14,6 @@ export default function Attack({ toggleTheme, theme, setIsAuth }) {
     const [launchError, setLaunchError] = useState('');
     const [attackStatus, setAttackStatus] = useState(null);
     const [attackCompleted, setAttackCompleted] = useState(false);
-    const [stoppingAttack, setStoppingAttack] = useState(false);
     const [timeLeft, setTimeLeft] = useState(0);
     const [attackHistory, setAttackHistory] = useState([]);
     const navigate = useNavigate();
@@ -534,23 +533,19 @@ export default function Attack({ toggleTheme, theme, setIsAuth }) {
                                 }`}>
                                     {/* Header row */}
                                     <div className="flex items-center justify-between mb-2">
-                                        <div className="flex items-center gap-2">
+                                        <div className="flex items-center gap-2 min-w-0">
                                             <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse flex-shrink-0" />
-                                            <span className={`font-mono font-bold text-sm ${text}`}>
+                                            <span className={`font-mono font-bold text-sm truncate ${text}`}>
                                                 {attackStatus.ip}:{attackStatus.port}
                                             </span>
                                         </div>
-                                        <span className={`font-black text-lg tabular-nums ${
-                                            timeLeft <= 10 ? 'text-red-500' :
-                                            timeLeft <= 30 ? 'text-red-400' :
-                                            'text-red-500'
-                                        }`}>
+                                        <span className="font-black text-lg tabular-nums text-red-500 flex-shrink-0 ml-2">
                                             {timeLeft}s
                                         </span>
                                     </div>
 
                                     {/* Progress bar */}
-                                    <div className="w-full h-1.5 bg-gray-700/30 rounded-full overflow-hidden mb-3">
+                                    <div className="w-full h-1.5 bg-gray-700/30 rounded-full overflow-hidden mb-2">
                                         <div
                                             className="h-full rounded-full transition-all duration-1000"
                                             style={{
@@ -560,24 +555,10 @@ export default function Attack({ toggleTheme, theme, setIsAuth }) {
                                         />
                                     </div>
 
-                                    {/* Duration info + stop button */}
+                                    {/* Duration info */}
                                     <div className="flex items-center justify-between">
                                         <span className={`text-xs ${sub}`}>{attackStatus.duration}s total</span>
-                                        <button
-                                            onClick={stopAttack}
-                                            disabled={stoppingAttack}
-                                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                                                stoppingAttack
-                                                    ? 'bg-gray-700 text-gray-400 cursor-wait'
-                                                    : 'bg-red-600 hover:bg-red-700 text-white active:scale-95'
-                                            }`}
-                                        >
-                                            {stoppingAttack ? (
-                                                <><div className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin" />Stopping</>
-                                            ) : (
-                                                <><FaStopCircle size={11} />Stop</>
-                                            )}
-                                        </button>
+                                        <span className="text-xs font-bold text-red-400 uppercase tracking-wide">● Running</span>
                                     </div>
                                 </div>
                             )}
@@ -603,32 +584,43 @@ export default function Attack({ toggleTheme, theme, setIsAuth }) {
                                         else if (diffHours < 24) timeAgo = `${diffHours}h ago`;
                                         else timeAgo = `${diffDays}d ago`;
 
+                                        // An entry is truly running only if the global attackStatus
+                                        // is still active AND this is the current running entry
+                                        const isLiveRunning =
+                                            attack.status === 'running' &&
+                                            attackStatus?.status === 'running' &&
+                                            attack.id === runningHistoryIdRef.current;
+
                                         const isCompleted = attack.status === 'completed';
 
                                         return (
                                             <div
                                                 key={attack.id}
-                                                className={`rounded-lg px-3 py-2.5 border flex items-center justify-between gap-2 transition-all ${
+                                                className={`rounded-lg px-3 py-2.5 border transition-all ${
                                                     isCompleted
                                                         ? theme === 'dark'
                                                             ? 'bg-gray-800/60 border-gray-700/50'
                                                             : 'bg-gray-50 border-gray-200'
                                                         : theme === 'dark'
-                                                            ? 'bg-red-500/10 border-red-500/30'
-                                                            : 'bg-red-50 border-red-200'
+                                                            ? 'bg-red-500/8 border-red-500/20'
+                                                            : 'bg-red-50/60 border-red-200'
                                                 }`}
                                             >
-                                                {/* Left: ip:port */}
-                                                <span className={`font-mono text-sm font-bold truncate ${text}`}>
-                                                    {attack.ip}:{attack.port}
-                                                </span>
-
-                                                {/* Right: time + status dot */}
-                                                <div className="flex items-center gap-2 flex-shrink-0">
-                                                    <span className={`text-xs ${sub}`}>{timeAgo}</span>
-                                                    <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
-                                                        isCompleted ? 'bg-green-500' : 'bg-red-500 animate-pulse'
-                                                    }`} />
+                                                {/* Row: ip:port — time · STATUS */}
+                                                <div className="flex items-center justify-between gap-2">
+                                                    <span className={`font-mono text-sm font-bold truncate ${text}`}>
+                                                        {attack.ip}:{attack.port}
+                                                    </span>
+                                                    <div className="flex items-center gap-2 flex-shrink-0">
+                                                        <span className={`text-xs ${sub} tabular-nums`}>{timeAgo}</span>
+                                                        <span className={`text-xs font-bold uppercase tracking-wide ${
+                                                            isCompleted
+                                                                ? 'text-green-400'
+                                                                : 'text-red-400'
+                                                        }`}>
+                                                            {isCompleted ? '✓ Done' : '● Live'}
+                                                        </span>
+                                                    </div>
                                                 </div>
                                             </div>
                                         );
