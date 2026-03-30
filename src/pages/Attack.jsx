@@ -288,27 +288,6 @@ export default function Attack({ toggleTheme, theme, setIsAuth }) {
         }
     };
 
-    const stopAttack = async () => {
-        if (!attackStatus) return;
-        setStoppingAttack(true);
-        try {
-            const token = localStorage.getItem('token');
-            await axios.post(
-                `${API_URL}/api/panel/stop-attack`,
-                {},
-                { headers: { Authorization: `Bearer ${token}` } }
-            );
-            clearInterval(countdownRef.current);
-            clearInterval(statusPollRef.current);
-            setAttackStatus(null);
-            setTimeLeft(0);
-            markRunningComplete();
-        } catch (err) {
-            setLaunchError(err.response?.data?.message || 'Failed to stop attack');
-        } finally {
-            setStoppingAttack(false);
-        }
-    };
 
     const MAX_DURATION = user?.isPro ? 300 : 60;
     const progressPct = attackStatus
