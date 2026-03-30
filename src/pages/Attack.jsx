@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { FaGem, FaClipboard, FaExclamationTriangle, FaCheckCircle, FaCrown, FaStopCircle, FaSyncAlt, FaServer } from 'react-icons/fa';
+import { FaGem, FaClipboard, FaExclamationTriangle, FaCheckCircle, FaCrown, FaStopCircle } from 'react-icons/fa';
 import { Link } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import TurnstileWidget from '../components/TurnstileWidget';
@@ -13,9 +13,10 @@ export default function Attack({ toggleTheme, theme }) {
     const [launching, setLaunching] = useState(false);
     const [launched, setLaunched] = useState(false);
     const [launchError, setLaunchError] = useState('');
-    const [attackStatus, setAttackStatus] = useState(null);
+    const [attackStatus, setAttackStatus] = useState(null); // null | { status, ip, port, duration, startedAt }
+    const [attackCompleted, setAttackCompleted] = useState(false);
     const [stoppingAttack, setStoppingAttack] = useState(false);
-    const [bgmiServer, setBgmiServer] = useState(null);
+    const [timeLeft, setTimeLeft] = useState(0);
     const navigate = useNavigate();
     const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
     const [captchaReady, setCaptchaReady] = useState(false);
@@ -23,36 +24,63 @@ export default function Attack({ toggleTheme, theme }) {
     const captchaIssuedRef = useRef(null);
     const expiryTimerRef = useRef(null);
     const turnstileRef = useRef(null);
-    const statusIntervalRef = useRef(null);
+    const countdownRef = useRef(null);   // live 1s countdown ticker
+    const statusPollRef = useRef(null);  // server poll every 10s
     const TOKEN_MAX_AGE_MS = 270_000;
 
-    // ── startStatusPolling defined FIRST so checkAttackStatus can depend on it ──
-    const startStatusPolling = useCallback(() => {
-        if (statusIntervalRef.current) {
-            clearInterval(statusIntervalRef.current);
-        }
+    // ── Countdown ticker ───────────────────────────────────────────────────────
+    const startCountdown = useCallback((startedAt, duration) => {
+        if (countdownRef.current) clearInterval(countdownRef.current);
 
-        statusIntervalRef.current = setInterval(async () => {
+        const tick = () => {
+            const elapsed = (Date.now() - new Date(startedAt).getTime()) / 1000;
+            const remaining = Math.max(0, Math.floor(duration - elapsed));
+            setTimeLeft(remaining);
+
+            if (remaining <= 0) {
+                clearInterval(countdownRef.current);
+                setAttackStatus(null);
+                setAttackCompleted(true);
+                // Hide "completed" banner after 6 seconds
+                setTimeout(() => setAttackCompleted(false), 6000);
+            }
+        };
+
+        tick(); // run immediately
+        countdownRef.current = setInterval(tick, 1000);
+    }, []);
+
+    // ── Server-side poll (every 10s to sync with backend) ─────────────────────
+    const startStatusPolling = useCallback(() => {
+        if (statusPollRef.current) clearInterval(statusPollRef.current);
+
+        statusPollRef.current = setInterval(async () => {
             try {
                 const token = localStorage.getItem('token');
                 const response = await axios.get(`${API_URL}/api/panel/attack-status`, {
                     headers: { Authorization: `Bearer ${token}` }
                 });
 
-                if (response.data.data?.status !== 'running') {
+                const data = response.data.data;
+
+                if (data?.status === 'completed') {
+                    clearInterval(statusPollRef.current);
+                    clearInterval(countdownRef.current);
                     setAttackStatus(null);
-                    setBgmiServer(null);
-                    clearInterval(statusIntervalRef.current);
-                } else {
-                    setAttackStatus(response.data.data);
+                    setTimeLeft(0);
+                    setAttackCompleted(true);
+                    setTimeout(() => setAttackCompleted(false), 6000);
+                } else if (data?.status !== 'running') {
+                    clearInterval(statusPollRef.current);
+                    setAttackStatus(null);
                 }
             } catch (err) {
-                console.error('Error polling attack status:', err);
+                console.error('Poll error:', err);
             }
         }, 10000);
     }, [API_URL]);
 
-    // ── checkAttackStatus depends on startStatusPolling — defined after it ──────
+    // ── Check for existing attack on mount ────────────────────────────────────
     const checkAttackStatus = useCallback(async () => {
         try {
             const token = localStorage.getItem('token');
@@ -60,17 +88,18 @@ export default function Attack({ toggleTheme, theme }) {
                 headers: { Authorization: `Bearer ${token}` }
             });
 
-            if (response.data.data?.status === 'running') {
-                setAttackStatus(response.data.data);
-                setBgmiServer(response.data.data.bgmiServer);
-                startStatusPolling(); // ✅ stable reference
+            const data = response.data.data;
+            if (data?.status === 'running') {
+                setAttackStatus(data);
+                startCountdown(data.startedAt, data.duration);
+                startStatusPolling();
             }
         } catch (err) {
             console.error('Error checking attack status:', err);
         }
-    }, [API_URL, startStatusPolling]); // ✅ FIXED: startStatusPolling added
+    }, [API_URL, startCountdown, startStatusPolling]);
 
-    // ── Load user and check for existing attack ────────────────────────────────
+    // ── Load user + check status on mount ────────────────────────────────────
     useEffect(() => {
         const token = localStorage.getItem('token');
         axios.get(`${API_URL}/api/panel/me`, {
@@ -86,18 +115,16 @@ export default function Attack({ toggleTheme, theme }) {
         checkAttackStatus();
 
         return () => {
-            if (statusIntervalRef.current) {
-                clearInterval(statusIntervalRef.current);
-            }
+            clearInterval(countdownRef.current);
+            clearInterval(statusPollRef.current);
         };
     }, [navigate, API_URL, checkAttackStatus]);
 
-    // ── Cleanup on unmount ─────────────────────────────────────────────────────
+    // ── Cleanup on unmount ────────────────────────────────────────────────────
     useEffect(() => () => {
         clearTimeout(expiryTimerRef.current);
-        if (statusIntervalRef.current) {
-            clearInterval(statusIntervalRef.current);
-        }
+        clearInterval(countdownRef.current);
+        clearInterval(statusPollRef.current);
     }, []);
 
     const handle = e => {
@@ -122,7 +149,9 @@ export default function Attack({ toggleTheme, theme }) {
         expiryTimerRef.current = setTimeout(resetCaptcha, TOKEN_MAX_AGE_MS);
     }, [resetCaptcha]);
 
-    // ── Client-side validation ─────────────────────────────────────────────────
+    // ── Validation ────────────────────────────────────────────────────────────
+    const BLOCKED_PORTS = new Set([8700, 20000, 443, 17500, 9031, 20002, 20001]);
+
     const validate = () => {
         const errs = {};
         const MAX = user?.isPro ? 300 : 60;
@@ -134,6 +163,7 @@ export default function Attack({ toggleTheme, theme }) {
         const port = parseInt(form.port);
         if (!form.port) errs.port = 'Port is required';
         else if (isNaN(port) || port < 1 || port > 65535) errs.port = 'Port must be 1–65535';
+        else if (BLOCKED_PORTS.has(port)) errs.port = `Port ${port} is blocked and cannot be used`;
 
         const dur = parseInt(form.duration);
         if (!form.duration) errs.duration = 'Duration is required';
@@ -143,18 +173,16 @@ export default function Attack({ toggleTheme, theme }) {
         return errs;
     };
 
-    // ── Launch ─────────────────────────────────────────────────────────────────
+    // ── Launch ────────────────────────────────────────────────────────────────
     const launch = async () => {
         setLaunchError('');
         setLaunched(false);
+        setAttackCompleted(false);
 
         const captchaToken = captchaTokenRef.current;
         const issuedAt = captchaIssuedRef.current;
 
-        if (!captchaToken) {
-            setLaunchError('Please complete the CAPTCHA before launching.');
-            return;
-        }
+        if (!captchaToken) { setLaunchError('Please complete the CAPTCHA before launching.'); return; }
         if (!issuedAt || Date.now() - issuedAt > TOKEN_MAX_AGE_MS) {
             resetCaptcha();
             setLaunchError('CAPTCHA expired. Please solve it again.');
@@ -162,10 +190,7 @@ export default function Attack({ toggleTheme, theme }) {
         }
 
         const errs = validate();
-        if (Object.keys(errs).length > 0) {
-            setErrors(errs);
-            return;
-        }
+        if (Object.keys(errs).length > 0) { setErrors(errs); return; }
 
         if (attackStatus?.status === 'running') {
             setLaunchError('You already have an attack running. Please stop it first.');
@@ -177,30 +202,27 @@ export default function Attack({ toggleTheme, theme }) {
             const token = localStorage.getItem('token');
             const { data } = await axios.post(
                 `${API_URL}/api/panel/attack`,
-                {
-                    ip: form.ip,
-                    port: form.port,
-                    duration: form.duration,
-                    captchaToken
-                },
+                { ip: form.ip, port: form.port, duration: form.duration, captchaToken },
                 { headers: { Authorization: `Bearer ${token}` } }
             );
 
             setUser(prev => ({ ...prev, credits: data.credits }));
             localStorage.setItem('user', JSON.stringify({ ...user, credits: data.credits }));
 
-            setLaunched(true);
-            setAttackStatus({
+            const status = {
                 status: 'running',
                 ip: form.ip,
                 port: parseInt(form.port),
                 duration: parseInt(form.duration),
-                startedAt: data.attack.startedAt || new Date().toISOString()
-            });
-            setBgmiServer(data.attack.bgmiServer);
+                startedAt: data.attack.startedAt
+            };
+
+            setAttackStatus(status);
+            setLaunched(true);
+            startCountdown(data.attack.startedAt, parseInt(form.duration));
             startStatusPolling();
 
-            setTimeout(() => setLaunched(false), 4000);
+            setTimeout(() => setLaunched(false), 3000);
             resetCaptcha();
 
         } catch (err) {
@@ -210,42 +232,33 @@ export default function Attack({ toggleTheme, theme }) {
             if (err.response?.data?.credits !== undefined) {
                 setUser(prev => ({ ...prev, credits: err.response.data.credits }));
             }
-
             if (err.response?.data?.maxDuration) {
                 setErrors(prev => ({
                     ...prev,
                     duration: `Max duration is ${err.response.data.maxDuration}s${!user?.isPro ? ' (upgrade to Pro for 300s)' : ''}`
                 }));
             }
-
             resetCaptcha();
         } finally {
             setLaunching(false);
         }
     };
 
-    // ── Stop Attack ────────────────────────────────────────────────────────────
+    // ── Stop Attack ───────────────────────────────────────────────────────────
     const stopAttack = async () => {
-        if (!attackStatus) {
-            setLaunchError('No active attack to stop');
-            return;
-        }
-
+        if (!attackStatus) return;
         setStoppingAttack(true);
         try {
             const token = localStorage.getItem('token');
-            // ✅ FIXED: no longer sending bgmiServerUrl — backend uses server-side map
             await axios.post(
                 `${API_URL}/api/panel/stop-attack`,
                 {},
                 { headers: { Authorization: `Bearer ${token}` } }
             );
-
+            clearInterval(countdownRef.current);
+            clearInterval(statusPollRef.current);
             setAttackStatus(null);
-            setBgmiServer(null);
-            if (statusIntervalRef.current) {
-                clearInterval(statusIntervalRef.current);
-            }
+            setTimeLeft(0);
         } catch (err) {
             setLaunchError(err.response?.data?.message || 'Failed to stop attack');
         } finally {
@@ -254,6 +267,9 @@ export default function Attack({ toggleTheme, theme }) {
     };
 
     const MAX_DURATION = user?.isPro ? 300 : 60;
+    const progressPct = attackStatus
+        ? Math.min(100, Math.round(((attackStatus.duration - timeLeft) / attackStatus.duration) * 100))
+        : 0;
 
     const bg = theme === 'dark'
         ? 'bg-gray-950 bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950'
@@ -282,17 +298,7 @@ export default function Attack({ toggleTheme, theme }) {
         `Duration: 1 – ${MAX_DURATION} seconds`,
         '1 credit per attack launch',
         'No concurrent attacks',
-        'BGMI server will auto-stop after duration'
     ];
-
-    const getRemainingTime = () => {
-        if (!attackStatus || !attackStatus.startedAt) return 0;
-        const startTime = new Date(attackStatus.startedAt).getTime();
-        const elapsed = Date.now() - startTime;
-        return Math.max(0, Math.floor((attackStatus.duration * 1000 - elapsed) / 1000));
-    };
-
-    const remainingTime = getRemainingTime();
 
     return (
         <div className={`min-h-screen ${bg} transition-colors duration-300`}>
@@ -321,17 +327,14 @@ export default function Attack({ toggleTheme, theme }) {
                         <p className={`text-sm ${sub}`}>
                             Free Account — attacks limited to <span className="font-bold text-white">60 seconds</span>
                         </p>
-                        <Link
-                            to="/contact"
-                            className="text-xs bg-red-600/20 hover:bg-red-600 border border-red-600/30 text-red-400 hover:text-white px-3 py-1 rounded-lg font-semibold whitespace-nowrap transition-all"
-                        >
+                        <Link to="/contact" className="text-xs bg-red-600/20 hover:bg-red-600 border border-red-600/30 text-red-400 hover:text-white px-3 py-1 rounded-lg font-semibold whitespace-nowrap transition-all">
                             Upgrade to Pro
                         </Link>
                     </div>
                 )}
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-                    {/* Attack Form */}
+                    {/* ── Attack Form ── */}
                     <div className="lg:col-span-2">
                         <div className={`rounded-2xl border overflow-hidden ${card}`}>
                             <div className={`px-5 sm:px-6 py-4 border-b flex items-center gap-3 ${theme === 'dark' ? 'border-gray-800 bg-gray-800/30' : 'border-gray-200 bg-gray-50'}`}>
@@ -387,46 +390,87 @@ export default function Attack({ toggleTheme, theme }) {
                                     </div>
                                 </div>
 
-                                {/* Active Attack Status */}
+                                {/* ── LIVE ATTACK STATUS PANEL ── */}
                                 {attackStatus?.status === 'running' && (
-                                    <div className={`rounded-xl p-4 border font-mono text-xs space-y-2 ${theme === 'dark' ? 'bg-blue-900/30 border-blue-700' : 'bg-blue-50 border-blue-200'}`}>
-                                        <div className="flex items-center gap-2 mb-2">
-                                            <FaServer className="text-blue-400" />
-                                            <p className={`font-bold ${text}`}>Attack In Progress</p>
+                                    <div className={`rounded-xl border overflow-hidden ${theme === 'dark' ? 'bg-gray-900 border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
+                                        {/* Header bar */}
+                                        <div className="bg-red-600 px-4 py-2 flex items-center gap-2">
+                                            <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
+                                            <span className="text-white text-xs font-bold uppercase tracking-widest">Attack In Progress</span>
                                         </div>
-                                        <p className="text-blue-400">Target: <span className="text-white">{attackStatus.ip}:{attackStatus.port}</span></p>
-                                        <p className="text-blue-400">Duration: <span className="text-white">{attackStatus.duration}s</span></p>
-                                        <p className="text-blue-400">Started: <span className="text-white">{new Date(attackStatus.startedAt).toLocaleString()}</span></p>
-                                        <p className="text-blue-400">Time Remaining: <span className="text-white">{remainingTime}s</span></p>
-                                        <div className="w-full bg-gray-700 rounded-full h-2.5 mt-2">
-                                            <div
-                                                className="bg-blue-600 h-2.5 rounded-full transition-all"
-                                                style={{ width: `${100 - (remainingTime / attackStatus.duration * 100)}%` }}
-                                            />
+
+                                        <div className="p-4 space-y-4">
+                                            {/* Target */}
+                                            <div className="text-center">
+                                                <p className={`text-xs uppercase tracking-widest mb-1 ${sub}`}>Target</p>
+                                                <p className={`font-black text-xl font-mono ${text}`}>
+                                                    {attackStatus.ip}
+                                                    <span className="text-red-500">:</span>
+                                                    {attackStatus.port}
+                                                </p>
+                                            </div>
+
+                                            {/* Big countdown */}
+                                            <div className="text-center">
+                                                <p className={`text-xs uppercase tracking-widest mb-1 ${sub}`}>Time Remaining</p>
+                                                <p className={`font-black tabular-nums ${
+                                                    timeLeft <= 10 ? 'text-red-500 text-5xl' :
+                                                    timeLeft <= 30 ? 'text-yellow-400 text-5xl' :
+                                                    'text-green-400 text-5xl'
+                                                }`}>
+                                                    {timeLeft}s
+                                                </p>
+                                            </div>
+
+                                            {/* Progress bar */}
+                                            <div>
+                                                <div className={`w-full h-3 rounded-full overflow-hidden ${theme === 'dark' ? 'bg-gray-800' : 'bg-gray-200'}`}>
+                                                    <div
+                                                        className="h-full rounded-full transition-all duration-1000"
+                                                        style={{
+                                                            width: `${progressPct}%`,
+                                                            background: timeLeft <= 10
+                                                                ? 'linear-gradient(90deg, #ef4444, #f97316)'
+                                                                : 'linear-gradient(90deg, #3b82f6, #6366f1)'
+                                                        }}
+                                                    />
+                                                </div>
+                                                <div className="flex justify-between mt-1">
+                                                    <span className={`text-xs ${sub}`}>0s</span>
+                                                    <span className={`text-xs ${sub}`}>{attackStatus.duration}s</span>
+                                                </div>
+                                            </div>
+
+                                            {/* Stop button */}
+                                            <button
+                                                onClick={stopAttack}
+                                                disabled={stoppingAttack}
+                                                className={`w-full py-2.5 rounded-xl font-semibold text-sm transition-all flex items-center justify-center gap-2 ${
+                                                    stoppingAttack
+                                                        ? 'bg-gray-600 text-gray-400 cursor-wait'
+                                                        : 'bg-red-600 hover:bg-red-700 text-white'
+                                                }`}
+                                            >
+                                                {stoppingAttack ? (
+                                                    <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />Stopping...</>
+                                                ) : (
+                                                    <><FaStopCircle /> Stop Attack</>
+                                                )}
+                                            </button>
                                         </div>
-                                        <button
-                                            onClick={stopAttack}
-                                            disabled={stoppingAttack}
-                                            className={`mt-3 w-full py-2 rounded-xl font-semibold text-sm transition-all flex items-center justify-center gap-2 ${
-                                                stoppingAttack
-                                                    ? 'bg-gray-600 text-gray-400 cursor-wait'
-                                                    : 'bg-red-600 hover:bg-red-700 text-white'
-                                            }`}
-                                        >
-                                            {stoppingAttack ? (
-                                                <>
-                                                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                                                    Stopping...
-                                                </>
-                                            ) : (
-                                                <><FaStopCircle /> Stop Attack</>
-                                            )}
-                                        </button>
                                     </div>
                                 )}
 
-                                {/* Preview */}
-                                {(form.ip || form.port || form.duration) && !attackStatus && (
+                                {/* ── COMPLETED BANNER ── */}
+                                {attackCompleted && (
+                                    <div className="bg-green-500/10 border border-green-500/40 rounded-xl px-4 py-4 text-center space-y-1">
+                                        <p className="text-green-400 font-black text-lg">✅ Attack Completed</p>
+                                        <p className={`text-xs ${sub}`}>Your attack has finished successfully.</p>
+                                    </div>
+                                )}
+
+                                {/* Preview (only when not attacking) */}
+                                {(form.ip || form.port || form.duration) && !attackStatus && !attackCompleted && (
                                     <div className={`rounded-xl p-4 border font-mono text-xs space-y-1 ${theme === 'dark' ? 'bg-gray-800/50 border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
                                         <p className={sub}>Attack Preview:</p>
                                         <p className="text-green-400">Target: <span className="text-white">{form.ip || '—'}:{form.port || '—'}</span></p>
@@ -442,7 +486,7 @@ export default function Attack({ toggleTheme, theme }) {
                                     </div>
                                 )}
 
-                                {/* Success */}
+                                {/* Success flash */}
                                 {launched && (
                                     <div className="bg-green-500/10 border border-green-500/40 text-green-400 rounded-xl px-4 py-3 text-sm flex items-center gap-2">
                                         <FaCheckCircle size={16} />
@@ -475,28 +519,19 @@ export default function Attack({ toggleTheme, theme }) {
                                     onClick={launch}
                                     disabled={launching || user.credits < 1 || !captchaReady || attackStatus?.status === 'running'}
                                     className={`w-full py-4 rounded-xl font-black text-base tracking-wider transition-all flex items-center justify-center gap-3 ${
-                                        user.credits < 1
+                                        user.credits < 1 || !captchaReady || attackStatus?.status === 'running'
                                             ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
-                                            : !captchaReady
-                                                ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
-                                                : attackStatus?.status === 'running'
-                                                    ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
-                                                    : launching
-                                                        ? 'bg-red-700 text-white cursor-wait'
-                                                        : 'bg-red-600 hover:bg-red-700 active:scale-95 text-white shadow-xl shadow-red-900/30'
+                                            : launching
+                                                ? 'bg-red-700 text-white cursor-wait'
+                                                : 'bg-red-600 hover:bg-red-700 active:scale-95 text-white shadow-xl shadow-red-900/30'
                                     }`}
                                 >
                                     {launching ? (
                                         <><div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />Launching Attack...</>
-                                    ) : user.credits < 1 ? (
-                                        '⛔ Insufficient Credits'
-                                    ) : !captchaReady ? (
-                                        '🔒 Complete CAPTCHA to Launch'
-                                    ) : attackStatus?.status === 'running' ? (
-                                        '🚀 Attack Already Running'
-                                    ) : (
-                                        '🚀 Launch Attack'
-                                    )}
+                                    ) : user.credits < 1 ? '⛔ Insufficient Credits'
+                                      : !captchaReady ? '🔒 Complete CAPTCHA to Launch'
+                                      : attackStatus?.status === 'running' ? '🚀 Attack Already Running'
+                                      : '🚀 Launch Attack'}
                                 </button>
 
                                 {user.credits < 1 && (
@@ -508,7 +543,7 @@ export default function Attack({ toggleTheme, theme }) {
                         </div>
                     </div>
 
-                    {/* Sidebar */}
+                    {/* ── Sidebar ── */}
                     <div className="space-y-4">
                         {/* Credits card */}
                         <div className={`rounded-2xl p-5 border ${card}`}>
@@ -526,35 +561,10 @@ export default function Attack({ toggleTheme, theme }) {
                                     style={{ width: `${Math.min((user.credits / 10) * 100, 100)}%` }}
                                 />
                             </div>
-                            <Link
-                                to="/contact"
-                                className="mt-4 w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-red-600/10 hover:bg-red-600 border border-red-600/30 text-red-400 hover:text-white text-xs font-bold transition-all"
-                            >
-                                <FaGem size={12} />
-                                Buy Credits
+                            <Link to="/contact" className="mt-4 w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-red-600/10 hover:bg-red-600 border border-red-600/30 text-red-400 hover:text-white text-xs font-bold transition-all">
+                                <FaGem size={12} /> Buy Credits
                             </Link>
                         </div>
-
-                        {/* BGMI Server Status */}
-                        {bgmiServer && (
-                            <div className={`rounded-2xl p-5 border ${card}`}>
-                                <div className="flex items-center gap-2 mb-3">
-                                    <FaServer className="text-blue-500" />
-                                    <h3 className={`font-bold text-sm ${text}`}>BGMI Server</h3>
-                                </div>
-                                <div className="space-y-2 text-xs font-mono">
-                                    <p className={sub}>Endpoint: <span className="text-white">{bgmiServer}</span></p>
-                                    <p className={sub}>Status: <span className="text-green-400">Active</span></p>
-                                    <button
-                                        onClick={() => window.open(bgmiServer, '_blank')}
-                                        className="mt-2 w-full py-2 rounded-xl bg-blue-600/10 hover:bg-blue-600 border border-blue-600/30 text-blue-400 hover:text-white text-xs font-bold transition-all flex items-center justify-center gap-2"
-                                    >
-                                        <FaSyncAlt size={12} />
-                                        Check Server Status
-                                    </button>
-                                </div>
-                            </div>
-                        )}
 
                         {/* Rules */}
                         <div className={`rounded-2xl p-5 border ${card}`}>
