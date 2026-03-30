@@ -95,7 +95,7 @@ export default function Footer({ theme }) {
               className="inline-flex items-center gap-2.5 px-4 py-2.5 rounded-xl bg-blue-600/10 border border-blue-600/20 text-blue-400 hover:bg-blue-600/20 transition-all text-sm font-semibold mb-4"
             >
               <FaTelegram size={15} />
-              Telegram Bot
+              Telegram
             </a>
             <div className="space-y-2 mt-1">
               {[

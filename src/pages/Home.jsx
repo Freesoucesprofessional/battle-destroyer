@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import {
   FaBullseye,
@@ -105,6 +105,10 @@ const STEPS = [
 export default function Home({ toggleTheme, theme }) {
   const dark = theme !== 'light';
 
+  // Check if user is already logged in
+  const user = JSON.parse(localStorage.getItem('user') || '{}');
+  const isLoggedIn = !!(localStorage.getItem('token') && user.username);
+
   // Refs for scroll reveal
   const heroRef = useRef(null);
   const statsRef = useRef(null);
@@ -112,7 +116,6 @@ export default function Home({ toggleTheme, theme }) {
   const stepsRef = useRef(null);
   const ctaRef = useRef(null);
 
-  // Simple intersection observer for reveal animations (no GSAP needed)
   useEffect(() => {
     const observer = new IntersectionObserver(
       entries => {
@@ -159,13 +162,22 @@ export default function Home({ toggleTheme, theme }) {
       {/* ── TOP BAR ── */}
       <header
         className={`relative z-50 border-b ${
-          dark ? 'border-white/[0.06] bg-surface-900/80 backdrop-blur-xl' : 'border-black/[0.07] bg-white/80 backdrop-blur-xl'
+          dark
+            ? 'border-white/[0.06] bg-surface-900/80 backdrop-blur-xl'
+            : 'border-black/[0.07] bg-white/80 backdrop-blur-xl'
         }`}
       >
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+          {/* Logo */}
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-xl bg-red-600/15 border border-red-600/30 flex items-center justify-center">
-              <FaBullseye className="text-red-500" size={14} />
+            <div className="relative">
+              <div className="absolute inset-0 bg-red-600/30 rounded-lg blur-md" />
+              <img
+                src="/logo512.png"
+                alt="Battle Destroyer"
+                className="relative w-8 h-8 rounded-xl object-contain"
+                style={{ filter: 'drop-shadow(0 0 6px rgba(220,38,38,0.5))' }}
+              />
             </div>
             <span
               className="text-red-500 tracking-[0.15em] font-bold text-base"
@@ -176,6 +188,7 @@ export default function Home({ toggleTheme, theme }) {
           </div>
 
           <div className="flex items-center gap-3">
+            {/* Theme toggle */}
             <button
               onClick={toggleTheme}
               className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${
@@ -184,23 +197,33 @@ export default function Home({ toggleTheme, theme }) {
             >
               {dark ? <MdWbSunny size={17} /> : <MdNightlight size={17} />}
             </button>
-            <Link
-              to="/login"
-              className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
-                dark
-                  ? 'bg-white/[0.06] hover:bg-white/[0.1] text-slate-300 hover:text-white border border-white/[0.08]'
-                  : 'bg-black/[0.04] hover:bg-black/[0.07] text-slate-600 hover:text-slate-900 border border-black/[0.08]'
-              }`}
-            >
-              Login
-            </Link>
-            <Link
-              to="/signup"
-              className="px-4 py-2 rounded-xl text-sm font-bold bg-red-600 hover:bg-red-500 text-white transition-all active:scale-95"
-              style={{ boxShadow: '0 4px 20px rgba(220,38,38,0.3)' }}
-            >
-              Get Started
-            </Link>
+
+            {/* Auth-aware button: Dashboard if logged in, Login if not */}
+            {isLoggedIn ? (
+              <Link
+                to="/dashboard"
+                className="px-4 py-2 rounded-xl text-sm font-bold text-white bg-red-600 hover:bg-red-500 transition-all active:scale-95 flex items-center gap-2"
+                style={{
+                  boxShadow: '0 4px 20px rgba(220,38,38,0.35)',
+                  fontFamily: "'Rajdhani', sans-serif",
+                  letterSpacing: '0.06em',
+                }}
+              >
+                <FaBolt size={13} />
+                DASHBOARD
+              </Link>
+            ) : (
+              <Link
+                to="/login"
+                className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+                  dark
+                    ? 'bg-white/[0.06] hover:bg-white/[0.1] text-slate-300 hover:text-white border border-white/[0.08]'
+                    : 'bg-black/[0.04] hover:bg-black/[0.07] text-slate-600 hover:text-slate-900 border border-black/[0.08]'
+                }`}
+              >
+                Login
+              </Link>
+            )}
           </div>
         </div>
       </header>
@@ -218,7 +241,8 @@ export default function Home({ toggleTheme, theme }) {
 
         <div className="max-w-4xl mx-auto">
           {/* Badge */}
-          <div className="reveal-up inline-flex items-center gap-2 px-4 py-2 rounded-full border mb-6 text-xs font-bold uppercase tracking-widest"
+          <div
+            className="reveal-up inline-flex items-center gap-2 px-4 py-2 rounded-full border mb-6 text-xs font-bold uppercase tracking-widest"
             style={{
               background: 'rgba(220,38,38,0.08)',
               borderColor: 'rgba(220,38,38,0.25)',
@@ -249,7 +273,6 @@ export default function Home({ toggleTheme, theme }) {
                 WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent',
                 backgroundClip: 'text',
-                textShadow: 'none',
                 filter: 'drop-shadow(0 0 30px rgba(220,38,38,0.4))',
               }}
             >
@@ -266,29 +289,39 @@ export default function Home({ toggleTheme, theme }) {
             attack monitoring, and a powerful referral system.
           </p>
 
-          {/* CTAs */}
+          {/* ── CTAs — auth-aware ── */}
           <div className="reveal-up flex flex-col sm:flex-row items-center justify-center gap-3 mt-10">
-            <Link
-              to="/signup"
-              className="flex items-center gap-2.5 px-8 py-4 rounded-xl font-bold text-base text-white bg-red-600 hover:bg-red-500 transition-all active:scale-95 group"
-              style={{ boxShadow: '0 6px 30px rgba(220,38,38,0.4)', fontFamily: "'Rajdhani', sans-serif", letterSpacing: '0.06em' }}
-            >
-              <FaBullseye size={16} />
-              START FOR FREE
-              <FaArrowRight size={13} className="group-hover:translate-x-1 transition-transform" />
-            </Link>
-            <Link
-              to="/login"
-              className={`flex items-center gap-2.5 px-8 py-4 rounded-xl font-bold text-base transition-all active:scale-95 border ${
-                dark
-                  ? 'bg-white/[0.05] hover:bg-white/[0.08] border-white/[0.1] text-slate-300'
-                  : 'bg-black/[0.04] hover:bg-black/[0.07] border-black/[0.1] text-slate-700'
-              }`}
-              style={{ fontFamily: "'Rajdhani', sans-serif", letterSpacing: '0.06em' }}
-            >
-              <FaLock size={13} />
-              LOGIN
-            </Link>
+            {isLoggedIn ? (
+              /* User is logged in → show Dashboard button only */
+              <Link
+                to="/dashboard"
+                className="flex items-center gap-2.5 px-8 py-4 rounded-xl font-bold text-base text-white bg-red-600 hover:bg-red-500 transition-all active:scale-95 group"
+                style={{
+                  boxShadow: '0 6px 30px rgba(220,38,38,0.4)',
+                  fontFamily: "'Rajdhani', sans-serif",
+                  letterSpacing: '0.06em',
+                }}
+              >
+                <FaBolt size={16} />
+                GO TO DASHBOARD
+                <FaArrowRight size={13} className="group-hover:translate-x-1 transition-transform" />
+              </Link>
+            ) : (
+              /* User is NOT logged in → show Login button only (no Get Started) */
+              <Link
+                to="/login"
+                className="flex items-center gap-2.5 px-8 py-4 rounded-xl font-bold text-base text-white bg-red-600 hover:bg-red-500 transition-all active:scale-95 group"
+                style={{
+                  boxShadow: '0 6px 30px rgba(220,38,38,0.4)',
+                  fontFamily: "'Rajdhani', sans-serif",
+                  letterSpacing: '0.06em',
+                }}
+              >
+                <FaLock size={15} />
+                LOGIN TO PANEL
+                <FaArrowRight size={13} className="group-hover:translate-x-1 transition-transform" />
+              </Link>
+            )}
           </div>
 
           {/* Trust badges */}
@@ -368,7 +401,9 @@ export default function Home({ toggleTheme, theme }) {
                     : `bg-white border-black/[0.07] hover:border-black/[0.12] shadow-sm hover:shadow-md`
                 }`}
               >
-                <div className={`w-10 h-10 rounded-xl border bg-gradient-to-br ${f.bg} ${f.border} flex items-center justify-center mb-4`}>
+                <div
+                  className={`w-10 h-10 rounded-xl border bg-gradient-to-br ${f.bg} ${f.border} flex items-center justify-center mb-4`}
+                >
                   <f.icon className={f.color} size={18} />
                 </div>
                 <h3
@@ -401,17 +436,13 @@ export default function Home({ toggleTheme, theme }) {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 relative">
-            {/* Connector line */}
             <div
               className="hidden sm:block absolute top-10 left-1/3 right-1/3 h-px"
               style={{ background: 'linear-gradient(90deg, transparent, rgba(220,38,38,0.3), transparent)' }}
             />
 
             {STEPS.map((step, i) => (
-              <div
-                key={i}
-                className={`reveal-up delay-${i + 1} text-center group`}
-              >
+              <div key={i} className={`reveal-up delay-${i + 1} text-center group`}>
                 <div className="relative inline-block mb-5">
                   <div
                     className="w-16 h-16 rounded-2xl border-2 border-red-600/30 bg-red-600/10 flex items-center justify-center mx-auto group-hover:border-red-600/60 transition-all"
@@ -451,7 +482,6 @@ export default function Home({ toggleTheme, theme }) {
                 : 'bg-gradient-to-br from-red-50 via-white to-white border-red-100'
             }`}
           >
-            {/* Glow orb */}
             <div
               className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 rounded-full pointer-events-none"
               style={{ background: 'radial-gradient(circle, rgba(220,38,38,0.2) 0%, transparent 70%)' }}
@@ -466,22 +496,39 @@ export default function Home({ toggleTheme, theme }) {
               <span className="text-gradient-red">Destroy?</span>
             </h2>
             <p className={`reveal-up text-sm sm:text-base mb-8 ${dark ? 'text-slate-400' : 'text-slate-500'}`}>
-              Create your account in seconds. 3 free credits on signup. No credit card required.
+              {isLoggedIn
+                ? 'Welcome back, warrior. Your dashboard awaits.'
+                : 'Create your account in seconds. 3 free credits on signup. No credit card required.'}
             </p>
 
             <div className="reveal-up flex flex-col sm:flex-row items-center justify-center gap-3">
-              <Link
-                to="/signup"
-                className="flex items-center gap-2.5 px-8 py-4 rounded-xl font-bold text-base text-white bg-red-600 hover:bg-red-500 transition-all active:scale-95"
-                style={{
-                  boxShadow: '0 6px 30px rgba(220,38,38,0.4)',
-                  fontFamily: "'Rajdhani', sans-serif",
-                  letterSpacing: '0.06em',
-                }}
-              >
-                <FaBullseye size={15} />
-                CREATE FREE ACCOUNT
-              </Link>
+              {isLoggedIn ? (
+                <Link
+                  to="/dashboard"
+                  className="flex items-center gap-2.5 px-8 py-4 rounded-xl font-bold text-base text-white bg-red-600 hover:bg-red-500 transition-all active:scale-95"
+                  style={{
+                    boxShadow: '0 6px 30px rgba(220,38,38,0.4)',
+                    fontFamily: "'Rajdhani', sans-serif",
+                    letterSpacing: '0.06em',
+                  }}
+                >
+                  <FaBolt size={15} />
+                  OPEN DASHBOARD
+                </Link>
+              ) : (
+                <Link
+                  to="/login"
+                  className="flex items-center gap-2.5 px-8 py-4 rounded-xl font-bold text-base text-white bg-red-600 hover:bg-red-500 transition-all active:scale-95"
+                  style={{
+                    boxShadow: '0 6px 30px rgba(220,38,38,0.4)',
+                    fontFamily: "'Rajdhani', sans-serif",
+                    letterSpacing: '0.06em',
+                  }}
+                >
+                  <FaBullseye size={15} />
+                  LOGIN TO PANEL
+                </Link>
+              )}
               <a
                 href="https://t.me/BattleDestroyerDDOS_Bot"
                 target="_blank"
@@ -490,7 +537,7 @@ export default function Home({ toggleTheme, theme }) {
                 style={{ fontFamily: "'Rajdhani', sans-serif", letterSpacing: '0.06em' }}
               >
                 <FaTelegram size={15} />
-                TELEGRAM BOT
+                TELEGRAM
               </a>
             </div>
           </div>
