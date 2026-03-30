@@ -90,7 +90,7 @@ export default function Navbar({ toggleTheme, theme, setIsAuth }) {
           {/* ── Logo ── */}
           <Link to={isLoggedIn ? '/dashboard' : '/'} className="flex items-center gap-3 group">
             <div className="relative flex-shrink-0">
-              <div className="absolute inset-0 bg-red-600/30 rounded-lg blur-md group-hover:blur-lg transition-all" />
+              <div className="absolute inset-0 rounded-lg blur-md group-hover:blur-lg transition-all" />
               <img
                 src="/logo512.png"
                 alt="Battle Destroyer Logo"
