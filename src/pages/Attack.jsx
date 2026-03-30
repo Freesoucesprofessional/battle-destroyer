@@ -1,10 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { FaGem, FaClipboard, FaExclamationTriangle, FaCheckCircle, FaCrown } from 'react-icons/fa';
+import { FaGem, FaClipboard, FaExclamationTriangle, FaCheckCircle, FaCrown, FaStopCircle, FaSyncAlt, FaServer } from 'react-icons/fa';
 import { Link } from 'react-router-dom';
 import Navbar from '../components/Navbar';
-import { useRef, useCallback } from 'react';
 import TurnstileWidget from '../components/TurnstileWidget';
 
 export default function Attack({ toggleTheme, theme }) {
@@ -14,6 +13,10 @@ export default function Attack({ toggleTheme, theme }) {
     const [launching, setLaunching] = useState(false);
     const [launched, setLaunched] = useState(false);
     const [launchError, setLaunchError] = useState('');
+    const [attackStatus, setAttackStatus] = useState(null);
+    const [checkingStatus, setCheckingStatus] = useState(false);
+    const [stoppingAttack, setStoppingAttack] = useState(false);
+    const [bgmiServer, setBgmiServer] = useState(null);
     const navigate = useNavigate();
     const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
     const [captchaReady, setCaptchaReady] = useState(false);
@@ -21,6 +24,7 @@ export default function Attack({ toggleTheme, theme }) {
     const captchaIssuedRef = useRef(null);
     const expiryTimerRef = useRef(null);
     const turnstileRef = useRef(null);
+    const statusIntervalRef = useRef(null);
     const TOKEN_MAX_AGE_MS = 270_000;
 
     // ── Load user ───────────────────────────────────────────────────────────────
@@ -31,8 +35,62 @@ export default function Attack({ toggleTheme, theme }) {
         }).then(r => {
             setUser(r.data);
             localStorage.setItem('user', JSON.stringify(r.data));
-        }).catch(() => { localStorage.clear(); navigate('/login'); });
+        }).catch(() => {
+            localStorage.clear();
+            navigate('/login');
+        });
+
+        // Check for existing attack on mount
+        checkAttackStatus();
+
+        return () => {
+            if (statusIntervalRef.current) {
+                clearInterval(statusIntervalRef.current);
+            }
+        };
     }, [navigate, API_URL]);
+
+    const checkAttackStatus = async () => {
+        try {
+            const token = localStorage.getItem('token');
+            const response = await axios.get(`${API_URL}/api/panel/attack-status`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+
+            if (response.data.data?.status === 'running') {
+                setAttackStatus(response.data.data);
+                setBgmiServer(response.data.data.bgmiServer);
+                startStatusPolling();
+            }
+        } catch (err) {
+            console.error('Error checking attack status:', err);
+        }
+    };
+
+    const startStatusPolling = () => {
+        if (statusIntervalRef.current) {
+            clearInterval(statusIntervalRef.current);
+        }
+
+        statusIntervalRef.current = setInterval(async () => {
+            try {
+                const token = localStorage.getItem('token');
+                const response = await axios.get(`${API_URL}/api/panel/attack-status`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+
+                if (response.data.data?.status !== 'running') {
+                    setAttackStatus(null);
+                    setBgmiServer(null);
+                    clearInterval(statusIntervalRef.current);
+                } else {
+                    setAttackStatus(response.data.data);
+                }
+            } catch (err) {
+                console.error('Error polling attack status:', err);
+            }
+        }, 10000); // Check every 10 seconds
+    };
 
     const handle = e => {
         setForm({ ...form, [e.target.name]: e.target.value });
@@ -56,7 +114,12 @@ export default function Attack({ toggleTheme, theme }) {
         expiryTimerRef.current = setTimeout(resetCaptcha, TOKEN_MAX_AGE_MS);
     }, [resetCaptcha]);
 
-    useEffect(() => () => clearTimeout(expiryTimerRef.current), []);
+    useEffect(() => () => {
+        clearTimeout(expiryTimerRef.current);
+        if (statusIntervalRef.current) {
+            clearInterval(statusIntervalRef.current);
+        }
+    }, []);
 
     // ── Client-side validation (mirrors backend) ────────────────────────────────
     const validate = () => {
@@ -99,32 +162,98 @@ export default function Attack({ toggleTheme, theme }) {
         }
 
         const errs = validate();
-        if (Object.keys(errs).length > 0) { setErrors(errs); return; }
+        if (Object.keys(errs).length > 0) {
+            setErrors(errs);
+            return;
+        }
+
+        // Check if user already has an attack running
+        if (attackStatus?.status === 'running') {
+            setLaunchError('You already have an attack running. Please stop it first.');
+            return;
+        }
 
         setLaunching(true);
         try {
             const token = localStorage.getItem('token');
             const { data } = await axios.post(
                 `${API_URL}/api/panel/attack`,
-                { ip: form.ip, port: form.port, duration: form.duration, captchaToken }, // ✅ send token
-                { headers: { Authorization: `Bearer ${token}` } }
+                {
+                    ip: form.ip,
+                    port: form.port,
+                    duration: form.duration,
+                    captchaToken
+                },
+                {
+                    headers: {
+                        Authorization: `Bearer ${token}`
+                    }
+                }
             );
 
             setUser(prev => ({ ...prev, credits: data.credits }));
             localStorage.setItem('user', JSON.stringify({ ...user, credits: data.credits }));
+
             setLaunched(true);
+            setAttackStatus({
+                status: 'running',
+                ip: form.ip,
+                port: parseInt(form.port),
+                duration: parseInt(form.duration),
+                startedAt: new Date().toISOString()
+            });
+            setBgmiServer(data.attack.bgmiServer);
+            startStatusPolling();
+
             setTimeout(() => setLaunched(false), 4000);
-            resetCaptcha(); // ✅ reset after successful launch
+            resetCaptcha();
 
         } catch (err) {
             const msg = err.response?.data?.message || 'Launch failed. Please try again.';
             setLaunchError(msg);
+
             if (err.response?.data?.credits !== undefined) {
                 setUser(prev => ({ ...prev, credits: err.response.data.credits }));
             }
-            resetCaptcha(); // ✅ reset on error too
+
+            if (err.response?.data?.maxDuration) {
+                setErrors(prev => ({
+                    ...prev,
+                    duration: `Max duration is ${err.response.data.maxDuration}s${!user?.isPro ? ' (upgrade to Pro for 300s)' : ''}`
+                }));
+            }
+
+            resetCaptcha();
         } finally {
             setLaunching(false);
+        }
+    };
+
+    // ── Stop Attack ─────────────────────────────────────────────────────────────
+    const stopAttack = async () => {
+        if (!attackStatus || !bgmiServer) {
+            setLaunchError('No active attack to stop');
+            return;
+        }
+
+        setStoppingAttack(true);
+        try {
+            const token = localStorage.getItem('token');
+            await axios.post(
+                `${API_URL}/api/panel/stop-attack`,
+                { bgmiServerUrl: bgmiServer },
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+
+            setAttackStatus(null);
+            setBgmiServer(null);
+            if (statusIntervalRef.current) {
+                clearInterval(statusIntervalRef.current);
+            }
+        } catch (err) {
+            setLaunchError(err.response?.data?.message || 'Failed to stop attack');
+        } finally {
+            setStoppingAttack(false);
         }
     };
 
@@ -157,7 +286,23 @@ export default function Attack({ toggleTheme, theme }) {
         `Duration: 1 – ${MAX_DURATION} seconds`,
         '1 credit per attack launch',
         'No concurrent attacks',
+        'BGMI server will auto-stop after duration'
     ];
+
+    // Calculate remaining time for active attack
+    const getRemainingTime = () => {
+        if (!attackStatus || !attackStatus.startedAt) return 0;
+
+        const startTime = new Date(attackStatus.startedAt).getTime();
+        const currentTime = new Date().getTime();
+        const durationMs = attackStatus.duration * 1000;
+        const elapsedMs = currentTime - startTime;
+        const remainingMs = durationMs - elapsedMs;
+
+        return Math.max(0, Math.floor(remainingMs / 1000));
+    };
+
+    const remainingTime = getRemainingTime();
 
     return (
         <div className={`min-h-screen ${bg} transition-colors duration-300`}>
@@ -222,6 +367,7 @@ export default function Attack({ toggleTheme, theme }) {
                                         name="ip" value={form.ip} onChange={handle}
                                         placeholder="e.g. 203.0.113.1"
                                         className={`w-full rounded-xl px-4 py-3 text-sm border focus:outline-none focus:ring-2 focus:ring-red-500/50 focus:border-red-500 transition font-mono ${inp} ${errors.ip ? 'border-red-500' : ''}`}
+                                        disabled={attackStatus?.status === 'running'}
                                     />
                                     {errors.ip && <p className="text-red-400 text-xs mt-1 flex items-center gap-1"><span>⚠️</span>{errors.ip}</p>}
                                 </div>
@@ -234,6 +380,7 @@ export default function Attack({ toggleTheme, theme }) {
                                             name="port" type="number" value={form.port} onChange={handle}
                                             placeholder="e.g. 8080" min="1" max="65535"
                                             className={`w-full rounded-xl px-4 py-3 text-sm border focus:outline-none focus:ring-2 focus:ring-red-500/50 focus:border-red-500 transition font-mono ${inp} ${errors.port ? 'border-red-500' : ''}`}
+                                            disabled={attackStatus?.status === 'running'}
                                         />
                                         {errors.port && <p className="text-red-400 text-xs mt-1 flex items-center gap-1"><span>⚠️</span>{errors.port}</p>}
                                     </div>
@@ -249,13 +396,54 @@ export default function Attack({ toggleTheme, theme }) {
                                             name="duration" type="number" value={form.duration} onChange={handle}
                                             placeholder={`1 – ${MAX_DURATION}`} min="1" max={MAX_DURATION}
                                             className={`w-full rounded-xl px-4 py-3 text-sm border focus:outline-none focus:ring-2 focus:ring-red-500/50 focus:border-red-500 transition font-mono ${inp} ${errors.duration ? 'border-red-500' : ''}`}
+                                            disabled={attackStatus?.status === 'running'}
                                         />
                                         {errors.duration && <p className="text-red-400 text-xs mt-1 flex items-center gap-1"><span>⚠️</span>{errors.duration}</p>}
                                     </div>
                                 </div>
 
+                                {/* Active Attack Status */}
+                                {attackStatus?.status === 'running' && (
+                                    <div className={`rounded-xl p-4 border font-mono text-xs space-y-2 ${theme === 'dark' ? 'bg-blue-900/30 border-blue-700' : 'bg-blue-50 border-blue-200'}`}>
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <FaServer className="text-blue-400" />
+                                            <p className={`font-bold ${text}`}>Attack In Progress</p>
+                                        </div>
+                                        <p className="text-blue-400">Target: <span className="text-white">{attackStatus.ip}:{attackStatus.port}</span></p>
+                                        <p className="text-blue-400">Duration: <span className="text-white">{attackStatus.duration}s</span></p>
+                                        <p className="text-blue-400">Started: <span className="text-white">{new Date(attackStatus.startedAt).toLocaleString()}</span></p>
+                                        <p className="text-blue-400">Time Remaining: <span className="text-white">{remainingTime}s</span></p>
+                                        <div className="w-full bg-gray-700 rounded-full h-2.5 mt-2">
+                                            <div
+                                                className="bg-blue-600 h-2.5 rounded-full"
+                                                style={{ width: `${100 - (remainingTime / attackStatus.duration * 100)}%` }}
+                                            ></div>
+                                        </div>
+                                        <button
+                                            onClick={stopAttack}
+                                            disabled={stoppingAttack}
+                                            className={`mt-3 w-full py-2 rounded-xl font-semibold text-sm transition-all flex items-center justify-center gap-2 ${
+                                                stoppingAttack
+                                                    ? 'bg-gray-600 text-gray-400 cursor-wait'
+                                                    : 'bg-red-600 hover:bg-red-700 text-white'
+                                            }`}
+                                        >
+                                            {stoppingAttack ? (
+                                                <>
+                                                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                                    Stopping...
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <FaStopCircle /> Stop Attack
+                                                </>
+                                            )}
+                                        </button>
+                                    </div>
+                                )}
+
                                 {/* Preview */}
-                                {(form.ip || form.port || form.duration) && (
+                                {(form.ip || form.port || form.duration) && !attackStatus && (
                                     <div className={`rounded-xl p-4 border font-mono text-xs space-y-1 ${theme === 'dark' ? 'bg-gray-800/50 border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
                                         <p className={sub}>Attack Preview:</p>
                                         <p className="text-green-400">Target: <span className="text-white">{form.ip || '—'}:{form.port || '—'}</span></p>
@@ -279,7 +467,7 @@ export default function Attack({ toggleTheme, theme }) {
                                     </div>
                                 )}
 
-                                {/* ✅ CAPTCHA — add this just above the Launch Button */}
+                                {/* CAPTCHA */}
                                 <div>
                                     <TurnstileWidget
                                         ref={turnstileRef}
@@ -299,24 +487,29 @@ export default function Attack({ toggleTheme, theme }) {
                                     )}
                                 </div>
 
-                                {/* Launch Button — add captchaReady to disabled */}
+                                {/* Launch Button */}
                                 <button
                                     onClick={launch}
-                                    disabled={launching || user.credits < 1 || !captchaReady}
-                                    className={`w-full py-4 rounded-xl font-black text-base tracking-wider transition-all flex items-center justify-center gap-3 ${user.credits < 1
+                                    disabled={launching || user.credits < 1 || !captchaReady || attackStatus?.status === 'running'}
+                                    className={`w-full py-4 rounded-xl font-black text-base tracking-wider transition-all flex items-center justify-center gap-3 ${
+                                        user.credits < 1
                                             ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
                                             : !captchaReady
                                                 ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
-                                                : launching
-                                                    ? 'bg-red-700 text-white cursor-wait'
-                                                    : 'bg-red-600 hover:bg-red-700 active:scale-95 text-white shadow-xl shadow-red-900/30'
-                                        }`}>
+                                                : attackStatus?.status === 'running'
+                                                    ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
+                                                    : launching
+                                                        ? 'bg-red-700 text-white cursor-wait'
+                                                        : 'bg-red-600 hover:bg-red-700 active:scale-95 text-white shadow-xl shadow-red-900/30'
+                                    }`}>
                                     {launching ? (
                                         <><div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />Launching Attack...</>
                                     ) : user.credits < 1 ? (
                                         '⛔ Insufficient Credits'
                                     ) : !captchaReady ? (
                                         '🔒 Complete CAPTCHA to Launch'
+                                    ) : attackStatus?.status === 'running' ? (
+                                        '🚀 Attack Already Running'
                                     ) : (
                                         '🚀 Launch Attack'
                                     )}
@@ -351,7 +544,6 @@ export default function Attack({ toggleTheme, theme }) {
                                 />
                             </div>
 
-                            {/* ✅ ADD THIS */}
                             <Link
                                 to="/contact"
                                 className="mt-4 w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-red-600/10 hover:bg-red-600 border border-red-600/30 text-red-400 hover:text-white text-xs font-bold transition-all"
@@ -360,6 +552,27 @@ export default function Attack({ toggleTheme, theme }) {
                                 Buy Credits
                             </Link>
                         </div>
+
+                        {/* BGMI Server Status */}
+                        {bgmiServer && (
+                            <div className={`rounded-2xl p-5 border ${card}`}>
+                                <div className="flex items-center gap-2 mb-3">
+                                    <FaServer className="text-blue-500" />
+                                    <h3 className={`font-bold text-sm ${text}`}>BGMI Server</h3>
+                                </div>
+                                <div className="space-y-2 text-xs font-mono">
+                                    <p className={sub}>Endpoint: <span className="text-white">{bgmiServer}</span></p>
+                                    <p className={sub}>Status: <span className="text-green-400">Active</span></p>
+                                    <button
+                                        onClick={() => window.open(bgmiServer, '_blank')}
+                                        className="mt-2 w-full py-2 rounded-xl bg-blue-600/10 hover:bg-blue-600 border border-blue-600/30 text-blue-400 hover:text-white text-xs font-bold transition-all flex items-center justify-center gap-2"
+                                    >
+                                        <FaSyncAlt size={12} />
+                                        Check Server Status
+                                    </button>
+                                </div>
+                            </div>
+                        )}
 
                         {/* Rules */}
                         <div className={`rounded-2xl p-5 border ${card}`}>
