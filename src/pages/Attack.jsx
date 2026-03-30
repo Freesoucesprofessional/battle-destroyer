@@ -27,16 +27,14 @@ export default function Attack({ toggleTheme, theme, setIsAuth }) {
     const countdownRef = useRef(null);
     const statusPollRef = useRef(null);
     const TOKEN_MAX_AGE_MS = 270_000;
+    // Track the currently running attack's history id
+    const runningHistoryIdRef = useRef(null);
 
-    // ── Load history from localStorage ──
     useEffect(() => {
         const saved = localStorage.getItem('attackHistory');
         if (saved) {
-            try {
-                setAttackHistory(JSON.parse(saved));
-            } catch (e) {
-                console.error('Failed to load history:', e);
-            }
+            try { setAttackHistory(JSON.parse(saved)); }
+            catch (e) { console.error('Failed to load history:', e); }
         }
     }, []);
 
@@ -46,8 +44,10 @@ export default function Attack({ toggleTheme, theme, setIsAuth }) {
     }, []);
 
     const addToHistory = useCallback((attack) => {
+        const id = Date.now();
+        runningHistoryIdRef.current = id;
         const newEntry = {
-            id: Date.now(),
+            id,
             ip: attack.ip,
             port: attack.port,
             duration: attack.duration,
@@ -56,10 +56,26 @@ export default function Attack({ toggleTheme, theme, setIsAuth }) {
             completedAt: null,
             timestamp: new Date().toISOString()
         };
+        setAttackHistory(prev => {
+            const updated = [newEntry, ...prev].slice(0, 30);
+            localStorage.setItem('attackHistory', JSON.stringify(updated));
+            return updated;
+        });
+    }, []);
 
-        const updated = [newEntry, ...attackHistory].slice(0, 30);
-        saveAttackHistory(updated);
-    }, [attackHistory, saveAttackHistory]);
+    const markRunningComplete = useCallback(() => {
+        const rid = runningHistoryIdRef.current;
+        setAttackHistory(prev => {
+            const updated = prev.map(a =>
+                a.id === rid
+                    ? { ...a, status: 'completed', completedAt: new Date().toISOString() }
+                    : a
+            );
+            localStorage.setItem('attackHistory', JSON.stringify(updated));
+            return updated;
+        });
+        runningHistoryIdRef.current = null;
+    }, []);
 
     const clearHistory = useCallback(() => {
         if (window.confirm('Clear all attack history? This cannot be undone.')) {
@@ -67,7 +83,6 @@ export default function Attack({ toggleTheme, theme, setIsAuth }) {
         }
     }, [saveAttackHistory]);
 
-    // ── Countdown ticker ──
     const startCountdown = useCallback((startedAt, duration) => {
         if (countdownRef.current) clearInterval(countdownRef.current);
 
@@ -80,25 +95,15 @@ export default function Attack({ toggleTheme, theme, setIsAuth }) {
                 clearInterval(countdownRef.current);
                 setAttackStatus(null);
                 setAttackCompleted(true);
-                
-                // Update history to completed
-                setAttackHistory(prev => {
-                    const updated = prev.map(a => 
-                        a.id === prev[0]?.id ? { ...a, status: 'completed', completedAt: new Date().toISOString() } : a
-                    );
-                    saveAttackHistory(updated);
-                    return updated;
-                });
-
+                markRunningComplete();
                 setTimeout(() => setAttackCompleted(false), 5000);
             }
         };
 
         tick();
         countdownRef.current = setInterval(tick, 1000);
-    }, [saveAttackHistory]);
+    }, [markRunningComplete]);
 
-    // ── Status polling ──
     const startStatusPolling = useCallback(() => {
         if (statusPollRef.current) clearInterval(statusPollRef.current);
 
@@ -117,24 +122,15 @@ export default function Attack({ toggleTheme, theme, setIsAuth }) {
                     setAttackStatus(null);
                     setTimeLeft(0);
                     setAttackCompleted(true);
-
-                    setAttackHistory(prev => {
-                        const updated = prev.map(a => 
-                            a.status === 'running' ? { ...a, status: 'completed' } : a
-                        );
-                        saveAttackHistory(updated);
-                        return updated;
-                    });
-
+                    markRunningComplete();
                     setTimeout(() => setAttackCompleted(false), 5000);
                 }
             } catch (err) {
                 console.error('Poll error:', err);
             }
         }, 10000);
-    }, [API_URL, saveAttackHistory]);
+    }, [API_URL, markRunningComplete]);
 
-    // ── Check existing attack ──
     const checkAttackStatus = useCallback(async () => {
         try {
             const token = localStorage.getItem('token');
@@ -153,7 +149,6 @@ export default function Attack({ toggleTheme, theme, setIsAuth }) {
         }
     }, [API_URL, startCountdown, startStatusPolling]);
 
-    // ── Load user on mount ──
     useEffect(() => {
         const token = localStorage.getItem('token');
         axios.get(`${API_URL}/api/panel/me`, {
@@ -174,7 +169,6 @@ export default function Attack({ toggleTheme, theme, setIsAuth }) {
         };
     }, [navigate, API_URL, checkAttackStatus]);
 
-    // ── Cleanup ──
     useEffect(() => () => {
         clearTimeout(expiryTimerRef.current);
         clearInterval(countdownRef.current);
@@ -234,9 +228,9 @@ export default function Attack({ toggleTheme, theme, setIsAuth }) {
         const captchaToken = captchaTokenRef.current;
         const issuedAt = captchaIssuedRef.current;
 
-        if (!captchaToken) { 
-            setLaunchError('Please complete the CAPTCHA before launching.'); 
-            return; 
+        if (!captchaToken) {
+            setLaunchError('Please complete the CAPTCHA before launching.');
+            return;
         }
         if (!issuedAt || Date.now() - issuedAt > TOKEN_MAX_AGE_MS) {
             resetCaptcha();
@@ -245,10 +239,7 @@ export default function Attack({ toggleTheme, theme, setIsAuth }) {
         }
 
         const errs = validate();
-        if (Object.keys(errs).length > 0) { 
-            setErrors(errs); 
-            return; 
-        }
+        if (Object.keys(errs).length > 0) { setErrors(errs); return; }
 
         if (attackStatus?.status === 'running') {
             setLaunchError('You already have an attack running. Please stop it first.');
@@ -312,6 +303,7 @@ export default function Attack({ toggleTheme, theme, setIsAuth }) {
             clearInterval(statusPollRef.current);
             setAttackStatus(null);
             setTimeLeft(0);
+            markRunningComplete();
         } catch (err) {
             setLaunchError(err.response?.data?.message || 'Failed to stop attack');
         } finally {
@@ -351,7 +343,7 @@ export default function Attack({ toggleTheme, theme, setIsAuth }) {
 
             <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
 
-                {/* Credits Card - Top */}
+                {/* Credits Card */}
                 <div className={`rounded-2xl p-4 sm:p-5 border mb-6 ${card}`}>
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
@@ -366,14 +358,14 @@ export default function Attack({ toggleTheme, theme, setIsAuth }) {
                             </div>
                         </div>
                         {user.credits < 1 && (
-                            <p className="text-xs text-yellow-500 font-semibold">Need credits to launch</p>
+                            <p className="text-xs text-red-400 font-semibold">Need credits to launch</p>
                         )}
                     </div>
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-                    {/* ── ATTACK CONFIGURATION (2/3 width) ── */}
+                    {/* ── ATTACK CONFIGURATION ── */}
                     <div className="lg:col-span-2">
                         <div className={`rounded-2xl p-5 sm:p-6 border ${card}`}>
                             <div className="flex items-center gap-3 mb-5">
@@ -393,8 +385,8 @@ export default function Attack({ toggleTheme, theme, setIsAuth }) {
                                         Target IP Address
                                     </label>
                                     <input
-                                        name="ip" 
-                                        value={form.ip} 
+                                        name="ip"
+                                        value={form.ip}
                                         onChange={handle}
                                         placeholder="e.g. 203.0.113.1"
                                         className={`w-full rounded-xl px-4 py-3 text-sm border focus:outline-none focus:ring-2 focus:ring-red-500/50 focus:border-red-500 transition font-mono ${inp} ${errors.ip ? 'border-red-500' : ''}`}
@@ -403,19 +395,19 @@ export default function Attack({ toggleTheme, theme, setIsAuth }) {
                                     {errors.ip && <p className="text-red-400 text-xs mt-1">⚠️ {errors.ip}</p>}
                                 </div>
 
-                                {/* Port & Duration (2 column on desktop, stacked on mobile) */}
+                                {/* Port & Duration */}
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     <div>
                                         <label className={`text-xs font-semibold uppercase tracking-wide mb-2 block ${sub}`}>
                                             Port
                                         </label>
                                         <input
-                                            name="port" 
-                                            type="number" 
-                                            value={form.port} 
+                                            name="port"
+                                            type="number"
+                                            value={form.port}
                                             onChange={handle}
                                             placeholder="e.g. 8080"
-                                            min="1" 
+                                            min="1"
                                             max="65535"
                                             className={`w-full rounded-xl px-4 py-3 text-sm border focus:outline-none focus:ring-2 focus:ring-red-500/50 focus:border-red-500 transition font-mono ${inp} ${errors.port ? 'border-red-500' : ''}`}
                                             disabled={attackStatus?.status === 'running'}
@@ -431,12 +423,12 @@ export default function Attack({ toggleTheme, theme, setIsAuth }) {
                                             </span>
                                         </label>
                                         <input
-                                            name="duration" 
-                                            type="number" 
-                                            value={form.duration} 
+                                            name="duration"
+                                            type="number"
+                                            value={form.duration}
                                             onChange={handle}
                                             placeholder={`1 – ${MAX_DURATION}`}
-                                            min="1" 
+                                            min="1"
                                             max={MAX_DURATION}
                                             className={`w-full rounded-xl px-4 py-3 text-sm border focus:outline-none focus:ring-2 focus:ring-red-500/50 focus:border-red-500 transition font-mono ${inp} ${errors.duration ? 'border-red-500' : ''}`}
                                             disabled={attackStatus?.status === 'running'}
@@ -444,61 +436,6 @@ export default function Attack({ toggleTheme, theme, setIsAuth }) {
                                         {errors.duration && <p className="text-red-400 text-xs mt-1">⚠️ {errors.duration}</p>}
                                     </div>
                                 </div>
-
-                                {/* Live Attack Status */}
-                                {attackStatus?.status === 'running' && (
-                                    <div className={`rounded-xl p-4 border-2 border-red-500/50 bg-red-500/5`}>
-                                        <div className="flex items-center gap-2 mb-3">
-                                            <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-                                            <span className={`text-xs font-bold uppercase tracking-widest ${text}`}>Attack Running</span>
-                                        </div>
-
-                                        <div className="grid grid-cols-2 gap-4 mb-4">
-                                            <div>
-                                                <p className={`text-xs ${sub} mb-1`}>Target</p>
-                                                <p className={`font-bold font-mono text-sm ${text}`}>{attackStatus.ip}:{attackStatus.port}</p>
-                                            </div>
-                                            <div>
-                                                <p className={`text-xs ${sub} mb-1`}>Time Left</p>
-                                                <p className={`font-black text-2xl ${
-                                                    timeLeft <= 10 ? 'text-red-500' :
-                                                    timeLeft <= 30 ? 'text-yellow-400' :
-                                                    'text-green-400'
-                                                }`}>
-                                                    {timeLeft}s
-                                                </p>
-                                            </div>
-                                        </div>
-
-                                        <div className="w-full h-2 bg-gray-700/30 rounded-full overflow-hidden mb-3">
-                                            <div
-                                                className="h-full rounded-full transition-all duration-500"
-                                                style={{
-                                                    width: `${progressPct}%`,
-                                                    background: timeLeft <= 10
-                                                        ? 'linear-gradient(90deg, #ef4444, #f97316)'
-                                                        : 'linear-gradient(90deg, #3b82f6, #10b981)'
-                                                }}
-                                            />
-                                        </div>
-
-                                        <button
-                                            onClick={stopAttack}
-                                            disabled={stoppingAttack}
-                                            className={`w-full py-2.5 rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-2 ${
-                                                stoppingAttack
-                                                    ? 'bg-gray-700 text-gray-400 cursor-wait'
-                                                    : 'bg-red-600 hover:bg-red-700 text-white active:scale-95'
-                                            }`}
-                                        >
-                                            {stoppingAttack ? (
-                                                <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />Stopping...</>
-                                            ) : (
-                                                <><FaStopCircle /> Stop Attack</>
-                                            )}
-                                        </button>
-                                    </div>
-                                )}
 
                                 {/* Completed Banner */}
                                 {attackCompleted && (
@@ -518,7 +455,7 @@ export default function Attack({ toggleTheme, theme, setIsAuth }) {
                                 {launched && (
                                     <div className={`rounded-xl p-4 text-sm flex items-center gap-2 ${theme === 'dark' ? 'bg-green-500/10 border border-green-500/30 text-green-400' : 'bg-green-100 border border-green-300 text-green-700'}`}>
                                         <FaCheckCircle size={16} />
-                                        Attack launched on {form.ip}:{form.port} for {form.duration}s
+                                        Attack launched — watch live progress in Recent Activity →
                                     </div>
                                 )}
 
@@ -531,7 +468,7 @@ export default function Attack({ toggleTheme, theme, setIsAuth }) {
                                         onError={resetCaptcha}
                                     />
                                     {!captchaReady ? (
-                                        <p className="text-yellow-500 text-xs mt-2 flex items-center gap-1">
+                                        <p className="text-red-400 text-xs mt-2 flex items-center gap-1">
                                             ⏳ Complete the CAPTCHA to enable launch
                                         </p>
                                     ) : (
@@ -564,12 +501,12 @@ export default function Attack({ toggleTheme, theme, setIsAuth }) {
                         </div>
                     </div>
 
-                    {/* ── RECENT ACTIVITY (1/3 width) ── */}
+                    {/* ── RECENT ACTIVITY ── */}
                     <div>
                         <div className={`rounded-2xl p-5 sm:p-6 border ${card}`}>
                             <div className="flex items-center justify-between mb-4">
                                 <div className="flex items-center gap-2">
-                                    <FaHistory className="text-blue-500 text-lg" />
+                                    <FaHistory className="text-red-500 text-lg" />
                                     <div>
                                         <h3 className={`font-bold text-base ${text}`}>Recent Activity</h3>
                                         <p className={`text-xs ${sub}`}>Last {Math.min(attackHistory.length, 30)}</p>
@@ -590,17 +527,72 @@ export default function Attack({ toggleTheme, theme, setIsAuth }) {
                                 )}
                             </div>
 
-                            {attackHistory.length === 0 ? (
+                            {/* Live Attack Card — shown at top when running */}
+                            {attackStatus?.status === 'running' && (
+                                <div className={`rounded-xl p-4 border-2 border-red-500/60 mb-3 ${
+                                    theme === 'dark' ? 'bg-red-500/10' : 'bg-red-50'
+                                }`}>
+                                    {/* Header row */}
+                                    <div className="flex items-center justify-between mb-2">
+                                        <div className="flex items-center gap-2">
+                                            <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse flex-shrink-0" />
+                                            <span className={`font-mono font-bold text-sm ${text}`}>
+                                                {attackStatus.ip}:{attackStatus.port}
+                                            </span>
+                                        </div>
+                                        <span className={`font-black text-lg tabular-nums ${
+                                            timeLeft <= 10 ? 'text-red-500' :
+                                            timeLeft <= 30 ? 'text-red-400' :
+                                            'text-red-500'
+                                        }`}>
+                                            {timeLeft}s
+                                        </span>
+                                    </div>
+
+                                    {/* Progress bar */}
+                                    <div className="w-full h-1.5 bg-gray-700/30 rounded-full overflow-hidden mb-3">
+                                        <div
+                                            className="h-full rounded-full transition-all duration-1000"
+                                            style={{
+                                                width: `${progressPct}%`,
+                                                background: 'linear-gradient(90deg, #dc2626, #ef4444)'
+                                            }}
+                                        />
+                                    </div>
+
+                                    {/* Duration info + stop button */}
+                                    <div className="flex items-center justify-between">
+                                        <span className={`text-xs ${sub}`}>{attackStatus.duration}s total</span>
+                                        <button
+                                            onClick={stopAttack}
+                                            disabled={stoppingAttack}
+                                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                                                stoppingAttack
+                                                    ? 'bg-gray-700 text-gray-400 cursor-wait'
+                                                    : 'bg-red-600 hover:bg-red-700 text-white active:scale-95'
+                                            }`}
+                                        >
+                                            {stoppingAttack ? (
+                                                <><div className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin" />Stopping</>
+                                            ) : (
+                                                <><FaStopCircle size={11} />Stop</>
+                                            )}
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* History list */}
+                            {attackHistory.length === 0 && !attackStatus ? (
                                 <div className="text-center py-8">
                                     <p className={`text-xs ${sub}`}>No attacks yet</p>
                                     <p className={`text-xs ${sub} mt-1`}>Launch your first attack to see history</p>
                                 </div>
                             ) : (
-                                <div className="space-y-2 max-h-[600px] overflow-y-auto">
+                                <div className="space-y-1.5 max-h-[560px] overflow-y-auto">
                                     {attackHistory.map((attack) => {
                                         const attackDate = new Date(attack.timestamp);
-                                        const now = new Date();
-                                        const diffMs = now - attackDate;
+                                        const diffMs = Date.now() - attackDate.getTime();
                                         const diffMins = Math.floor(diffMs / 60000);
                                         const diffHours = Math.floor(diffMs / 3600000);
                                         const diffDays = Math.floor(diffMs / 86400000);
@@ -612,26 +604,32 @@ export default function Attack({ toggleTheme, theme, setIsAuth }) {
                                         else timeAgo = `${diffDays}d ago`;
 
                                         const isCompleted = attack.status === 'completed';
-                                        const statusColor = isCompleted 
-                                            ? 'text-green-400' 
-                                            : 'text-yellow-400';
-                                        const bgColor = isCompleted
-                                            ? theme === 'dark' ? 'bg-green-500/10 border-green-500/20' : 'bg-green-100 border-green-200'
-                                            : theme === 'dark' ? 'bg-yellow-500/10 border-yellow-500/20' : 'bg-yellow-100 border-yellow-200';
 
                                         return (
-                                            <div key={attack.id} className={`rounded-lg p-3 border ${bgColor} transition-all`}>
-                                                <div className="flex items-start justify-between mb-2">
-                                                    <div className="flex-1 min-w-0">
-                                                        <p className={`font-mono text-sm font-bold ${text} truncate`}>
-                                                            {attack.ip}:{attack.port}
-                                                        </p>
-                                                        <p className={`text-xs ${sub} mt-0.5`}>{attack.duration}s • {timeAgo}</p>
-                                                    </div>
+                                            <div
+                                                key={attack.id}
+                                                className={`rounded-lg px-3 py-2.5 border flex items-center justify-between gap-2 transition-all ${
+                                                    isCompleted
+                                                        ? theme === 'dark'
+                                                            ? 'bg-gray-800/60 border-gray-700/50'
+                                                            : 'bg-gray-50 border-gray-200'
+                                                        : theme === 'dark'
+                                                            ? 'bg-red-500/10 border-red-500/30'
+                                                            : 'bg-red-50 border-red-200'
+                                                }`}
+                                            >
+                                                {/* Left: ip:port */}
+                                                <span className={`font-mono text-sm font-bold truncate ${text}`}>
+                                                    {attack.ip}:{attack.port}
+                                                </span>
+
+                                                {/* Right: time + status dot */}
+                                                <div className="flex items-center gap-2 flex-shrink-0">
+                                                    <span className={`text-xs ${sub}`}>{timeAgo}</span>
+                                                    <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+                                                        isCompleted ? 'bg-green-500' : 'bg-red-500 animate-pulse'
+                                                    }`} />
                                                 </div>
-                                                <p className={`text-xs font-bold uppercase tracking-wider ${statusColor}`}>
-                                                    {isCompleted ? '✓ Completed' : '⧸ Running'}
-                                                </p>
                                             </div>
                                         );
                                     })}
