@@ -26,8 +26,6 @@ export default function Attack({ toggleTheme, theme }) {
     const statusIntervalRef = useRef(null);
     const TOKEN_MAX_AGE_MS = 270_000;
 
-    // Memoize checkAttackStatus to avoid dependency warning
-    
     // ── Load user and check for existing attack ────────────────────────────────
     useEffect(() => {
         const token = localStorage.getItem('token');
@@ -61,7 +59,7 @@ export default function Attack({ toggleTheme, theme }) {
                 const response = await axios.get(`${API_URL}/api/panel/attack-status`, {
                     headers: { Authorization: `Bearer ${token}` }
                 });
-                
+
                 if (response.data.data?.status !== 'running') {
                     setAttackStatus(null);
                     setBgmiServer(null);
@@ -74,7 +72,8 @@ export default function Attack({ toggleTheme, theme }) {
             }
         }, 10000); // Check every 10 seconds
     }, [API_URL]);
-    
+
+    // Memoize checkAttackStatus to avoid dependency warning
     const checkAttackStatus = useCallback(async () => {
         try {
             const token = localStorage.getItem('token');
@@ -91,7 +90,7 @@ export default function Attack({ toggleTheme, theme }) {
             console.error('Error checking attack status:', err);
         }
     }, [API_URL]);
-    
+
     const handle = e => {
         setForm({ ...form, [e.target.name]: e.target.value });
         setErrors({ ...errors, [e.target.name]: '' });
@@ -120,7 +119,7 @@ export default function Attack({ toggleTheme, theme }) {
             clearInterval(statusIntervalRef.current);
         }
     }, []);
-    
+
     // ── Client-side validation (mirrors backend) ────────────────────────────────
     const validate = () => {
         const errs = {};
@@ -141,12 +140,12 @@ export default function Attack({ toggleTheme, theme }) {
 
         return errs;
     };
-    
+
     // ── Launch ──────────────────────────────────────────────────────────────────
     const launch = async () => {
         setLaunchError('');
         setLaunched(false);
-        
+
         // ✅ Captcha check FIRST
         const captchaToken = captchaTokenRef.current;
         const issuedAt = captchaIssuedRef.current;
@@ -418,11 +417,10 @@ export default function Attack({ toggleTheme, theme }) {
                                         <button
                                             onClick={stopAttack}
                                             disabled={stoppingAttack}
-                                            className={`mt-3 w-full py-2 rounded-xl font-semibold text-sm transition-all flex items-center justify-center gap-2 ${
-                                                stoppingAttack
+                                            className={`mt-3 w-full py-2 rounded-xl font-semibold text-sm transition-all flex items-center justify-center gap-2 ${stoppingAttack
                                                     ? 'bg-gray-600 text-gray-400 cursor-wait'
                                                     : 'bg-red-600 hover:bg-red-700 text-white'
-                                            }`}
+                                                }`}
                                         >
                                             {stoppingAttack ? (
                                                 <>
@@ -487,8 +485,7 @@ export default function Attack({ toggleTheme, theme }) {
                                 <button
                                     onClick={launch}
                                     disabled={launching || user.credits < 1 || !captchaReady || attackStatus?.status === 'running'}
-                                    className={`w-full py-4 rounded-xl font-black text-base tracking-wider transition-all flex items-center justify-center gap-3 ${
-                                        user.credits < 1
+                                    className={`w-full py-4 rounded-xl font-black text-base tracking-wider transition-all flex items-center justify-center gap-3 ${user.credits < 1
                                             ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
                                             : !captchaReady
                                                 ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
@@ -497,7 +494,7 @@ export default function Attack({ toggleTheme, theme }) {
                                                     : launching
                                                         ? 'bg-red-700 text-white cursor-wait'
                                                         : 'bg-red-600 hover:bg-red-700 active:scale-95 text-white shadow-xl shadow-red-900/30'
-                                    }`}>
+                                        }`}>
                                     {launching ? (
                                         <><div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />Launching Attack...</>
                                     ) : user.credits < 1 ? (
