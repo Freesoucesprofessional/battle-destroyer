@@ -85,16 +85,59 @@ export default function Contact({ toggleTheme, theme, setIsAuth }) {
                             duration: 0.85,
                             ease: 'back.out(1.3)',
                             scrollTrigger: {
-                                trigger: card,       
-                                start: 'top 88%',     
+                                trigger: card,
+                                start: 'top 88%',
                                 end: 'top 50%',
-                                scrub: 1.0,          
+                                scrub: 1.0,
                                 toggleActions: 'play none none reverse',
                             },
                         }
                     );
                 });
             }
+
+            cards.forEach((card, i) => {
+                // ── responsive burst distance based on screen width ──
+                const isMobile = window.innerWidth < 640;
+                const dist = isMobile ? 80 : 220;
+
+                const burstOrigins = [
+                    { x: -dist, y: -dist * 0.5, rotation: -18 },
+                    { x: 0, y: -dist, rotation: 8 },
+                    { x: dist, y: -dist * 0.5, rotation: 20 },
+                    { x: -dist * 1.2, y: dist * 0.3, rotation: -14 },
+                    { x: dist * 1.2, y: dist * 0.3, rotation: 16 },
+                    { x: 0, y: dist, rotation: -8 },
+                ];
+
+                const origin = burstOrigins[i % burstOrigins.length];
+
+                gsap.fromTo(card,
+                    {
+                        opacity: 0,
+                        x: origin.x,
+                        y: origin.y,
+                        rotation: isMobile ? 0 : origin.rotation, // ← no rotation on mobile
+                        scale: isMobile ? 0.75 : 0.55,             // ← less scale on mobile
+                    },
+                    {
+                        opacity: 1,
+                        x: 0,
+                        y: 0,
+                        rotation: 0,
+                        scale: 1,
+                        duration: isMobile ? 0.65 : 0.85,
+                        ease: 'back.out(1.2)',
+                        scrollTrigger: {
+                            trigger: card,
+                            start: 'top 88%',
+                            end: 'top 50%',
+                            scrub: 1.0,
+                            toggleActions: 'play none none reverse',
+                        },
+                    }
+                );
+            });
 
             // ── CREDIT BARS — animate width on scroll, per card ──
             cards.forEach((card) => {
@@ -159,7 +202,7 @@ export default function Contact({ toggleTheme, theme, setIsAuth }) {
         : 'bg-white border-slate-200 shadow-sm';
 
     return (
-        <div className={`relative min-h-screen transition-colors duration-300 ${dark ? 'bg-surface-950' : 'bg-slate-50'}`}>
+        <div className={`relative min-h-screen transition-colors duration-300 ${dark ? 'bg-surface-950' : 'bg-slate-50'}` } style={{ overflowX: 'hidden' }}>
             <AnimatedBackground intensity={0.35} />
             <div className="fixed inset-0 bg-grid opacity-20 pointer-events-none z-0" />
 
