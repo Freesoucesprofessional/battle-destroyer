@@ -14,83 +14,62 @@ gsap.registerPlugin(ScrollTrigger);
 const TELEGRAM_URL = 'https://t.me/BattleDestroyerDDOS_Bot';
 
 const plans = [
-    { credits: 50, price: 499, label: 'Starter', icon: FaBolt, color: 'text-blue-400', bg: 'from-blue-600/10 to-blue-600/5', border: 'border-blue-600/20', popular: false },
-    { credits: 150, price: 999, label: 'Basic', icon: FaGem, color: 'text-green-400', bg: 'from-green-600/10 to-green-600/5', border: 'border-green-600/20', popular: false },
-    { credits: 250, price: 1499, label: 'Standard', icon: FaFire, color: 'text-orange-400', bg: 'from-orange-600/10 to-orange-600/5', border: 'border-orange-600/20', popular: true },
-    { credits: 333, price: 1999, label: 'Advanced', icon: FaFire, color: 'text-red-400', bg: 'from-red-600/10 to-red-600/5', border: 'border-red-600/20', popular: false },
-    { credits: 400, price: 2499, label: 'Pro', icon: FaCrown, color: 'text-yellow-400', bg: 'from-yellow-600/10 to-yellow-600/5', border: 'border-yellow-600/20', popular: false },
-    { credits: 500, price: 2999, label: 'Elite', icon: FaCrown, color: 'text-purple-400', bg: 'from-purple-600/10 to-purple-600/5', border: 'border-purple-600/20', popular: false },
+    { credits: 50,  price: 499,  label: 'Starter',  icon: FaBolt,  color: 'text-blue-400',   bg: 'from-blue-600/10 to-blue-600/5',   border: 'border-blue-600/20',   popular: false },
+    { credits: 150, price: 999,  label: 'Basic',     icon: FaGem,   color: 'text-green-400',  bg: 'from-green-600/10 to-green-600/5', border: 'border-green-600/20',  popular: false },
+    { credits: 250, price: 1499, label: 'Standard',  icon: FaFire,  color: 'text-orange-400', bg: 'from-orange-600/10 to-orange-600/5', border: 'border-orange-600/20', popular: true },
+    { credits: 333, price: 1999, label: 'Advanced',  icon: FaFire,  color: 'text-red-400',    bg: 'from-red-600/10 to-red-600/5',     border: 'border-red-600/20',    popular: false },
+    { credits: 400, price: 2499, label: 'Pro',       icon: FaCrown, color: 'text-yellow-400', bg: 'from-yellow-600/10 to-yellow-600/5', border: 'border-yellow-600/20', popular: false },
+    { credits: 500, price: 2999, label: 'Elite',     icon: FaCrown, color: 'text-purple-400', bg: 'from-purple-600/10 to-purple-600/5', border: 'border-purple-600/20', popular: false },
 ];
 
 export default function Contact({ toggleTheme, theme, setIsAuth }) {
     const dark = theme !== 'light';
 
     const headerRef = useRef(null);
-    const gridRef = useRef(null);
-    const infoRef = useRef(null);
+    const gridRef   = useRef(null);
+    const infoRef   = useRef(null);
 
     useEffect(() => {
         const ctx = gsap.context(() => {
 
-            // ── Header section — fade + slide down ──
-            const headerEls = headerRef.current?.children;
-            if (headerEls) {
+            // ── HEADER — stagger fade + slide down on mount ──
+            const headerEls = headerRef.current ? Array.from(headerRef.current.children) : [];
+            if (headerEls.length) {
                 gsap.fromTo(
-                    Array.from(headerEls),
-                    { opacity: 0, y: -30 },
-                    { opacity: 1, y: 0, duration: 0.65, ease: 'power3.out', stagger: 0.12, delay: 0.15 }
+                    headerEls,
+                    { opacity: 0, y: -28 },
+                    {
+                        opacity: 1, y: 0,
+                        duration: 0.6,
+                        ease: 'power3.out',
+                        stagger: 0.12,
+                        delay: 0.1,
+                    }
                 );
             }
 
-            // ── Other .card elements (left/right slide) ──
-            gsap.utils.toArray('.card').forEach((el, i) => {
+            // ── PLAN CARDS — grouped stagger, bottom-to-top + scale + fade ──
+            const cards = gridRef.current ? Array.from(gridRef.current.querySelectorAll('.plan-card')) : [];
+            if (cards.length) {
                 gsap.fromTo(
-                    el,
+                    cards,
+                    { opacity: 0, y: 60, scale: 0.88 },
                     {
-                        opacity: 0,
-                        x: i % 2 === 0 ? -80 : 80,
-                    },
-                    {
-                        opacity: 1,
-                        x: 0,
-                        duration: 0.6,
+                        opacity: 1, y: 0, scale: 1,
+                        duration: 0.5,
                         ease: 'power3.out',
+                        stagger: 0.07,
                         scrollTrigger: {
-                            trigger: el,
+                            trigger: gridRef.current,
                             start: 'top 85%',
-                        },
-                    }
-                );
-            });
-
-            // ── Pricing Cards — per-card trigger, reverses on scroll-up ──
-            gridRef.current?.querySelectorAll('.plan-card').forEach((card, i) => {
-                gsap.fromTo(
-                    card,
-                    {
-                        opacity: 0,
-                        y: 70,
-                        scale: 0.85,
-                    },
-                    {
-                        opacity: 1,
-                        y: 0,
-                        scale: 1,
-                        duration: 0.55,
-                        ease: 'power3.out',
-                        delay: i * 0.06,
-                        scrollTrigger: {
-                            trigger: card,
-                            start: 'top 90%',
-                            end: 'top 55%',
                             toggleActions: 'play none none reverse',
                         },
                     }
                 );
-            });
+            }
 
-            // ── Credit bars — per-card trigger, reverses on scroll-up ──
-            gridRef.current?.querySelectorAll('.plan-card').forEach((card) => {
+            // ── CREDIT BARS — animate width on scroll, per card ──
+            cards.forEach((card) => {
                 const bar = card.querySelector('.credit-bar-fill');
                 if (!bar) return;
                 gsap.fromTo(
@@ -98,7 +77,7 @@ export default function Contact({ toggleTheme, theme, setIsAuth }) {
                     { scaleX: 0, transformOrigin: 'left center' },
                     {
                         scaleX: 1,
-                        duration: 0.8,
+                        duration: 0.75,
                         ease: 'power2.out',
                         scrollTrigger: {
                             trigger: card,
@@ -109,32 +88,42 @@ export default function Contact({ toggleTheme, theme, setIsAuth }) {
                 );
             });
 
-            // ── Popular badge pulse ──
+            // ── POPULAR BADGE — continuous pulse ──
             gsap.to('.popular-badge', {
-                boxShadow: '0 4px 28px rgba(220,38,38,0.6)',
-                repeat: -1, yoyo: true, duration: 1.4, ease: 'sine.inOut',
+                boxShadow: '0 4px 28px rgba(220,38,38,0.65)',
+                repeat: -1, yoyo: true,
+                duration: 1.4,
+                ease: 'sine.inOut',
             });
 
-            // ── Info card slide up ──
-            gsap.fromTo(infoRef.current,
-                { opacity: 0, y: 40 },
-                {
-                    opacity: 1, y: 0, duration: 0.6, ease: 'power2.out',
-                    scrollTrigger: {
-                        trigger: infoRef.current,
-                        start: 'top 90%',
-                        toggleActions: 'play none none reverse',
+            // ── INFO CARD — slide up on scroll ──
+            if (infoRef.current) {
+                gsap.fromTo(
+                    infoRef.current,
+                    { opacity: 0, y: 40 },
+                    {
+                        opacity: 1, y: 0,
+                        duration: 0.55,
+                        ease: 'power3.out',
+                        scrollTrigger: {
+                            trigger: infoRef.current,
+                            start: 'top 92%',
+                            toggleActions: 'play none none reverse',
+                        },
                     }
-                }
-            );
+                );
+            }
 
-            // ── Telegram CTA button shimmer (continuous) ──
+            // ── TELEGRAM BUTTON — continuous shimmer ──
             gsap.to('.tg-btn', {
-                boxShadow: '0 8px 36px rgba(37,99,235,0.5)',
-                repeat: -1, yoyo: true, duration: 1.8, ease: 'sine.inOut',
+                boxShadow: '0 8px 36px rgba(37,99,235,0.55)',
+                repeat: -1, yoyo: true,
+                duration: 1.8,
+                ease: 'sine.inOut',
             });
 
         });
+
         return () => ctx.revert();
     }, []);
 
@@ -153,32 +142,30 @@ export default function Contact({ toggleTheme, theme, setIsAuth }) {
                 <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
 
                     {/* ── Header ── */}
-                    <div ref={headerRef} className="text-center mb-12" style={{ perspective: '600px' }}>
-                        <p className="bd-section-tag mb-2" style={{ opacity: 0 }}>Pricing Plans</p>
+                    <div ref={headerRef} className="text-center mb-12">
+                        {/* ✅ NO style={{ opacity: 0 }} — GSAP owns opacity */}
+                        <p className="bd-section-tag mb-2">Pricing Plans</p>
+
                         <h1
                             className={`text-3xl sm:text-5xl font-bold mb-3 ${dark ? 'text-white' : 'text-slate-900'}`}
-                            style={{ fontFamily: "'Rajdhani', sans-serif", letterSpacing: '0.04em', opacity: 0 }}
+                            style={{ fontFamily: "'Rajdhani', sans-serif", letterSpacing: '0.04em' }}
                         >
                             Buy <span className="text-gradient-red">Credits</span>
                         </h1>
-                        <p
-                            className={`text-sm max-w-md mx-auto mb-6 ${dark ? 'text-slate-400' : 'text-slate-500'}`}
-                            style={{ opacity: 0 }}
-                        >
+
+                        <p className={`text-sm max-w-md mx-auto mb-6 ${dark ? 'text-slate-400' : 'text-slate-500'}`}>
                             Purchase credits to power your attacks. All payments handled securely via Telegram bot.
                         </p>
-                        <a
+                        <a>
                             href={TELEGRAM_URL}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="tg-btn inline-flex items-center gap-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold px-6 py-3 rounded-xl transition-all active:scale-95 text-sm"
+                            className="tg-btn inline-flex items-center gap-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold px-6 py-3 rounded-xl transition-colors active:scale-95 text-sm"
                             style={{
                                 fontFamily: "'Rajdhani', sans-serif",
                                 letterSpacing: '0.06em',
                                 boxShadow: '0 6px 24px rgba(37,99,235,0.35)',
-                                opacity: 0,
                             }}
-                        >
                             <FaTelegram size={16} />
                             CONTACT VIA TELEGRAM BOT
                             <FaChevronRight size={11} />
@@ -189,21 +176,28 @@ export default function Contact({ toggleTheme, theme, setIsAuth }) {
                     <div
                         ref={gridRef}
                         className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 mb-8"
-                        style={{ perspective: '800px' }}
                     >
                         {plans.map((plan, i) => (
                             <div
                                 key={i}
-                                className={`plan-card relative rounded-2xl border p-5 sm:p-6 flex flex-col transition-all hover:-translate-y-1 hover:shadow-card-hover ${cardCls} ${plan.popular ? (dark ? 'border-red-500/40 ring-1 ring-red-500/20' : 'border-red-300 ring-1 ring-red-100') : ''
-                                    }`}
-                                style={{ opacity: 0 }}
+                                className={`plan-card relative rounded-2xl border p-5 sm:p-6 flex flex-col transition-[border-color,box-shadow] hover:-translate-y-1 hover:shadow-card-hover ${cardCls} ${
+                                    plan.popular
+                                        ? dark
+                                            ? 'border-red-500/40 ring-1 ring-red-500/20'
+                                            : 'border-red-300 ring-1 ring-red-100'
+                                        : ''
+                                }`}
+                                style={{ willChange: 'transform, opacity' }}
                             >
                                 {/* Popular badge */}
                                 {plan.popular && (
                                     <div className="absolute -top-3 left-1/2 -translate-x-1/2">
                                         <span
                                             className="popular-badge bg-red-600 text-white text-xs font-bold px-3 py-1 rounded-full tracking-wider flex items-center gap-1.5"
-                                            style={{ fontFamily: "'Rajdhani', sans-serif", boxShadow: '0 4px 16px rgba(220,38,38,0.4)' }}
+                                            style={{
+                                                fontFamily: "'Rajdhani', sans-serif",
+                                                boxShadow: '0 4px 16px rgba(220,38,38,0.4)',
+                                            }}
                                         >
                                             <FaFire size={10} />
                                             MOST POPULAR
@@ -223,13 +217,18 @@ export default function Contact({ toggleTheme, theme, setIsAuth }) {
                                         >
                                             {plan.label}
                                         </p>
-                                        <p className={`text-xs ${dark ? 'text-slate-500' : 'text-slate-400'}`}>Credit Pack</p>
+                                        <p className={`text-xs ${dark ? 'text-slate-500' : 'text-slate-400'}`}>
+                                            Credit Pack
+                                        </p>
                                     </div>
                                 </div>
 
                                 {/* Credits count */}
                                 <div className="flex items-end gap-2 mb-1">
-                                    <span className={`text-5xl font-black ${plan.color}`} style={{ fontFamily: "'Rajdhani', sans-serif" }}>
+                                    <span
+                                        className={`text-5xl font-black ${plan.color}`}
+                                        style={{ fontFamily: "'Rajdhani', sans-serif" }}
+                                    >
                                         {plan.credits}
                                     </span>
                                     <span className={`text-sm mb-2.5 font-semibold ${dark ? 'text-slate-500' : 'text-slate-400'}`}>
@@ -248,7 +247,9 @@ export default function Contact({ toggleTheme, theme, setIsAuth }) {
                                 {/* Price box */}
                                 <div className={`rounded-xl px-4 py-3 mb-5 border ${dark ? 'bg-white/[0.03] border-white/[0.07]' : 'bg-slate-50 border-slate-200'}`}>
                                     <div className="flex items-center justify-between">
-                                        <span className={`text-xs font-medium ${dark ? 'text-slate-500' : 'text-slate-400'}`}>Price</span>
+                                        <span className={`text-xs font-medium ${dark ? 'text-slate-500' : 'text-slate-400'}`}>
+                                            Price
+                                        </span>
                                         <span
                                             className={`text-2xl font-black flex items-center gap-0.5 ${dark ? 'text-white' : 'text-slate-900'}`}
                                             style={{ fontFamily: "'Rajdhani', sans-serif" }}
@@ -258,7 +259,9 @@ export default function Contact({ toggleTheme, theme, setIsAuth }) {
                                         </span>
                                     </div>
                                     <div className="flex items-center justify-between mt-1">
-                                        <span className={`text-xs ${dark ? 'text-slate-600' : 'text-slate-400'}`}>Per credit</span>
+                                        <span className={`text-xs ${dark ? 'text-slate-600' : 'text-slate-400'}`}>
+                                            Per credit
+                                        </span>
                                         <span className={`text-xs font-bold flex items-center gap-0.5 ${plan.color}`}>
                                             <FaRupeeSign size={10} />
                                             {(plan.price / plan.credits).toFixed(1)}/credit
@@ -267,22 +270,22 @@ export default function Contact({ toggleTheme, theme, setIsAuth }) {
                                 </div>
 
                                 {/* Buy button */}
-                                <a
+                                <a>
                                     href={TELEGRAM_URL}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className={`w-full py-3 rounded-xl font-bold text-sm text-center flex items-center justify-center gap-2 transition-all active:scale-95 mt-auto ${plan.popular
-                                        ? 'bg-red-600 hover:bg-red-500 text-white'
-                                        : dark
-                                            ? 'bg-white/[0.05] hover:bg-white/[0.08] border border-white/[0.1] text-slate-300 hover:text-white'
-                                            : 'bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700'
-                                        }`}
+                                    className={`w-full py-3 rounded-xl font-bold text-sm text-center flex items-center justify-center gap-2 transition-colors active:scale-95 mt-auto ${
+                                        plan.popular
+                                            ? 'bg-red-600 hover:bg-red-500 text-white'
+                                            : dark
+                                                ? 'bg-white/[0.05] hover:bg-white/[0.08] border border-white/[0.1] text-slate-300 hover:text-white'
+                                                : 'bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700'
+                                    }`}
                                     style={{
                                         fontFamily: "'Rajdhani', sans-serif",
                                         letterSpacing: '0.06em',
                                         boxShadow: plan.popular ? '0 4px 20px rgba(220,38,38,0.3)' : 'none',
                                     }}
-                                >
                                     <FaShoppingCart size={13} />
                                     BUY NOW
                                 </a>
@@ -291,7 +294,12 @@ export default function Contact({ toggleTheme, theme, setIsAuth }) {
                     </div>
 
                     {/* ── Info note ── */}
-                    <div ref={infoRef} className={`rounded-2xl border p-5 flex items-start gap-4 transition-all ${cardCls}`} style={{ opacity: 0 }}>
+                    {/* ✅ NO style={{ opacity: 0 }} — GSAP owns it */}
+                    <div
+                        ref={infoRef}
+                        className={`rounded-2xl border p-5 flex items-start gap-4 ${cardCls}`}
+                        style={{ willChange: 'transform, opacity' }}
+                    >
                         <div className="w-9 h-9 rounded-xl bg-blue-600/10 border border-blue-600/20 flex items-center justify-center shrink-0 mt-0.5">
                             <FaInfoCircle className="text-blue-400" size={15} />
                         </div>
@@ -303,12 +311,15 @@ export default function Contact({ toggleTheme, theme, setIsAuth }) {
                                 HOW TO PURCHASE
                             </p>
                             <p className={`text-xs leading-relaxed ${dark ? 'text-slate-400' : 'text-slate-500'}`}>
-                                Click <span className="text-blue-400 font-semibold">Buy Now</span> on any plan to open our Telegram bot.
-                                Send the plan name and complete payment via UPI/bank transfer.
-                                Credits are added to your account within minutes after confirmation.
+                                Click{' '}
+                                <span className="text-blue-400 font-semibold">Buy Now</span>{' '}
+                                on any plan to open our Telegram bot. Send the plan name and complete
+                                payment via UPI/bank transfer. Credits are added to your account within
+                                minutes after confirmation.
                             </p>
                         </div>
                     </div>
+
                 </div>
 
                 <Footer theme={theme} />
