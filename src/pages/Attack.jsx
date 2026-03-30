@@ -23,7 +23,6 @@ export default function Attack({ toggleTheme, theme, setIsAuth }) {
     const [timeLeft, setTimeLeft] = useState(0);
     const [attackHistory, setAttackHistory] = useState([]);
     const [captchaReady, setCaptchaReady] = useState(false);
-    const [cooldown, setCooldown] = useState(0);
 
     const navigate = useNavigate();
     const dark = theme !== 'light';
