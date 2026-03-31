@@ -7,6 +7,7 @@ import {
     FaTelegram,
     FaShieldAlt,
     FaServer,
+    FaCrown
 } from 'react-icons/fa';
 import { MdSecurity } from 'react-icons/md';
 
@@ -69,6 +70,7 @@ export default function Footer({ theme }) {
                                 { to: '/dashboard', label: 'Dashboard', icon: FaBolt },
                                 { to: '/attack', label: 'Attack Panel', icon: FaBullseye },
                                 { to: '/contact', label: 'Buy Credits', icon: FaGem },
+                                { to: '/reseller-prices', label: 'Reseller Plans', icon: FaCrown },
                             ].map(({ to, label, icon: Icon }) => (
                                 <li key={to}>
                                     <Link

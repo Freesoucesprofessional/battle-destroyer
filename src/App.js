@@ -7,6 +7,7 @@ import Attack    from './pages/Attack';
 import Contact   from './pages/Contact';
 import Home      from './pages/Home';
 import Reseller from './pages/Reseller';
+import ResellerPrices from './pages/ResellerPrices';
 
 function App() {
   const [theme, setTheme] = useState(localStorage.getItem('theme') || 'dark');
@@ -33,6 +34,7 @@ function App() {
         {/* Public landing page — accessible always */}
         <Route path="/"          element={<Home      toggleTheme={toggleTheme} theme={theme} />} />
         <Route path="/reseller" element={<Reseller toggleTheme={toggleTheme} theme={theme} />} />
+        <Route path="/reseller-prices" element={<ResellerPrices toggleTheme={toggleTheme} theme={theme} />} />
 
         {/* Auth routes */}
         <Route path="/login"     element={!isAuth ? <Login     toggleTheme={toggleTheme} theme={theme} setIsAuth={setIsAuth} /> : <Navigate to="/dashboard" />} />
