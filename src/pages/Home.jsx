@@ -293,6 +293,65 @@ export default function Home({ toggleTheme, theme }) {
                         </span>
                     </div>
 
+                    {/* ── Center Navigation (Desktop only) ── */}
+                    <div className="hidden md:flex items-center gap-1">
+                        {isLoggedIn ? (
+                            // Logged in: show Dashboard, Attack, and Contact
+                            <>
+                                <Link
+                                    to="/dashboard"
+                                    className={`relative flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+                                        dark
+                                            ? 'text-slate-400 hover:text-white hover:bg-white/[0.05]'
+                                            : 'text-slate-500 hover:text-slate-900 hover:bg-black/[0.04]'
+                                    }`}
+                                    style={{ fontFamily: "'DM Sans', sans-serif" }}
+                                >
+                                    <FaBolt size={14} />
+                                    <span className="relative">Dashboard</span>
+                                </Link>
+                                <Link
+                                    to="/attack"
+                                    className={`relative flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+                                        dark
+                                            ? 'text-slate-400 hover:text-white hover:bg-white/[0.05]'
+                                            : 'text-slate-500 hover:text-slate-900 hover:bg-black/[0.04]'
+                                    }`}
+                                    style={{ fontFamily: "'DM Sans', sans-serif" }}
+                                >
+                                    <FaBullseye size={14} />
+                                    <span className="relative">Attack</span>
+                                </Link>
+                                <Link
+                                    to="/contact"
+                                    className={`relative flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+                                        dark
+                                            ? 'text-slate-400 hover:text-white hover:bg-white/[0.05]'
+                                            : 'text-slate-500 hover:text-slate-900 hover:bg-black/[0.04]'
+                                    }`}
+                                    style={{ fontFamily: "'DM Sans', sans-serif" }}
+                                >
+                                    <FaGem size={14} />
+                                    <span className="relative">Buy Credits</span>
+                                </Link>
+                            </>
+                        ) : (
+                            // Not logged in: show only Contact
+                            <Link
+                                to="/contact"
+                                className={`relative flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+                                    dark
+                                        ? 'text-slate-400 hover:text-white hover:bg-white/[0.05]'
+                                        : 'text-slate-500 hover:text-slate-900 hover:bg-black/[0.04]'
+                                }`}
+                                style={{ fontFamily: "'DM Sans', sans-serif" }}
+                            >
+                                <FaGem size={14} />
+                                <span className="relative">Buy Credits</span>
+                            </Link>
+                        )}
+                    </div>
+
                     <div className="flex items-center gap-3">
                         {/* Theme toggle */}
                         <button
@@ -307,7 +366,7 @@ export default function Home({ toggleTheme, theme }) {
                         {isLoggedIn ? (
                             <Link
                                 to="/dashboard"
-                                className="px-4 py-2 rounded-xl text-sm font-bold text-white bg-red-600 hover:bg-red-500 transition-all active:scale-95 flex items-center gap-2"
+                                className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold text-white bg-red-600 hover:bg-red-500 transition-all active:scale-95"
                                 style={{
                                     boxShadow: '0 4px 20px rgba(220,38,38,0.35)',
                                     fontFamily: "'Rajdhani', sans-serif",
@@ -320,7 +379,7 @@ export default function Home({ toggleTheme, theme }) {
                         ) : (
                             <Link
                                 to="/login"
-                                className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all ${dark
+                                className={`hidden sm:flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${dark
                                     ? 'bg-white/[0.06] hover:bg-white/[0.1] text-slate-300 hover:text-white border border-white/[0.08]'
                                     : 'bg-black/[0.04] hover:bg-black/[0.07] text-slate-600 hover:text-slate-900 border border-black/[0.08]'
                                     }`}
