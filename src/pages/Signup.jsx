@@ -21,11 +21,29 @@ import AnimatedBackground from '../components/AnimatedBackground';
 const TOKEN_MAX_AGE_MS = 270_000;
 
 const FEATURES = [
-  { icon: FaGift,     text: '3 free credits on signup' },
-  { icon: FaLink,     text: '+2 credits per referral' },
-  { icon: FaLock,     text: 'Device fingerprint protection' },
+  { icon: FaGift,      text: '3 free credits on signup' },
+  { icon: FaLink,      text: '+2 credits per referral' },
+  { icon: FaLock,      text: 'Device fingerprint protection' },
   { icon: FaShieldAlt, text: 'Access to Attack Hub' },
 ];
+
+/* ── Reusable video logo component ── */
+function VideoLogo({ size = 'md' }) {
+  const sizeMap = {
+    sm: 'w-14 h-14',
+    md: 'w-44 h-44',
+  };
+  return (
+    <video
+      src="/logo.mp4"
+      autoPlay
+      loop
+      muted
+      playsInline
+      className={`${sizeMap[size]} object-contain`}
+    />
+  );
+}
 
 export default function Signup({ toggleTheme, theme, setIsAuth }) {
   const [form, setForm] = useState({ username: '', email: '', password: '', referralCode: '' });
@@ -126,13 +144,21 @@ export default function Signup({ toggleTheme, theme, setIsAuth }) {
         />
 
         <div className="relative text-center px-10 z-10">
+          {/* ── Large video logo on left panel ── */}
           <div className="flex justify-center mb-6">
             <div className="relative">
-              <div className="absolute inset-0 rounded-3xl blur-2xl" style={{ background: 'rgba(220,38,38,0.18)' }} />
-              <img src="/logo512.png" alt="Battle Destroyer" className="relative w-44 h-44 object-contain" />
+              <div
+                className="absolute inset-0 rounded-3xl blur-2xl"
+                style={{ background: 'rgba(220,38,38,0.18)' }}
+              />
+              <VideoLogo size="md" />
             </div>
           </div>
-          <h2 className="text-4xl font-bold text-white tracking-[0.15em] mb-1" style={{ fontFamily: "'Rajdhani', sans-serif" }}>
+
+          <h2
+            className="text-4xl font-bold text-white tracking-[0.15em] mb-1"
+            style={{ fontFamily: "'Rajdhani', sans-serif" }}
+          >
             BATTLE
           </h2>
           <h2
@@ -147,6 +173,7 @@ export default function Signup({ toggleTheme, theme, setIsAuth }) {
           >
             DESTROYER
           </h2>
+
           <div className="space-y-2.5 text-left">
             {FEATURES.map((f, i) => (
               <div key={i} className="flex items-center gap-3 rounded-xl px-4 py-2.5 bg-white/[0.04] border border-white/[0.06]">
@@ -170,10 +197,16 @@ export default function Signup({ toggleTheme, theme, setIsAuth }) {
         </button>
 
         <div className="w-full max-w-sm py-4">
-          {/* Mobile logo */}
+
+          {/* ── Mobile video logo ── */}
           <div className="lg:hidden text-center mb-6">
-            <img src="/logo512.png" alt="Battle Destroyer" className="w-14 h-14 object-contain mx-auto mb-2" />
-            <h1 className="text-2xl font-bold text-red-500 tracking-[0.12em]" style={{ fontFamily: "'Rajdhani', sans-serif" }}>
+            <div className="flex justify-center mb-2">
+              <VideoLogo size="sm" />
+            </div>
+            <h1
+              className="text-2xl font-bold text-red-500 tracking-[0.12em]"
+              style={{ fontFamily: "'Rajdhani', sans-serif" }}
+            >
               BATTLE-DESTROYER
             </h1>
           </div>
