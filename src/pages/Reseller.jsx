@@ -5,8 +5,9 @@ import gsap from 'gsap';
 import {
     FaBolt, FaGem, FaFire, FaCrown, FaUsers, FaHistory,
     FaSearch, FaSignOutAlt, FaShieldAlt, FaCheckCircle,
-    FaExclamationTriangle, FaStar, FaRupeeSign, FaCircle,
+    FaExclamationTriangle, FaStar, FaRupeeSign,
 } from 'react-icons/fa';
+import { useNavigate } from 'react-router-dom';
 import { MdWbSunny, MdNightlight, MdRadar } from 'react-icons/md';
 import AnimatedBackground from '../components/AnimatedBackground';
 
@@ -39,7 +40,6 @@ function Toast({ toasts }) {
 
 export default function Reseller({ toggleTheme, theme }) {
     const dark = theme !== 'light';
-    const navigate = useNavigate();
 
     // Auth state
     const [isLoggedIn, setIsLoggedIn] = useState(false);
