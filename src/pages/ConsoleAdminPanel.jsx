@@ -53,12 +53,32 @@ export default function ConsoleAdminPanel({ toggleTheme, theme }) {
     // ── Restore session from localStorage on mount ──
     useEffect(() => {
         const savedToken = localStorage.getItem('adminToken');
-        if (savedToken) {
-            setToken(savedToken);
-            setIsLoggedIn(true);
-            loadStats();
-            loadUsers();
-        }
+        if (!savedToken) return;
+
+        setToken(savedToken);
+        setIsLoggedIn(true);
+
+        // call APIs using savedToken directly
+        const init = async () => {
+            try {
+                const statsRes = await axios.get(`${API_URL}/api/admin/stats`, {
+                    headers: { 'x-admin-token': savedToken },
+                    withCredentials: true
+                });
+
+                const usersRes = await axios.get(`${API_URL}/api/admin/users`, {
+                    headers: { 'x-admin-token': savedToken },
+                    withCredentials: true
+                });
+
+                setStats(statsRes.data);
+                setUsers(usersRes.data.users || []);
+            } catch (err) {
+                console.error(err);
+            }
+        };
+
+        init();
     }, []);
 
     // Animate login box
@@ -83,14 +103,14 @@ export default function ConsoleAdminPanel({ toggleTheme, theme }) {
                 { secret: adminSecret },
                 { withCredentials: true, headers: { 'X-CSRF-Token': csrfToken } }
             );
-            
+
             setToken(data.token);
             setIsLoggedIn(true);
             setAdminSecret('');
-            
+
             // ✅ Persist to localStorage
             localStorage.setItem('adminToken', data.token);
-            
+
             toast('Login successful!');
             loadStats();
             loadUsers();
@@ -108,14 +128,14 @@ export default function ConsoleAdminPanel({ toggleTheme, theme }) {
         setUsers([]);
         setResellers([]);
         setAdminSecret('');
-        
+
         // ✅ Clear localStorage
         localStorage.removeItem('adminToken');
-        
+
         toast('Logged out successfully');
     };
 
-    const loadStats = async () => {
+    const loadStats = useCallback(async () => {
         try {
             const { data } = await axios.get(`${API_URL}/api/admin/stats`, {
                 headers: { 'x-admin-token': token },
@@ -125,18 +145,20 @@ export default function ConsoleAdminPanel({ toggleTheme, theme }) {
         } catch (err) {
             if (err.response?.status === 401) logout();
         }
-    };
+    }, [token]);
 
-    const loadUsers = async () => {
+    const loadUsers = useCallback(async () => {
         setUsersLoading(true);
         try {
-            const url = searchQuery 
+            const url = searchQuery
                 ? `${API_URL}/api/admin/users?search=${encodeURIComponent(searchQuery)}`
                 : `${API_URL}/api/admin/users`;
+
             const { data } = await axios.get(url, {
                 headers: { 'x-admin-token': token },
                 withCredentials: true
             });
+
             setUsers(data.users || []);
         } catch (err) {
             if (err.response?.status === 401) logout();
@@ -144,12 +166,12 @@ export default function ConsoleAdminPanel({ toggleTheme, theme }) {
         } finally {
             setUsersLoading(false);
         }
-    };
+    }, [token, searchQuery, toast]);
 
     const loadResellers = async () => {
         setResellersLoading(true);
         try {
-            const url = searchQuery 
+            const url = searchQuery
                 ? `${API_URL}/api/admin/resellers?search=${encodeURIComponent(searchQuery)}`
                 : `${API_URL}/api/admin/resellers`;
             const { data } = await axios.get(url, {
@@ -215,13 +237,13 @@ export default function ConsoleAdminPanel({ toggleTheme, theme }) {
                     <div className="space-y-4">
                         <div>
                             <label className={`block text-xs font-semibold uppercase tracking-[0.1em] mb-2 ${dark ? 'text-slate-500' : 'text-slate-400'}`}>Admin Secret</label>
-                            <input 
-                                type="password" 
-                                className={inputCls} 
-                                placeholder="Your ADMIN_SECRET value" 
+                            <input
+                                type="password"
+                                className={inputCls}
+                                placeholder="Your ADMIN_SECRET value"
                                 value={adminSecret}
                                 onChange={e => setAdminSecret(e.target.value)}
-                                onKeyDown={e => e.key === 'Enter' && doLogin()} 
+                                onKeyDown={e => e.key === 'Enter' && doLogin()}
                             />
                         </div>
                         <button onClick={doLogin} disabled={loginLoading}
@@ -293,7 +315,7 @@ export default function ConsoleAdminPanel({ toggleTheme, theme }) {
                             { id: 'users', label: '👥 Users' },
                             { id: 'resellers', label: '🤝 Resellers' },
                         ].map(tab => (
-                            <button 
+                            <button
                                 key={tab.id}
                                 onClick={() => {
                                     setCurrentTab(tab.id);
@@ -301,12 +323,11 @@ export default function ConsoleAdminPanel({ toggleTheme, theme }) {
                                     if (tab.id === 'resellers') loadResellers();
                                     else loadUsers();
                                 }}
-                                className={`px-4 py-2 rounded-xl font-semibold text-sm transition-all ${
-                                    currentTab === tab.id
-                                        ? 'bg-red-600 text-white'
-                                        : dark ? 'bg-white/[0.05] text-slate-400 hover:text-white hover:bg-white/[0.1]' 
+                                className={`px-4 py-2 rounded-xl font-semibold text-sm transition-all ${currentTab === tab.id
+                                    ? 'bg-red-600 text-white'
+                                    : dark ? 'bg-white/[0.05] text-slate-400 hover:text-white hover:bg-white/[0.1]'
                                         : 'bg-slate-100 text-slate-600 hover:text-slate-900 hover:bg-slate-200'
-                                }`}
+                                    }`}
                             >
                                 {tab.label}
                             </button>
@@ -317,19 +338,18 @@ export default function ConsoleAdminPanel({ toggleTheme, theme }) {
                     <div className={`rounded-2xl p-5 border mb-6 transition-all flex gap-3 ${cardCls}`}>
                         <div className="flex-1 relative">
                             <FaSearch className={`absolute left-4 top-1/2 -translate-y-1/2 ${dark ? 'text-slate-600' : 'text-slate-400'}`} size={14} />
-                            <input 
+                            <input
                                 type="text"
                                 placeholder={currentTab === 'users' ? 'Search users...' : 'Search resellers...'}
                                 value={searchQuery}
                                 onChange={e => setSearchQuery(e.target.value)}
-                                className={`w-full pl-10 pr-4 py-3 rounded-xl text-sm border outline-none transition ${
-                                    dark
-                                        ? 'bg-white/[0.04] border-white/[0.1] text-slate-100 placeholder-slate-600 focus:border-red-500/50'
-                                        : 'bg-slate-50 border-slate-200 text-slate-900 placeholder-slate-400 focus:border-red-500'
-                                }`}
+                                className={`w-full pl-10 pr-4 py-3 rounded-xl text-sm border outline-none transition ${dark
+                                    ? 'bg-white/[0.04] border-white/[0.1] text-slate-100 placeholder-slate-600 focus:border-red-500/50'
+                                    : 'bg-slate-50 border-slate-200 text-slate-900 placeholder-slate-400 focus:border-red-500'
+                                    }`}
                             />
                         </div>
-                        <button 
+                        <button
                             onClick={() => currentTab === 'users' ? loadUsers() : loadResellers()}
                             className="px-4 py-3 rounded-xl font-bold text-sm text-white bg-red-600 hover:bg-red-500 transition-all"
                         >
