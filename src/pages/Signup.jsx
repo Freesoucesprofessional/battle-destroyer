@@ -31,7 +31,7 @@ const FEATURES = [
 function VideoLogo({ className = '' }) {
   return (
     <video
-      src="/logo.gif"
+      src="/logo.webm"
       autoPlay
       loop
       muted
