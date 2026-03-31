@@ -69,6 +69,23 @@ export default function Reseller({ toggleTheme, theme }) {
         setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3500);
     }, []);
 
+    // ── Restore session from localStorage on mount ──
+    useEffect(() => {
+        const savedToken = localStorage.getItem('resellerToken');
+        const savedReseller = localStorage.getItem('resellerData');
+        if (savedToken && savedReseller) {
+            try {
+                setToken(savedToken);
+                setReseller(JSON.parse(savedReseller));
+                setIsLoggedIn(true);
+            } catch (err) {
+                // Clear corrupted data
+                localStorage.removeItem('resellerToken');
+                localStorage.removeItem('resellerData');
+            }
+        }
+    }, []);
+
     // Animate login box
     useEffect(() => {
         if (!isLoggedIn && loginRef.current) {
@@ -107,8 +124,15 @@ export default function Reseller({ toggleTheme, theme }) {
             setToken(data.token);
             setReseller(data.reseller);
             setIsLoggedIn(true);
+            
+            // ✅ Persist to localStorage
+            localStorage.setItem('resellerToken', data.token);
+            localStorage.setItem('resellerData', JSON.stringify(data.reseller));
+            
+            toast('Login successful!');
         } catch (err) {
             setLoginError(err.response?.data?.message || 'Login failed');
+            toast(err.response?.data?.message || 'Login failed', 'error');
         } finally {
             setLoginLoading(false);
         }
@@ -120,6 +144,13 @@ export default function Reseller({ toggleTheme, theme }) {
         setReseller(null);
         setFoundUser(null);
         setHistory([]);
+        setLoginForm({ username: '', password: '' });
+        
+        // ✅ Clear localStorage
+        localStorage.removeItem('resellerToken');
+        localStorage.removeItem('resellerData');
+        
+        toast('Logged out successfully');
     };
 
     const searchUser = async () => {
@@ -135,6 +166,7 @@ export default function Reseller({ toggleTheme, theme }) {
             setFoundUser(data);
         } catch (err) {
             setSearchError(err.response?.data?.message || 'User not found');
+            toast(err.response?.data?.message || 'User not found', 'error');
         } finally {
             setSearchLoading(false);
         }
@@ -165,7 +197,13 @@ export default function Reseller({ toggleTheme, theme }) {
                     withCredentials: true
                 }
             );
-            setReseller(prev => ({ ...prev, credits: data.resellerCreditsLeft, totalGiven: (prev.totalGiven || 0) + selectedPlan.credits }));
+            
+            const updatedReseller = { ...reseller, credits: data.resellerCreditsLeft, totalGiven: (reseller.totalGiven || 0) + selectedPlan.credits };
+            setReseller(updatedReseller);
+            
+            // ✅ Update localStorage with new credits
+            localStorage.setItem('resellerData', JSON.stringify(updatedReseller));
+            
             setFoundUser(prev => ({ ...prev, credits: data.userNewCredits, isPro: true }));
             setGiveSuccess(`✅ ${selectedPlan.label} plan (${selectedPlan.credits} credits) sent to ${foundUser.username}!`);
             toast(`Sent ${selectedPlan.credits} credits to ${foundUser.username}`);
@@ -186,9 +224,19 @@ export default function Reseller({ toggleTheme, theme }) {
                 { headers: { Authorization: `Bearer ${token}` }, withCredentials: true }
             );
             setReseller(data);
+            
+            // ✅ Update localStorage with refreshed data
+            localStorage.setItem('resellerData', JSON.stringify(data));
+            
             toast('Account refreshed');
-        } catch {
-            toast('Failed to refresh', 'error');
+        } catch (err) {
+            const msg = err.response?.data?.message || 'Failed to refresh account';
+            toast(msg, 'error');
+            
+            // If token is invalid, logout
+            if (err.response?.status === 401) {
+                logout();
+            }
         }
     };
 
