@@ -31,10 +31,11 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Public landing page — accessible always */}
+        {/* Public landing pages — accessible always */}
         <Route path="/"          element={<Home      toggleTheme={toggleTheme} theme={theme} />} />
         <Route path="/reseller" element={<Reseller toggleTheme={toggleTheme} theme={theme} />} />
         <Route path="/reseller-prices" element={<ResellerPrices toggleTheme={toggleTheme} theme={theme} />} />
+        <Route path="/contact"   element={<Contact   toggleTheme={toggleTheme} theme={theme} setIsAuth={setIsAuth} />} />
 
         {/* Auth routes */}
         <Route path="/login"     element={!isAuth ? <Login     toggleTheme={toggleTheme} theme={theme} setIsAuth={setIsAuth} /> : <Navigate to="/dashboard" />} />
@@ -43,7 +44,6 @@ function App() {
         {/* Protected routes */}
         <Route path="/dashboard" element={isAuth ? <Dashboard toggleTheme={toggleTheme} theme={theme} setIsAuth={setIsAuth} /> : <Navigate to="/login" />} />
         <Route path="/attack"    element={isAuth ? <Attack    toggleTheme={toggleTheme} theme={theme} setIsAuth={setIsAuth} /> : <Navigate to="/login" />} />
-        <Route path="/contact"   element={isAuth ? <Contact   toggleTheme={toggleTheme} theme={theme} setIsAuth={setIsAuth} /> : <Navigate to="/login" />} />
 
         {/* Catch-all */}
         <Route path="*"          element={<Navigate to="/" />} />

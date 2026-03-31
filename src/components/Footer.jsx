@@ -16,6 +16,14 @@ export default function Footer({ theme }) {
 
     const year = new Date().getFullYear();
 
+    // Navigation links
+    const navLinks = [
+        { to: '/dashboard', label: 'Dashboard', icon: FaBolt },
+        { to: '/attack', label: 'Attack Panel', icon: FaBullseye },
+        { to: '/contact', label: 'Buy Credits', icon: FaGem },
+        { to: '/reseller-prices', label: 'Reseller Plans', icon: FaCrown },
+    ];
+
     return (
         <footer
             className={`relative z-10 mt-12 border-t ${dark
@@ -31,7 +39,7 @@ export default function Footer({ theme }) {
 
                     {/* Brand */}
                     <div>
-                        <Link to="/dashboard" className="inline-flex items-center gap-3 mb-3 group">
+                        <Link to="/" className="inline-flex items-center gap-3 mb-3 group">
                             <div className="w-9 h-9 items-center justify-center">
                                 <img
                                     src="/logo512.png"
@@ -66,12 +74,7 @@ export default function Footer({ theme }) {
                             Navigation
                         </p>
                         <ul className="space-y-2.5">
-                            {[
-                                { to: '/dashboard', label: 'Dashboard', icon: FaBolt },
-                                { to: '/attack', label: 'Attack Panel', icon: FaBullseye },
-                                { to: '/contact', label: 'Buy Credits', icon: FaGem },
-                                { to: '/reseller-prices', label: 'Reseller Plans', icon: FaCrown },
-                            ].map(({ to, label, icon: Icon }) => (
+                            {navLinks.map(({ to, label, icon: Icon }) => (
                                 <li key={to}>
                                     <Link
                                         to={to}

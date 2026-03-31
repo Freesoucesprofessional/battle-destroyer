@@ -66,11 +66,19 @@ export default function Navbar({ toggleTheme, theme, setIsAuth }) {
     navigate('/login');
   };
 
-  const navLinks = [
+  // Protected nav links (logged in users only)
+  const protectedNavLinks = [
     { path: '/dashboard',  label: 'Dashboard',   icon: FaBolt },
     { path: '/attack',     label: 'Attack',       icon: FaBullseye },
+  ];
+
+  // Public nav links (accessible to everyone)
+  const publicNavLinks = [
     { path: '/contact',    label: 'Buy Credits',  icon: FaGem },
   ];
+
+  // Combined nav links for logged in users
+  const allNavLinks = [...protectedNavLinks, ...publicNavLinks];
 
   const isActive = (path) => location.pathname === path;
 
@@ -117,10 +125,11 @@ export default function Navbar({ toggleTheme, theme, setIsAuth }) {
             </div>
           </Link>
 
-          {/* ── Desktop Nav (only when logged in) ── */}
-          {isLoggedIn && (
-            <div className="hidden md:flex items-center gap-1">
-              {navLinks.map(link => (
+          {/* ── Desktop Nav ── */}
+          <div className="hidden md:flex items-center gap-1">
+            {isLoggedIn ? (
+              // Logged in users see all links
+              allNavLinks.map(link => (
                 <Link
                   key={link.path}
                   to={link.path}
@@ -139,9 +148,31 @@ export default function Navbar({ toggleTheme, theme, setIsAuth }) {
                   <link.icon size={14} className={isActive(link.path) ? 'text-red-500' : ''} />
                   <span className="relative">{link.label}</span>
                 </Link>
-              ))}
-            </div>
-          )}
+              ))
+            ) : (
+              // Public users only see the contact link
+              publicNavLinks.map(link => (
+                <Link
+                  key={link.path}
+                  to={link.path}
+                  className={`relative flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+                    isActive(link.path)
+                      ? 'text-red-400'
+                      : dark
+                        ? 'text-slate-400 hover:text-white hover:bg-white/[0.05]'
+                        : 'text-slate-500 hover:text-slate-900 hover:bg-black/[0.04]'
+                  }`}
+                  style={{ fontFamily: "'DM Sans', sans-serif" }}
+                >
+                  {isActive(link.path) && (
+                    <span className="absolute inset-0 rounded-xl bg-red-600/10 border border-red-600/20" />
+                  )}
+                  <link.icon size={14} className={isActive(link.path) ? 'text-red-500' : ''} />
+                  <span className="relative">{link.label}</span>
+                </Link>
+              ))
+            )}
+          </div>
 
           {/* ── Right Side ── */}
           <div className="flex items-center gap-2">
@@ -258,7 +289,7 @@ export default function Navbar({ toggleTheme, theme, setIsAuth }) {
                 )}
               </div>
 
-              {navLinks.map(link => (
+              {allNavLinks.map(link => (
                 <Link
                   key={link.path}
                   to={link.path}
@@ -297,6 +328,23 @@ export default function Navbar({ toggleTheme, theme, setIsAuth }) {
             </>
           ) : (
             <>
+              {publicNavLinks.map(link => (
+                <Link
+                  key={link.path}
+                  to={link.path}
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                    isActive(link.path)
+                      ? 'bg-red-600/10 text-red-400 border border-red-600/20'
+                      : dark
+                        ? 'text-slate-400 hover:bg-white/[0.05] hover:text-white'
+                        : 'text-slate-500 hover:bg-black/[0.04] hover:text-slate-900'
+                  }`}
+                >
+                  <link.icon size={14} />
+                  {link.label}
+                </Link>
+              ))}
+
               <button
                 onClick={toggleTheme}
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium w-full transition ${
