@@ -306,7 +306,7 @@ export default function Reseller({ toggleTheme, theme }) {
                             </div>
                         </div>
 
-                        {/* Desktop: show stats inline in navbar */}
+                        {/* Desktop stats in navbar */}
                         <div className="hidden md:flex items-center gap-6">
                             <div className="flex items-center gap-6">
                                 <div className="text-center">
@@ -359,233 +359,223 @@ export default function Reseller({ toggleTheme, theme }) {
                     <button onClick={refreshMe} className={`text-xs px-2 py-1.5 rounded-lg border font-semibold transition-all ${dark ? 'border-white/10 text-slate-400' : 'border-slate-200 text-slate-500'}`}>↻</button>
                 </div>
 
-                {/* ── Main Content ── */}
+                {/* ── Main Content — single column ── */}
                 <div className="flex-1 max-w-screen-xl mx-auto w-full px-4 sm:px-6 py-6 sm:py-8">
+                    <div className="flex flex-col gap-5">
 
-                    {/* Desktop: 3-column layout | Mobile: single column */}
-                    <div className="flex flex-col lg:flex-row gap-6">
-
-                        {/* ══ LEFT COLUMN: Search + Plan selector (takes most space) ══ */}
-                        <div className="flex-1 min-w-0 space-y-5">
-
-                            {/* Search card */}
-                            <div className={`rounded-2xl p-5 border ${cardCls}`}>
-                                <div className="flex items-center gap-3 mb-4">
-                                    <div className="w-9 h-9 rounded-xl bg-red-600/10 border border-red-600/20 flex items-center justify-center shrink-0">
-                                        <FaSearch className="text-red-500" size={14} />
-                                    </div>
-                                    <div>
-                                        <h3 className={`font-bold text-sm ${dark ? 'text-white' : 'text-slate-900'}`} style={{ fontFamily: "'Rajdhani', sans-serif", letterSpacing: '0.05em' }}>FIND USER</h3>
-                                        <p className={`text-xs ${dark ? 'text-slate-500' : 'text-slate-400'}`}>Search by User ID or email</p>
-                                    </div>
+                        {/* ── Search card ── */}
+                        <div className={`rounded-2xl p-5 border ${cardCls}`}>
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className="w-9 h-9 rounded-xl bg-red-600/10 border border-red-600/20 flex items-center justify-center shrink-0">
+                                    <FaSearch className="text-red-500" size={14} />
                                 </div>
-                                <div className="flex gap-3">
-                                    <input className={inputCls} placeholder="User ID or email…" value={searchQuery}
-                                        onChange={e => setSearchQuery(e.target.value)}
-                                        onKeyDown={e => e.key === 'Enter' && searchUser()} />
-                                    <button onClick={searchUser} disabled={searchLoading}
-                                        className="px-5 py-3 rounded-xl font-bold text-sm text-white bg-red-600 hover:bg-red-500 transition-all active:scale-95 disabled:opacity-60 flex items-center gap-2 shrink-0"
-                                        style={{ fontFamily: "'Rajdhani', sans-serif" }}>
-                                        {searchLoading
-                                            ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                                            : <FaSearch size={13} />}
-                                        Search
-                                    </button>
+                                <div>
+                                    <h3 className={`font-bold text-sm ${dark ? 'text-white' : 'text-slate-900'}`} style={{ fontFamily: "'Rajdhani', sans-serif", letterSpacing: '0.05em' }}>FIND USER</h3>
+                                    <p className={`text-xs ${dark ? 'text-slate-500' : 'text-slate-400'}`}>Search by User ID or email</p>
                                 </div>
-
-                                {searchError && (
-                                    <div className="flex items-center gap-2 rounded-xl p-3 border border-red-500/25 bg-red-500/8 text-red-400 text-sm mt-3">
-                                        <FaExclamationTriangle size={13} /> {searchError}
-                                    </div>
-                                )}
-
-                                {/* User result card */}
-                                {foundUser && (
-                                    <div className={`mt-4 rounded-xl p-4 border ${dark ? 'bg-white/[0.03] border-white/[0.08]' : 'bg-slate-50 border-slate-200'}`}>
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-red-600/30 to-red-600/10 border border-red-600/20 flex items-center justify-center font-black text-lg text-red-400 shrink-0" style={{ fontFamily: "'Rajdhani', sans-serif" }}>
-                                                {(foundUser.username || '?').charAt(0).toUpperCase()}
-                                            </div>
-                                            <div className="min-w-0 flex-1">
-                                                <p className={`font-bold text-sm truncate ${dark ? 'text-white' : 'text-slate-900'}`}>{foundUser.username}</p>
-                                                <p className={`text-xs truncate ${dark ? 'text-slate-500' : 'text-slate-400'}`}>{foundUser.email}</p>
-                                            </div>
-                                            <div className="flex items-center gap-2 shrink-0">
-                                                <span className={`text-xs px-2 py-1 rounded-lg font-bold whitespace-nowrap ${foundUser.isPro ? 'bg-yellow-500/10 border border-yellow-500/20 text-yellow-400' : dark ? 'bg-white/5 border border-white/10 text-slate-400' : 'bg-slate-100 border border-slate-200 text-slate-500'}`}>
-                                                    {foundUser.isPro ? '⭐ Pro' : 'Free'}
-                                                </span>
-                                                <span className={`text-xs px-2 py-1 rounded-lg font-semibold whitespace-nowrap ${dark ? 'bg-white/5 border border-white/10 text-slate-300' : 'bg-white border border-slate-200 text-slate-600'}`}>
-                                                    💎 {foundUser.credits}
-                                                </span>
-                                            </div>
-                                        </div>
-                                        <p className={`text-[10px] mt-2 font-mono ${dark ? 'text-slate-600' : 'text-slate-400'}`}>ID: {foundUser.userId || foundUser._id}</p>
-                                    </div>
-                                )}
+                            </div>
+                            <div className="flex gap-3">
+                                <input className={inputCls} placeholder="User ID or email…" value={searchQuery}
+                                    onChange={e => setSearchQuery(e.target.value)}
+                                    onKeyDown={e => e.key === 'Enter' && searchUser()} />
+                                <button onClick={searchUser} disabled={searchLoading}
+                                    className="px-5 py-3 rounded-xl font-bold text-sm text-white bg-red-600 hover:bg-red-500 transition-all active:scale-95 disabled:opacity-60 flex items-center gap-2 shrink-0"
+                                    style={{ fontFamily: "'Rajdhani', sans-serif" }}>
+                                    {searchLoading
+                                        ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                        : <FaSearch size={13} />}
+                                    Search
+                                </button>
                             </div>
 
-                            {/* Plan selector — only shows after user found */}
+                            {searchError && (
+                                <div className="flex items-center gap-2 rounded-xl p-3 border border-red-500/25 bg-red-500/8 text-red-400 text-sm mt-3">
+                                    <FaExclamationTriangle size={13} /> {searchError}
+                                </div>
+                            )}
+
+                            {/* User result card */}
                             {foundUser && (
-                                <div className={`rounded-2xl p-5 border ${cardCls}`}>
-                                    <div className="flex items-center gap-3 mb-4">
-                                        <div className="w-9 h-9 rounded-xl bg-red-600/10 border border-red-600/20 flex items-center justify-center shrink-0">
-                                            <MdRadar className="text-red-500" size={18} />
+                                <div className={`mt-4 rounded-xl p-4 border ${dark ? 'bg-white/[0.03] border-white/[0.08]' : 'bg-slate-50 border-slate-200'}`}>
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-red-600/30 to-red-600/10 border border-red-600/20 flex items-center justify-center font-black text-lg text-red-400 shrink-0" style={{ fontFamily: "'Rajdhani', sans-serif" }}>
+                                            {(foundUser.username || '?').charAt(0).toUpperCase()}
                                         </div>
-                                        <div>
-                                            <h3 className={`font-bold text-sm ${dark ? 'text-white' : 'text-slate-900'}`} style={{ fontFamily: "'Rajdhani', sans-serif", letterSpacing: '0.05em' }}>SELECT PLAN</h3>
-                                            <p className={`text-xs ${dark ? 'text-slate-500' : 'text-slate-400'}`}>Choose a plan for <span className="text-red-400 font-semibold">{foundUser.username}</span></p>
+                                        <div className="min-w-0 flex-1">
+                                            <p className={`font-bold text-sm truncate ${dark ? 'text-white' : 'text-slate-900'}`}>{foundUser.username}</p>
+                                            <p className={`text-xs truncate ${dark ? 'text-slate-500' : 'text-slate-400'}`}>{foundUser.email}</p>
+                                        </div>
+                                        <div className="flex items-center gap-2 shrink-0">
+                                            <span className={`text-xs px-2 py-1 rounded-lg font-bold whitespace-nowrap ${foundUser.isPro ? 'bg-yellow-500/10 border border-yellow-500/20 text-yellow-400' : dark ? 'bg-white/5 border border-white/10 text-slate-400' : 'bg-slate-100 border border-slate-200 text-slate-500'}`}>
+                                                {foundUser.isPro ? '⭐ Pro' : 'Free'}
+                                            </span>
+                                            <span className={`text-xs px-2 py-1 rounded-lg font-semibold whitespace-nowrap ${dark ? 'bg-white/5 border border-white/10 text-slate-300' : 'bg-white border border-slate-200 text-slate-600'}`}>
+                                                💎 {foundUser.credits}
+                                            </span>
                                         </div>
                                     </div>
-
-                                    {/* Plans grid — 3 cols on desktop, 2 on mobile */}
-                                    <div ref={plansRef} className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
-                                        {PLANS.map((plan, i) => {
-                                            const Icon = plan.icon;
-                                            const isSelected = selectedPlan?.label === plan.label;
-                                            const canAfford = reseller?.credits >= plan.credits;
-                                            return (
-                                                <button key={i}
-                                                    onClick={() => canAfford && setSelectedPlan(isSelected ? null : plan)}
-                                                    disabled={!canAfford}
-                                                    className={`plan-card relative rounded-xl p-4 border text-left transition-all active:scale-95 ${!canAfford ? 'opacity-40 cursor-not-allowed' :
-                                                        isSelected
-                                                            ? dark ? `bg-gradient-to-br ${plan.bg} border-red-500/50 ring-2 ring-red-500/20` : `bg-gradient-to-br ${plan.bg} ${plan.border} ring-2 ring-red-500/20`
-                                                            : dark ? `bg-white/[0.02] border-white/[0.07] hover:border-white/[0.15]` : `bg-slate-50 border-slate-200 hover:border-slate-300 hover:bg-white`
-                                                        }`}
-                                                    style={{ boxShadow: isSelected ? `0 0 20px ${plan.glow}` : 'none' }}>
-                                                    {plan.popular && (
-                                                        <span className="absolute -top-2 left-1/2 -translate-x-1/2 bg-red-600 text-white text-[9px] font-bold px-2 py-0.5 rounded-full tracking-wider">HOT</span>
-                                                    )}
-                                                    {isSelected && (
-                                                        <span className="absolute top-2 right-2 w-4 h-4 rounded-full bg-red-500 flex items-center justify-center">
-                                                            <FaCheckCircle size={10} className="text-white" />
-                                                        </span>
-                                                    )}
-                                                    <Icon className={`${plan.color} mb-2`} size={16} />
-                                                    <p className={`font-black text-sm ${dark ? 'text-white' : 'text-slate-900'}`} style={{ fontFamily: "'Rajdhani', sans-serif" }}>{plan.label}</p>
-                                                    <p className={`text-xl font-black ${plan.color}`} style={{ fontFamily: "'Rajdhani', sans-serif" }}>{plan.credits}</p>
-                                                    <p className={`text-[10px] ${dark ? 'text-slate-500' : 'text-slate-400'}`}>credits</p>
-                                                </button>
-                                            );
-                                        })}
-                                    </div>
-
-                                    {giveSuccess && (
-                                        <div className="flex items-center gap-2 rounded-xl p-3 border border-green-500/25 bg-green-500/8 text-green-400 text-sm mb-3">
-                                            <FaCheckCircle size={13} /> {giveSuccess}
-                                        </div>
-                                    )}
-                                    {giveError && (
-                                        <div className="flex items-center gap-2 rounded-xl p-3 border border-red-500/25 bg-red-500/8 text-red-400 text-sm mb-3">
-                                            <FaExclamationTriangle size={13} /> {giveError}
-                                        </div>
-                                    )}
-
-                                    <button onClick={giveCredits} disabled={!selectedPlan || giveLoading}
-                                        className={`w-full py-3.5 rounded-xl font-bold text-sm tracking-wider transition-all flex items-center justify-center gap-2 active:scale-95 disabled:active:scale-100 ${!selectedPlan
-                                            ? dark ? 'bg-white/[0.05] text-slate-600 cursor-not-allowed' : 'bg-slate-100 text-slate-400 cursor-not-allowed'
-                                            : 'bg-red-600 hover:bg-red-500 text-white'}`}
-                                        style={{ fontFamily: "'Rajdhani', sans-serif", letterSpacing: '0.06em', boxShadow: selectedPlan ? '0 4px 20px rgba(220,38,38,0.35)' : 'none' }}>
-                                        {giveLoading ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <FaGem size={14} />}
-                                        {giveLoading ? 'PROCESSING...' : selectedPlan ? `GIVE ${selectedPlan.label.toUpperCase()} — ${selectedPlan.credits} CREDITS` : 'SELECT A PLAN ABOVE'}
-                                    </button>
+                                    <p className={`text-[10px] mt-2 font-mono ${dark ? 'text-slate-600' : 'text-slate-400'}`}>ID: {foundUser.userId || foundUser._id}</p>
                                 </div>
                             )}
                         </div>
 
-                        {/* ══ RIGHT COLUMN: Account + Packages + History ══ */}
-                        <div className="w-full lg:w-72 xl:w-80 shrink-0 space-y-5">
-
-                            {/* Account info */}
+                        {/* ── Plan selector — shows after user found ── */}
+                        {foundUser && (
                             <div className={`rounded-2xl p-5 border ${cardCls}`}>
-                                <div className="flex items-center gap-2.5 mb-4">
-                                    <FaShieldAlt className="text-red-500" size={14} />
-                                    <h3 className={`font-bold text-sm ${dark ? 'text-white' : 'text-slate-900'}`} style={{ fontFamily: "'Rajdhani', sans-serif", letterSpacing: '0.05em' }}>ACCOUNT</h3>
-                                </div>
-                                <div className="space-y-2">
-                                    {[
-                                        { label: 'Username', value: reseller?.username },
-                                        { label: 'Email', value: reseller?.email, mono: true },
-                                    ].map(row => (
-                                        <div key={row.label} className={`rounded-xl px-3 py-2.5 border ${dark ? 'bg-white/[0.02] border-white/[0.06]' : 'bg-slate-50 border-slate-200'}`}>
-                                            <p className={`text-[10px] font-semibold uppercase tracking-[0.1em] mb-0.5 ${dark ? 'text-slate-600' : 'text-slate-400'}`}>{row.label}</p>
-                                            <p className={`font-semibold text-sm truncate ${row.mono ? 'font-mono text-xs' : ''} ${dark ? 'text-slate-200' : 'text-slate-800'}`}>{row.value ?? '—'}</p>
-                                        </div>
-                                    ))}
-                                    <div className="grid grid-cols-2 gap-2">
-                                        <div className={`rounded-xl px-3 py-2.5 border text-center ${dark ? 'bg-white/[0.02] border-white/[0.06]' : 'bg-slate-50 border-slate-200'}`}>
-                                            <p className={`text-[10px] font-semibold uppercase tracking-[0.1em] mb-0.5 ${dark ? 'text-slate-600' : 'text-slate-400'}`}>Available</p>
-                                            <p className="text-red-500 font-black text-xl" style={{ fontFamily: "'Rajdhani', sans-serif" }}>{(reseller?.credits ?? 0).toLocaleString()}</p>
-                                        </div>
-                                        <div className={`rounded-xl px-3 py-2.5 border text-center ${dark ? 'bg-white/[0.02] border-white/[0.06]' : 'bg-slate-50 border-slate-200'}`}>
-                                            <p className={`text-[10px] font-semibold uppercase tracking-[0.1em] mb-0.5 ${dark ? 'text-slate-600' : 'text-slate-400'}`}>Distributed</p>
-                                            <p className="text-green-400 font-black text-xl" style={{ fontFamily: "'Rajdhani', sans-serif" }}>{(reseller?.totalGiven ?? 0).toLocaleString()}</p>
-                                        </div>
+                                <div className="flex items-center gap-3 mb-4">
+                                    <div className="w-9 h-9 rounded-xl bg-red-600/10 border border-red-600/20 flex items-center justify-center shrink-0">
+                                        <MdRadar className="text-red-500" size={18} />
+                                    </div>
+                                    <div>
+                                        <h3 className={`font-bold text-sm ${dark ? 'text-white' : 'text-slate-900'}`} style={{ fontFamily: "'Rajdhani', sans-serif", letterSpacing: '0.05em' }}>SELECT PLAN</h3>
+                                        <p className={`text-xs ${dark ? 'text-slate-500' : 'text-slate-400'}`}>Choose a plan for <span className="text-red-400 font-semibold">{foundUser.username}</span></p>
                                     </div>
                                 </div>
-                            </div>
 
-                            {/* Reseller packages */}
-                            <div className={`rounded-2xl p-5 border ${cardCls}`}>
-                                <div className="flex items-center gap-2.5 mb-4">
-                                    <FaStar className="text-yellow-400" size={13} />
-                                    <h3 className={`font-bold text-sm ${dark ? 'text-white' : 'text-slate-900'}`} style={{ fontFamily: "'Rajdhani', sans-serif", letterSpacing: '0.05em' }}>PACKAGES</h3>
+                                {/* Plans grid */}
+                                <div ref={plansRef} className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
+                                    {PLANS.map((plan, i) => {
+                                        const Icon = plan.icon;
+                                        const isSelected = selectedPlan?.label === plan.label;
+                                        const canAfford = reseller?.credits >= plan.credits;
+                                        return (
+                                            <button key={i}
+                                                onClick={() => canAfford && setSelectedPlan(isSelected ? null : plan)}
+                                                disabled={!canAfford}
+                                                className={`plan-card relative rounded-xl p-4 border text-left transition-all active:scale-95 ${!canAfford ? 'opacity-40 cursor-not-allowed' :
+                                                    isSelected
+                                                        ? dark ? `bg-gradient-to-br ${plan.bg} border-red-500/50 ring-2 ring-red-500/20` : `bg-gradient-to-br ${plan.bg} ${plan.border} ring-2 ring-red-500/20`
+                                                        : dark ? `bg-white/[0.02] border-white/[0.07] hover:border-white/[0.15]` : `bg-slate-50 border-slate-200 hover:border-slate-300 hover:bg-white`
+                                                    }`}
+                                                style={{ boxShadow: isSelected ? `0 0 20px ${plan.glow}` : 'none' }}>
+                                                {plan.popular && (
+                                                    <span className="absolute -top-2 left-1/2 -translate-x-1/2 bg-red-600 text-white text-[9px] font-bold px-2 py-0.5 rounded-full tracking-wider">HOT</span>
+                                                )}
+                                                {isSelected && (
+                                                    <span className="absolute top-2 right-2 w-4 h-4 rounded-full bg-red-500 flex items-center justify-center">
+                                                        <FaCheckCircle size={10} className="text-white" />
+                                                    </span>
+                                                )}
+                                                <Icon className={`${plan.color} mb-2`} size={16} />
+                                                <p className={`font-black text-sm ${dark ? 'text-white' : 'text-slate-900'}`} style={{ fontFamily: "'Rajdhani', sans-serif" }}>{plan.label}</p>
+                                                <p className={`text-xl font-black ${plan.color}`} style={{ fontFamily: "'Rajdhani', sans-serif" }}>{plan.credits}</p>
+                                                <p className={`text-[10px] ${dark ? 'text-slate-500' : 'text-slate-400'}`}>credits</p>
+                                            </button>
+                                        );
+                                    })}
                                 </div>
-                                <div className="space-y-2">
-                                    {[
-                                        { credits: 3000,  inr: '5K',  usdt: '55$' },
-                                        { credits: 7000,  inr: '10K', usdt: '108$' },
-                                        { credits: 15000, inr: '15K', usdt: '160$' },
-                                        { credits: 35000, inr: '20K', usdt: '215$' },
-                                    ].map((pkg, i) => (
-                                        <div key={i} className={`rounded-xl px-3 py-2.5 border flex items-center justify-between ${dark ? 'bg-white/[0.02] border-white/[0.06]' : 'bg-slate-50 border-slate-200'}`}>
-                                            <div>
-                                                <p className="text-green-400 font-black text-sm" style={{ fontFamily: "'Rajdhani', sans-serif" }}>{pkg.credits.toLocaleString()} cr</p>
-                                                <p className={`text-[10px] ${dark ? 'text-slate-600' : 'text-slate-400'}`}>Contact admin</p>
-                                            </div>
-                                            <div className="text-right">
-                                                <p className={`font-bold text-xs ${dark ? 'text-white' : 'text-slate-900'}`}><FaRupeeSign size={9} className="inline" />{pkg.inr}</p>
-                                                <p className={`text-[10px] ${dark ? 'text-slate-500' : 'text-slate-400'}`}>{pkg.usdt}</p>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
 
-                            {/* Recent activity */}
-                            <div className={`rounded-2xl p-5 border ${cardCls}`}>
-                                <div className="flex items-center gap-2.5 mb-4">
-                                    <FaHistory className="text-red-500" size={13} />
-                                    <h3 className={`font-bold text-sm ${dark ? 'text-white' : 'text-slate-900'}`} style={{ fontFamily: "'Rajdhani', sans-serif", letterSpacing: '0.05em' }}>ACTIVITY</h3>
-                                </div>
-                                {history.length === 0 ? (
-                                    <div className="text-center py-5">
-                                        <FaHistory className={`mx-auto mb-2 ${dark ? 'text-slate-700' : 'text-slate-300'}`} size={18} />
-                                        <p className={`text-xs ${dark ? 'text-slate-600' : 'text-slate-400'}`}>No activity this session</p>
-                                    </div>
-                                ) : (
-                                    <div className="space-y-2 max-h-56 overflow-y-auto">
-                                        {history.map((h, i) => (
-                                            <div key={i} className={`rounded-lg px-3 py-2.5 border ${dark ? 'bg-white/[0.02] border-white/[0.05]' : 'bg-slate-50 border-slate-200'}`}>
-                                                <div className="flex items-center justify-between">
-                                                    <div className="min-w-0">
-                                                        <p className={`font-semibold text-xs truncate ${dark ? 'text-slate-300' : 'text-slate-700'}`}>{h.user}</p>
-                                                        <p className={`text-[10px] ${dark ? 'text-slate-600' : 'text-slate-400'}`}>{h.plan} plan</p>
-                                                    </div>
-                                                    <div className="text-right shrink-0 ml-2">
-                                                        <p className="text-green-400 font-bold text-xs">+{h.credits}</p>
-                                                        <p className={`text-[10px] ${dark ? 'text-slate-600' : 'text-slate-400'}`}>
-                                                            {new Date(h.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
-                                                        </p>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        ))}
+                                {giveSuccess && (
+                                    <div className="flex items-center gap-2 rounded-xl p-3 border border-green-500/25 bg-green-500/8 text-green-400 text-sm mb-3">
+                                        <FaCheckCircle size={13} /> {giveSuccess}
                                     </div>
                                 )}
-                            </div>
+                                {giveError && (
+                                    <div className="flex items-center gap-2 rounded-xl p-3 border border-red-500/25 bg-red-500/8 text-red-400 text-sm mb-3">
+                                        <FaExclamationTriangle size={13} /> {giveError}
+                                    </div>
+                                )}
 
+                                <button onClick={giveCredits} disabled={!selectedPlan || giveLoading}
+                                    className={`w-full py-3.5 rounded-xl font-bold text-sm tracking-wider transition-all flex items-center justify-center gap-2 active:scale-95 disabled:active:scale-100 ${!selectedPlan
+                                        ? dark ? 'bg-white/[0.05] text-slate-600 cursor-not-allowed' : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                                        : 'bg-red-600 hover:bg-red-500 text-white'}`}
+                                    style={{ fontFamily: "'Rajdhani', sans-serif", letterSpacing: '0.06em', boxShadow: selectedPlan ? '0 4px 20px rgba(220,38,38,0.35)' : 'none' }}>
+                                    {giveLoading ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <FaGem size={14} />}
+                                    {giveLoading ? 'PROCESSING...' : selectedPlan ? `GIVE ${selectedPlan.label.toUpperCase()} — ${selectedPlan.credits} CREDITS` : 'SELECT A PLAN ABOVE'}
+                                </button>
+                            </div>
+                        )}
+
+                        {/* ── Account info ── */}
+                        <div className={`rounded-2xl p-5 border ${cardCls}`}>
+                            <div className="flex items-center gap-2.5 mb-4">
+                                <FaShieldAlt className="text-red-500" size={14} />
+                                <h3 className={`font-bold text-sm ${dark ? 'text-white' : 'text-slate-900'}`} style={{ fontFamily: "'Rajdhani', sans-serif", letterSpacing: '0.05em' }}>ACCOUNT</h3>
+                            </div>
+                            <div className="space-y-2">
+                                {[
+                                    { label: 'Username', value: reseller?.username },
+                                    { label: 'Email', value: reseller?.email, mono: true },
+                                ].map(row => (
+                                    <div key={row.label} className={`rounded-xl px-3 py-2.5 border ${dark ? 'bg-white/[0.02] border-white/[0.06]' : 'bg-slate-50 border-slate-200'}`}>
+                                        <p className={`text-[10px] font-semibold uppercase tracking-[0.1em] mb-0.5 ${dark ? 'text-slate-600' : 'text-slate-400'}`}>{row.label}</p>
+                                        <p className={`font-semibold text-sm truncate ${row.mono ? 'font-mono text-xs' : ''} ${dark ? 'text-slate-200' : 'text-slate-800'}`}>{row.value ?? '—'}</p>
+                                    </div>
+                                ))}
+                                <div className="grid grid-cols-2 gap-2">
+                                    <div className={`rounded-xl px-3 py-2.5 border text-center ${dark ? 'bg-white/[0.02] border-white/[0.06]' : 'bg-slate-50 border-slate-200'}`}>
+                                        <p className={`text-[10px] font-semibold uppercase tracking-[0.1em] mb-0.5 ${dark ? 'text-slate-600' : 'text-slate-400'}`}>Available</p>
+                                        <p className="text-red-500 font-black text-xl" style={{ fontFamily: "'Rajdhani', sans-serif" }}>{(reseller?.credits ?? 0).toLocaleString()}</p>
+                                    </div>
+                                    <div className={`rounded-xl px-3 py-2.5 border text-center ${dark ? 'bg-white/[0.02] border-white/[0.06]' : 'bg-slate-50 border-slate-200'}`}>
+                                        <p className={`text-[10px] font-semibold uppercase tracking-[0.1em] mb-0.5 ${dark ? 'text-slate-600' : 'text-slate-400'}`}>Distributed</p>
+                                        <p className="text-green-400 font-black text-xl" style={{ fontFamily: "'Rajdhani', sans-serif" }}>{(reseller?.totalGiven ?? 0).toLocaleString()}</p>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
+
+                        {/* ── Reseller packages ── */}
+                        <div className={`rounded-2xl p-5 border ${cardCls}`}>
+                            <div className="flex items-center gap-2.5 mb-4">
+                                <FaStar className="text-yellow-400" size={13} />
+                                <h3 className={`font-bold text-sm ${dark ? 'text-white' : 'text-slate-900'}`} style={{ fontFamily: "'Rajdhani', sans-serif", letterSpacing: '0.05em' }}>PACKAGES</h3>
+                            </div>
+                            <div className="space-y-2">
+                                {[
+                                    { credits: 3000,  inr: '5K',  usdt: '55$' },
+                                    { credits: 7000,  inr: '10K', usdt: '108$' },
+                                    { credits: 15000, inr: '15K', usdt: '160$' },
+                                    { credits: 35000, inr: '20K', usdt: '215$' },
+                                ].map((pkg, i) => (
+                                    <div key={i} className={`rounded-xl px-3 py-2.5 border flex items-center justify-between ${dark ? 'bg-white/[0.02] border-white/[0.06]' : 'bg-slate-50 border-slate-200'}`}>
+                                        <div>
+                                            <p className="text-green-400 font-black text-sm" style={{ fontFamily: "'Rajdhani', sans-serif" }}>{pkg.credits.toLocaleString()} cr</p>
+                                            <p className={`text-[10px] ${dark ? 'text-slate-600' : 'text-slate-400'}`}>Contact admin</p>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className={`font-bold text-xs ${dark ? 'text-white' : 'text-slate-900'}`}><FaRupeeSign size={9} className="inline" />{pkg.inr}</p>
+                                            <p className={`text-[10px] ${dark ? 'text-slate-500' : 'text-slate-400'}`}>{pkg.usdt}</p>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* ── Recent activity ── */}
+                        <div className={`rounded-2xl p-5 border ${cardCls}`}>
+                            <div className="flex items-center gap-2.5 mb-4">
+                                <FaHistory className="text-red-500" size={13} />
+                                <h3 className={`font-bold text-sm ${dark ? 'text-white' : 'text-slate-900'}`} style={{ fontFamily: "'Rajdhani', sans-serif", letterSpacing: '0.05em' }}>ACTIVITY</h3>
+                            </div>
+                            {history.length === 0 ? (
+                                <div className="text-center py-5">
+                                    <FaHistory className={`mx-auto mb-2 ${dark ? 'text-slate-700' : 'text-slate-300'}`} size={18} />
+                                    <p className={`text-xs ${dark ? 'text-slate-600' : 'text-slate-400'}`}>No activity this session</p>
+                                </div>
+                            ) : (
+                                <div className="space-y-2 max-h-56 overflow-y-auto">
+                                    {history.map((h, i) => (
+                                        <div key={i} className={`rounded-lg px-3 py-2.5 border ${dark ? 'bg-white/[0.02] border-white/[0.05]' : 'bg-slate-50 border-slate-200'}`}>
+                                            <div className="flex items-center justify-between">
+                                                <div className="min-w-0">
+                                                    <p className={`font-semibold text-xs truncate ${dark ? 'text-slate-300' : 'text-slate-700'}`}>{h.user}</p>
+                                                    <p className={`text-[10px] ${dark ? 'text-slate-600' : 'text-slate-400'}`}>{h.plan} plan</p>
+                                                </div>
+                                                <div className="text-right shrink-0 ml-2">
+                                                    <p className="text-green-400 font-bold text-xs">+{h.credits}</p>
+                                                    <p className={`text-[10px] ${dark ? 'text-slate-600' : 'text-slate-400'}`}>
+                                                        {new Date(h.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
                     </div>
                 </div>
             </div>
