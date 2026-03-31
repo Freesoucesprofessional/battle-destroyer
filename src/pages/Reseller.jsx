@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import axios from 'axios';
 import gsap from 'gsap';
 import {
-    FaBolt, FaGem, FaFire, FaCrown, FaUsers, FaHistory,
+    FaBolt, FaGem, FaFire, FaCrown, FaHistory,
     FaSearch, FaSignOutAlt, FaShieldAlt, FaCheckCircle,
     FaExclamationTriangle, FaStar, FaRupeeSign,
 } from 'react-icons/fa';
