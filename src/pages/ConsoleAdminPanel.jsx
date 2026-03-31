@@ -95,7 +95,6 @@ export default function ConsoleAdminPanel({ toggleTheme, theme }) {
         if (!adminSecret) { setLoginError('Admin secret is required'); return; }
         setLoginLoading(true);
         try {
-            // Get CSRF
             const csrfRes = await axios.get(`${API_URL}/api/csrf-token`, { withCredentials: true });
             const csrfToken = csrfRes.data.csrfToken;
 
@@ -107,13 +106,23 @@ export default function ConsoleAdminPanel({ toggleTheme, theme }) {
             setToken(data.token);
             setIsLoggedIn(true);
             setAdminSecret('');
-
-            // ✅ Persist to localStorage
             localStorage.setItem('adminToken', data.token);
-
             toast('Login successful!');
-            loadStats();
-            loadUsers();
+
+            // ✅ Use data.token directly — state hasn't updated yet in this closure
+            const [statsRes, usersRes] = await Promise.all([
+                axios.get(`${API_URL}/api/admin/stats`, {
+                    headers: { 'x-admin-token': data.token },
+                    withCredentials: true
+                }),
+                axios.get(`${API_URL}/api/admin/users`, {
+                    headers: { 'x-admin-token': data.token },
+                    withCredentials: true
+                })
+            ]);
+            setStats(statsRes.data);
+            setUsers(usersRes.data.users || []);
+
         } catch (err) {
             setLoginError(err.response?.data?.message || 'Login failed');
             toast(err.response?.data?.message || 'Login failed', 'error');
@@ -122,18 +131,15 @@ export default function ConsoleAdminPanel({ toggleTheme, theme }) {
         }
     };
 
-    const logout = () => {
+    const logout = useCallback(() => {
         setIsLoggedIn(false);
         setToken('');
         setUsers([]);
         setResellers([]);
         setAdminSecret('');
-
-        // ✅ Clear localStorage
         localStorage.removeItem('adminToken');
-
         toast('Logged out successfully');
-    };
+    }, [toast]);
 
     const loadStats = useCallback(async () => {
         try {
@@ -145,7 +151,7 @@ export default function ConsoleAdminPanel({ toggleTheme, theme }) {
         } catch (err) {
             if (err.response?.status === 401) logout();
         }
-    }, [token]);
+    }, [token, logout]);
 
     const loadUsers = useCallback(async () => {
         setUsersLoading(true);
@@ -153,12 +159,10 @@ export default function ConsoleAdminPanel({ toggleTheme, theme }) {
             const url = searchQuery
                 ? `${API_URL}/api/admin/users?search=${encodeURIComponent(searchQuery)}`
                 : `${API_URL}/api/admin/users`;
-
             const { data } = await axios.get(url, {
                 headers: { 'x-admin-token': token },
                 withCredentials: true
             });
-
             setUsers(data.users || []);
         } catch (err) {
             if (err.response?.status === 401) logout();
@@ -166,9 +170,9 @@ export default function ConsoleAdminPanel({ toggleTheme, theme }) {
         } finally {
             setUsersLoading(false);
         }
-    }, [token, searchQuery, toast]);
+    }, [token, searchQuery, toast, logout]);
 
-    const loadResellers = async () => {
+    const loadResellers = useCallback(async () => {
         setResellersLoading(true);
         try {
             const url = searchQuery
@@ -185,7 +189,7 @@ export default function ConsoleAdminPanel({ toggleTheme, theme }) {
         } finally {
             setResellersLoading(false);
         }
-    };
+    }, [token, searchQuery, toast, logout]);
 
     const cardCls = dark
         ? 'bg-surface-800/70 border-white/[0.07] backdrop-blur-xl'

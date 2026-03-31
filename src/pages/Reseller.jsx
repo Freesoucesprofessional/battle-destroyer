@@ -73,16 +73,36 @@ export default function Reseller({ toggleTheme, theme }) {
     useEffect(() => {
         const savedToken = localStorage.getItem('resellerToken');
         const savedReseller = localStorage.getItem('resellerData');
-        if (savedToken && savedReseller) {
-            try {
-                setToken(savedToken);
-                setReseller(JSON.parse(savedReseller));
-                setIsLoggedIn(true);
-            } catch (err) {
-                // Clear corrupted data
-                localStorage.removeItem('resellerToken');
-                localStorage.removeItem('resellerData');
-            }
+        if (!savedToken || !savedReseller) return;
+        try {
+            const parsed = JSON.parse(savedReseller);
+            const resellerData = parsed?.username ? parsed : parsed?.reseller;
+            if (!resellerData?.username) throw new Error('Invalid');
+            // Show UI immediately with cached data
+            setToken(savedToken);
+            setReseller(resellerData);
+            setIsLoggedIn(true);
+            // ✅ Then silently re-verify token in background
+            axios.get(`${API_URL}/api/reseller/me`, {
+                headers: { Authorization: `Bearer ${savedToken}` },
+                withCredentials: true
+            }).then(({ data }) => {
+                const fresh = data.reseller ?? data;
+                setReseller(fresh);
+                localStorage.setItem('resellerData', JSON.stringify(fresh));
+            }).catch((err) => {
+                if (err.response?.status === 401) {
+                    // Token expired — log out cleanly
+                    localStorage.removeItem('resellerToken');
+                    localStorage.removeItem('resellerData');
+                    setIsLoggedIn(false);
+                    setToken('');
+                    setReseller(null);
+                }
+            });
+        } catch {
+            localStorage.removeItem('resellerToken');
+            localStorage.removeItem('resellerData');
         }
     }, []);
 
@@ -124,11 +144,11 @@ export default function Reseller({ toggleTheme, theme }) {
             setToken(data.token);
             setReseller(data.reseller);
             setIsLoggedIn(true);
-            
+
             // ✅ Persist to localStorage
             localStorage.setItem('resellerToken', data.token);
             localStorage.setItem('resellerData', JSON.stringify(data.reseller));
-            
+
             toast('Login successful!');
         } catch (err) {
             setLoginError(err.response?.data?.message || 'Login failed');
@@ -145,11 +165,11 @@ export default function Reseller({ toggleTheme, theme }) {
         setFoundUser(null);
         setHistory([]);
         setLoginForm({ username: '', password: '' });
-        
+
         // ✅ Clear localStorage
         localStorage.removeItem('resellerToken');
         localStorage.removeItem('resellerData');
-        
+
         toast('Logged out successfully');
     };
 
@@ -192,18 +212,18 @@ export default function Reseller({ toggleTheme, theme }) {
                 {
                     headers: {
                         Authorization: `Bearer ${token}`,
-                        'X-CSRF-Token': csrfToken 
+                        'X-CSRF-Token': csrfToken
                     },
                     withCredentials: true
                 }
             );
-            
+
             const updatedReseller = { ...reseller, credits: data.resellerCreditsLeft, totalGiven: (reseller.totalGiven || 0) + selectedPlan.credits };
             setReseller(updatedReseller);
-            
+
             // ✅ Update localStorage with new credits
             localStorage.setItem('resellerData', JSON.stringify(updatedReseller));
-            
+
             setFoundUser(prev => ({ ...prev, credits: data.userNewCredits, isPro: true }));
             setGiveSuccess(`✅ ${selectedPlan.label} plan (${selectedPlan.credits} credits) sent to ${foundUser.username}!`);
             toast(`Sent ${selectedPlan.credits} credits to ${foundUser.username}`);
@@ -223,20 +243,15 @@ export default function Reseller({ toggleTheme, theme }) {
             const { data } = await axios.get(`${API_URL}/api/reseller/me`,
                 { headers: { Authorization: `Bearer ${token}` }, withCredentials: true }
             );
-            setReseller(data);
-            
-            // ✅ Update localStorage with refreshed data
-            localStorage.setItem('resellerData', JSON.stringify(data));
-            
+            // ✅ Handle both { reseller: {...} } and flat {...} responses
+            const resellerData = data.reseller ?? data;
+            setReseller(resellerData);
+            localStorage.setItem('resellerData', JSON.stringify(resellerData));
             toast('Account refreshed');
         } catch (err) {
             const msg = err.response?.data?.message || 'Failed to refresh account';
             toast(msg, 'error');
-            
-            // If token is invalid, logout
-            if (err.response?.status === 401) {
-                logout();
-            }
+            if (err.response?.status === 401) logout();
         }
     };
 
@@ -457,9 +472,9 @@ export default function Reseller({ toggleTheme, theme }) {
                                                     onClick={() => canAfford && setSelectedPlan(isSelected ? null : plan)}
                                                     disabled={!canAfford}
                                                     className={`plan-card relative rounded-xl p-4 border text-left transition-all active:scale-95 ${!canAfford ? 'opacity-40 cursor-not-allowed' :
-                                                            isSelected
-                                                                ? dark ? `bg-gradient-to-br ${plan.bg} border-red-500/50 ring-2 ring-red-500/20` : `bg-gradient-to-br ${plan.bg} ${plan.border} ring-2 ring-red-500/20`
-                                                                : dark ? `bg-white/[0.02] border-white/[0.07] hover:border-white/[0.15] hover:bg-gradient-to-br hover:${plan.bg}` : `bg-slate-50 border-slate-200 hover:border-slate-300`
+                                                        isSelected
+                                                            ? dark ? `bg-gradient-to-br ${plan.bg} border-red-500/50 ring-2 ring-red-500/20` : `bg-gradient-to-br ${plan.bg} ${plan.border} ring-2 ring-red-500/20`
+                                                            : dark ? `bg-white/[0.02] border-white/[0.07] hover:border-white/[0.15] hover:bg-gradient-to-br hover:${plan.bg}` : `bg-slate-50 border-slate-200 hover:border-slate-300`
                                                         }`}
                                                     style={{ boxShadow: isSelected ? `0 0 20px ${plan.glow}` : 'none' }}
                                                 >
@@ -494,7 +509,7 @@ export default function Reseller({ toggleTheme, theme }) {
 
                                     <button onClick={giveCredits} disabled={!selectedPlan || giveLoading}
                                         className={`w-full py-3.5 rounded-xl font-bold text-base tracking-wider transition-all flex items-center justify-center gap-2.5 active:scale-95 disabled:active:scale-100 ${!selectedPlan ? dark ? 'bg-white/[0.05] text-slate-600 cursor-not-allowed' : 'bg-slate-100 text-slate-400 cursor-not-allowed'
-                                                : 'bg-red-600 hover:bg-red-500 text-white'
+                                            : 'bg-red-600 hover:bg-red-500 text-white'
                                             }`}
                                         style={{ fontFamily: "'Rajdhani', sans-serif", boxShadow: selectedPlan ? '0 4px 20px rgba(220,38,38,0.35)' : 'none' }}>
                                         {giveLoading ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <FaGem size={15} />}
