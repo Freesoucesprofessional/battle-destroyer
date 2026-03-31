@@ -112,6 +112,11 @@ export default function ConsoleAdminPanel({ toggleTheme, theme }) {
         init();
     }, []);
 
+    const getCsrfToken = useCallback(async () => {
+        const res = await axios.get(`${API_URL}/api/csrf-token`, { withCredentials: true });
+        return res.data.csrfToken;
+    }, []);
+
     const logout = useCallback(() => {
         setIsLoggedIn(false);
         setToken('');
@@ -213,6 +218,8 @@ export default function ConsoleAdminPanel({ toggleTheme, theme }) {
     const saveUser = async () => {
         setModalLoading(true);
         try {
+            const csrfToken = await getCsrfToken(); // ← add this
+
             const payload = {
                 username: userForm.username,
                 email: userForm.email,
@@ -222,7 +229,11 @@ export default function ConsoleAdminPanel({ toggleTheme, theme }) {
             if (userForm.password) payload.password = userForm.password;
 
             await axios.patch(`${API_URL}/api/admin/users/${editUserModal._id}`, payload, {
-                headers: { 'x-admin-token': token }, withCredentials: true
+                headers: {
+                    'x-admin-token': token,
+                    'X-CSRF-Token': csrfToken  // ← add this
+                },
+                withCredentials: true
             });
             toast('User updated successfully');
             setEditUserModal(null);
@@ -255,8 +266,9 @@ export default function ConsoleAdminPanel({ toggleTheme, theme }) {
     const saveReseller = async () => {
         setModalLoading(true);
         try {
+            const csrfToken = await getCsrfToken(); // ← add this
+
             if (editResellerModal === 'new') {
-                // Create new reseller
                 const payload = {
                     username: resellerForm.username,
                     email: resellerForm.email,
@@ -264,11 +276,14 @@ export default function ConsoleAdminPanel({ toggleTheme, theme }) {
                     credits: Number(resellerForm.credits),
                 };
                 await axios.post(`${API_URL}/api/admin/resellers`, payload, {
-                    headers: { 'x-admin-token': token }, withCredentials: true
+                    headers: {
+                        'x-admin-token': token,
+                        'X-CSRF-Token': csrfToken  // ← add this
+                    },
+                    withCredentials: true
                 });
                 toast('Reseller created successfully');
             } else {
-                // Update existing reseller
                 const payload = {
                     username: resellerForm.username,
                     email: resellerForm.email,
@@ -278,7 +293,11 @@ export default function ConsoleAdminPanel({ toggleTheme, theme }) {
                 if (resellerForm.password) payload.password = resellerForm.password;
 
                 await axios.patch(`${API_URL}/api/admin/resellers/${editResellerModal._id}`, payload, {
-                    headers: { 'x-admin-token': token }, withCredentials: true
+                    headers: {
+                        'x-admin-token': token,
+                        'X-CSRF-Token': csrfToken  // ← add this
+                    },
+                    withCredentials: true
                 });
                 toast('Reseller updated successfully');
             }
@@ -299,11 +318,19 @@ export default function ConsoleAdminPanel({ toggleTheme, theme }) {
         if (!deleteConfirm) return;
         setModalLoading(true);
         try {
+            const csrfToken = await getCsrfToken(); // ← add this
+
             const url = deleteConfirm.type === 'user'
                 ? `${API_URL}/api/admin/users/${deleteConfirm.id}`
                 : `${API_URL}/api/admin/resellers/${deleteConfirm.id}`;
 
-            await axios.delete(url, { headers: { 'x-admin-token': token }, withCredentials: true });
+            await axios.delete(url, {
+                headers: {
+                    'x-admin-token': token,
+                    'X-CSRF-Token': csrfToken  // ← add this
+                },
+                withCredentials: true
+            });
             toast(`${deleteConfirm.type === 'user' ? 'User' : 'Reseller'} deleted successfully`);
             setDeleteConfirm(null);
             if (deleteConfirm.type === 'user') loadUsers();
