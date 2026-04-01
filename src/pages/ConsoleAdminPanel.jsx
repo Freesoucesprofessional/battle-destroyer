@@ -53,7 +53,7 @@ function Modal({ title, onClose, children, dark }) {
 // ── Pagination Component ──
 function Pagination({ currentPage, totalPages, onPageChange, dark }) {
     if (totalPages <= 1) return null;
-    
+
     return (
         <div className="flex items-center justify-center gap-3 mt-6">
             <button onClick={() => onPageChange(currentPage - 1)} disabled={currentPage === 1}
@@ -100,8 +100,8 @@ export default function ConsoleAdminPanel({ toggleTheme, theme }) {
     const [resellersPage, setResellersPage] = useState(1);
     const [usersTotalPages, setUsersTotalPages] = useState(1);
     const [resellersTotalPages, setResellersTotalPages] = useState(1);
-    const [proFilter, setProFilter] = useState('all'); // 'all', 'pro', 'free'
-    const [resellerFilter, setResellerFilter] = useState('all'); // 'all', 'active', 'blocked'
+    const [proFilter, setProFilter] = useState('all');
+    const [resellerFilter, setResellerFilter] = useState('all');
 
     // Modal state
     const [editUserModal, setEditUserModal] = useState(null);
@@ -121,7 +121,87 @@ export default function ConsoleAdminPanel({ toggleTheme, theme }) {
         setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3500);
     }, []);
 
-    // ── Restore session from localStorage on mount ──
+    const getCsrfToken = useCallback(async () => {
+        const res = await axios.get(`${API_URL}/api/csrf-token`, { withCredentials: true });
+        return res.data.csrfToken;
+    }, []);
+
+    const logout = useCallback(() => {
+        setIsLoggedIn(false);
+        setToken('');
+        setUsers([]);
+        setResellers([]);
+        setAdminSecret('');
+        localStorage.removeItem('adminToken');
+        toast('Logged out successfully');
+    }, [toast]);
+
+    // ── FIX: removed usersPage from closure — always use the passed-in `page` arg ──
+    const loadUsers = useCallback(async (tkn, query, page = 1, filter = 'all') => {
+        setUsersLoading(true);
+        try {
+            const params = new URLSearchParams({
+                page,
+                limit: ITEMS_PER_PAGE,
+                ...(query && { search: query }),
+                ...(filter !== 'all' && { isPro: filter === 'pro' ? 'true' : 'false' })
+            });
+
+            const { data } = await axios.get(`${API_URL}/api/admin/users?${params}`, {
+                headers: { 'x-admin-token': tkn },
+                withCredentials: true
+            });
+
+            setUsers(data.users || []);
+            setUsersTotalPages(data.totalPages || 1);
+            setUsersPage(page);
+        } catch (err) {
+            if (err.response?.status === 401) logout();
+            else toast(err.response?.data?.message || 'Failed to load users', 'error');
+        } finally {
+            setUsersLoading(false);
+        }
+    }, [logout, toast]); // ✅ No stale state in closure
+
+    // ── FIX: removed resellersPage from closure — always use the passed-in `page` arg ──
+    const loadResellers = useCallback(async (tkn, query, page = 1, filter = 'all') => {
+        setResellersLoading(true);
+        try {
+            const params = new URLSearchParams({
+                page,
+                limit: ITEMS_PER_PAGE,
+                ...(query && { search: query }),
+                ...(filter !== 'all' && { isBlocked: filter === 'blocked' ? 'true' : 'false' })
+            });
+
+            const { data } = await axios.get(`${API_URL}/api/admin/resellers?${params}`, {
+                headers: { 'x-admin-token': tkn },
+                withCredentials: true
+            });
+
+            setResellers(data.resellers || []);
+            setResellersTotalPages(data.totalPages || 1);
+            setResellersPage(page);
+        } catch (err) {
+            if (err.response?.status === 401) logout();
+            else toast(err.response?.data?.message || 'Failed to load resellers', 'error');
+        } finally {
+            setResellersLoading(false);
+        }
+    }, [logout, toast]); // ✅ No stale state in closure
+
+    const loadStats = useCallback(async () => {
+        try {
+            const { data } = await axios.get(`${API_URL}/api/admin/stats`, {
+                headers: { 'x-admin-token': token }, withCredentials: true
+            });
+            setStats(data);
+        } catch (err) {
+            if (err.response?.status === 401) logout();
+        }
+    }, [token, logout]);
+
+    // ── FIX: added loadUsers to dependency array ──
     useEffect(() => {
         const savedToken = localStorage.getItem('adminToken');
         if (!savedToken) return;
@@ -143,95 +223,7 @@ export default function ConsoleAdminPanel({ toggleTheme, theme }) {
             }
         };
         init();
-    }, []);
-
-    const getCsrfToken = useCallback(async () => {
-        const res = await axios.get(`${API_URL}/api/csrf-token`, { withCredentials: true });
-        return res.data.csrfToken;
-    }, []);
-
-    const logout = useCallback(() => {
-        setIsLoggedIn(false);
-        setToken('');
-        setUsers([]);
-        setResellers([]);
-        setAdminSecret('');
-        localStorage.removeItem('adminToken');
-        toast('Logged out successfully');
-    }, [toast]);
-
-    const loadUsers = useCallback(async (tkn, query, page = 1, filter = 'all') => {
-        const t = tkn ?? token;
-        const q = query ?? searchQuery;
-        const p = page ?? usersPage;
-        const f = filter ?? proFilter;
-        
-        setUsersLoading(true);
-        try {
-            const params = new URLSearchParams({
-                page: p,
-                limit: ITEMS_PER_PAGE,
-                ...(q && { search: q }),
-                ...(f !== 'all' && { isPro: f === 'pro' ? 'true' : 'false' })
-            });
-            
-            const { data } = await axios.get(`${API_URL}/api/admin/users?${params}`, {
-                headers: { 'x-admin-token': t },
-                withCredentials: true
-            });
-            
-            setUsers(data.users || []);
-            setUsersTotalPages(data.totalPages || 1);
-            setUsersPage(p);
-        } catch (err) {
-            if (err.response?.status === 401) logout();
-            else toast(err.response?.data?.message || 'Failed to load users', 'error');
-        } finally {
-            setUsersLoading(false);
-        }
-    }, [token, searchQuery, proFilter, logout, toast]);
-
-    const loadResellers = useCallback(async (tkn, query, page = 1, filter = 'all') => {
-        const t = tkn ?? token;
-        const q = query ?? searchQuery;
-        const p = page ?? resellersPage;
-        const f = filter ?? resellerFilter;
-        
-        setResellersLoading(true);
-        try {
-            const params = new URLSearchParams({
-                page: p,
-                limit: ITEMS_PER_PAGE,
-                ...(q && { search: q }),
-                ...(f !== 'all' && { isBlocked: f === 'blocked' ? 'true' : 'false' })
-            });
-            
-            const { data } = await axios.get(`${API_URL}/api/admin/resellers?${params}`, {
-                headers: { 'x-admin-token': t },
-                withCredentials: true
-            });
-            
-            setResellers(data.resellers || []);
-            setResellersTotalPages(data.totalPages || 1);
-            setResellersPage(p);
-        } catch (err) {
-            if (err.response?.status === 401) logout();
-            else toast(err.response?.data?.message || 'Failed to load resellers', 'error');
-        } finally {
-            setResellersLoading(false);
-        }
-    }, [token, searchQuery, resellerFilter, logout, toast]);
-
-    const loadStats = useCallback(async () => {
-        try {
-            const { data } = await axios.get(`${API_URL}/api/admin/stats`, {
-                headers: { 'x-admin-token': token }, withCredentials: true
-            });
-            setStats(data);
-        } catch (err) {
-            if (err.response?.status === 401) logout();
-        }
-    }, [token, logout]);
+    }, [loadUsers]); // ✅ loadUsers is now stable (no stale deps), safe to include
 
     const doLogin = async () => {
         setLoginError('');
@@ -536,8 +528,7 @@ export default function ConsoleAdminPanel({ toggleTheme, theme }) {
                                         if (tab.id === 'resellers') {
                                             setResellerFilter('all');
                                             loadResellers(token, '', 1, 'all');
-                                        }
-                                        else {
+                                        } else {
                                             setProFilter('all');
                                             loadUsers(token, '', 1, 'all');
                                         }
@@ -568,13 +559,17 @@ export default function ConsoleAdminPanel({ toggleTheme, theme }) {
                                     placeholder={currentTab === 'users' ? 'Search users by name, email, ID...' : 'Search resellers by name, email...'}
                                     value={searchQuery}
                                     onChange={e => setSearchQuery(e.target.value)}
-                                    onKeyDown={e => e.key === 'Enter' && (currentTab === 'users' ? loadUsers(token, searchQuery, 1, proFilter) : loadResellers(token, searchQuery, 1, resellerFilter))}
+                                    onKeyDown={e => e.key === 'Enter' && (currentTab === 'users'
+                                        ? loadUsers(token, searchQuery, 1, proFilter)
+                                        : loadResellers(token, searchQuery, 1, resellerFilter))}
                                     className={`w-full pl-10 pr-4 py-3 rounded-xl text-sm border outline-none transition ${dark
                                         ? 'bg-white/[0.04] border-white/[0.1] text-slate-100 placeholder-slate-600 focus:border-red-500/50'
                                         : 'bg-slate-50 border-slate-200 text-slate-900 placeholder-slate-400 focus:border-red-500'}`}
                                 />
                             </div>
-                            <button onClick={() => currentTab === 'users' ? loadUsers(token, searchQuery, 1, proFilter) : loadResellers(token, searchQuery, 1, resellerFilter)}
+                            <button onClick={() => currentTab === 'users'
+                                ? loadUsers(token, searchQuery, 1, proFilter)
+                                : loadResellers(token, searchQuery, 1, resellerFilter)}
                                 className="px-4 py-3 rounded-xl font-bold text-sm text-white bg-red-600 hover:bg-red-500 transition-all">
                                 Search
                             </button>
@@ -671,8 +666,8 @@ export default function ConsoleAdminPanel({ toggleTheme, theme }) {
                                     </table>
                                 </div>
                             </div>
-                            <Pagination currentPage={usersPage} totalPages={usersTotalPages} 
-                                onPageChange={(page) => loadUsers(token, searchQuery, page, proFilter)} 
+                            <Pagination currentPage={usersPage} totalPages={usersTotalPages}
+                                onPageChange={(page) => loadUsers(token, searchQuery, page, proFilter)}
                                 dark={dark} />
                         </div>
                     )}
@@ -742,8 +737,8 @@ export default function ConsoleAdminPanel({ toggleTheme, theme }) {
                                     </table>
                                 </div>
                             </div>
-                            <Pagination currentPage={resellersPage} totalPages={resellersTotalPages} 
-                                onPageChange={(page) => loadResellers(token, searchQuery, page, resellerFilter)} 
+                            <Pagination currentPage={resellersPage} totalPages={resellersTotalPages}
+                                onPageChange={(page) => loadResellers(token, searchQuery, page, resellerFilter)}
                                 dark={dark} />
                         </div>
                     )}
