@@ -479,24 +479,19 @@ export default function Attack({ toggleTheme, theme, setIsAuth }) {
                                     </div>
                                 )}
 
-                                {/* Hidden Turnstile */}
-                                <div style={{ position: 'absolute', opacity: 0, pointerEvents: 'none', height: 0, overflow: 'hidden' }}>
-                                    <TurnstileWidget
-                                        ref={turnstileRef}
-                                        onVerify={handleVerify}
-                                        onExpire={resetCaptcha}
-                                        onError={resetCaptcha}
-                                    />
+                                {/* CAPTCHA */}
+                                <div>
+                                    <TurnstileWidget ref={turnstileRef} onVerify={handleVerify} onExpire={resetCaptcha} onError={resetCaptcha} />
+                                    {!captchaReady ? (
+                                        <p className={`text-xs mt-2 flex items-center gap-1.5 ${dark ? 'text-slate-500' : 'text-slate-400'}`}>
+                                            <FaShieldAlt size={11} />Complete the CAPTCHA to enable launch
+                                        </p>
+                                    ) : (
+                                        <p className="text-green-500 text-xs mt-2 flex items-center gap-1.5">
+                                            <FaShieldAlt size={11} />CAPTCHA verified
+                                        </p>
+                                    )}
                                 </div>
-
-                                <CaptchaButton
-                                    dark={dark}
-                                    captchaReady={captchaReady}
-                                    onVerify={() => turnstileRef.current?.execute?.()}
-                                    onReset={resetCaptcha}
-                                    issuedAt={captchaIssuedRef.current}
-                                    TOKEN_MAX_AGE_MS={TOKEN_MAX_AGE_MS}
-                                />
 
                                 {/* Launch Button */}
                                 <button
