@@ -479,36 +479,24 @@ export default function Attack({ toggleTheme, theme, setIsAuth }) {
                                     </div>
                                 )}
 
-                                {/* Hidden Turnstile — renders invisibly */}
-                                <div style={{ display: 'none' }}>
-                                    <TurnstileWidget ref={turnstileRef} onVerify={handleVerify} onExpire={resetCaptcha} onError={resetCaptcha} />
+                                {/* Hidden Turnstile */}
+                                <div style={{ position: 'absolute', opacity: 0, pointerEvents: 'none', height: 0, overflow: 'hidden' }}>
+                                    <TurnstileWidget
+                                        ref={turnstileRef}
+                                        onVerify={handleVerify}
+                                        onExpire={resetCaptcha}
+                                        onError={resetCaptcha}
+                                    />
                                 </div>
 
-                                {/* Custom CAPTCHA UI */}
-                                <div>
-                                    {!captchaReady ? (
-                                        <button
-                                            type="button"
-                                            onClick={() => turnstileRef.current?.execute?.()}
-                                            className={`w-full py-3 rounded-xl border-2 border-dashed font-bold text-sm flex items-center justify-center gap-2.5 transition-all ${dark
-                                                    ? 'border-slate-700 text-slate-400 hover:border-red-500/50 hover:text-red-400 bg-white/[0.02]'
-                                                    : 'border-slate-200 text-slate-500 hover:border-red-400 hover:text-red-500 bg-slate-50'
-                                                }`}
-                                            style={{ fontFamily: "'Rajdhani', sans-serif", letterSpacing: '0.06em' }}
-                                        >
-                                            <FaShieldAlt size={14} className="text-red-500/60" />
-                                            VERIFY — I'M NOT A BOT
-                                        </button>
-                                    ) : (
-                                        <div className={`w-full py-3 rounded-xl border flex items-center justify-center gap-2.5 ${dark ? 'border-green-500/30 bg-green-500/[0.06]' : 'border-green-400/40 bg-green-50'
-                                            }`}>
-                                            <FaCheckCircle className="text-green-500" size={14} />
-                                            <span className="text-green-500 text-sm font-bold" style={{ fontFamily: "'Rajdhani', sans-serif", letterSpacing: '0.06em' }}>
-                                                VERIFIED — READY TO LAUNCH
-                                            </span>
-                                        </div>
-                                    )}
-                                </div>
+                                <CaptchaButton
+                                    dark={dark}
+                                    captchaReady={captchaReady}
+                                    onVerify={() => turnstileRef.current?.execute?.()}
+                                    onReset={resetCaptcha}
+                                    issuedAt={captchaIssuedRef.current}
+                                    TOKEN_MAX_AGE_MS={TOKEN_MAX_AGE_MS}
+                                />
 
                                 {/* Launch Button */}
                                 <button
