@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import {
     FaExclamationTriangle, FaCheckCircle, FaTrash, FaHistory,
-    FaGem, FaBullseye, FaBan, FaLock, FaRocket, FaShieldAlt, FaUsers, FaCrown, FaWrench
+    FaGem, FaBullseye, FaBan, FaLock, FaRocket, FaShieldAlt, FaUsers, FaCrown, FaWrench, FaCalendarAlt, FaFire
 } from 'react-icons/fa';
 import { MdRadar } from 'react-icons/md';
 import Navbar from '../components/Navbar';
@@ -11,7 +11,7 @@ import Footer from '../components/Footer';
 import AnimatedBackground from '../components/AnimatedBackground';
 
 /* ─────────────────────────────────────────────────────────────
-   Inline TurnstileWidget  (replaces the separate import)
+   Inline TurnstileWidget (replaces the separate import)
 ───────────────────────────────────────────────────────────── */
 const TurnstileWidget = forwardRef(function TurnstileWidget({ onVerify, onExpire, onError }, ref) {
     const containerRef = useRef(null);
@@ -34,11 +34,9 @@ const TurnstileWidget = forwardRef(function TurnstileWidget({ onVerify, onExpire
             setClicked(false);
             widgetId.current = null;
         },
-        // expose a no-op execute so callers don't crash
         execute() {}
     }), []);
 
-    // Poll for Turnstile SDK
     useEffect(() => {
         if (window.turnstile) { setReady(true); return; }
         const iv = setInterval(() => {
@@ -47,7 +45,6 @@ const TurnstileWidget = forwardRef(function TurnstileWidget({ onVerify, onExpire
         return () => clearInterval(iv);
     }, []);
 
-    // Render Turnstile when user has clicked the custom box
     useEffect(() => {
         if (!clicked || !ready || !containerRef.current || widgetId.current !== null) return;
         const t = setTimeout(() => {
@@ -71,11 +68,9 @@ const TurnstileWidget = forwardRef(function TurnstileWidget({ onVerify, onExpire
         };
     }, [clicked, ready]);
 
-    // ── Custom themed UI ──────────────────────────────────────
     return (
         <div className="my-0">
             {!clicked ? (
-                /* ── Step 1: idle click target ── */
                 <button
                     type="button"
                     onClick={() => setClicked(true)}
@@ -85,14 +80,12 @@ const TurnstileWidget = forwardRef(function TurnstileWidget({ onVerify, onExpire
                                text-slate-400 transition-all duration-200 select-none group"
                     style={{ fontFamily: "'Rajdhani', sans-serif", letterSpacing: '0.06em' }}
                 >
-                    {/* Checkbox */}
                     <span className="w-5 h-5 rounded border-2 border-slate-600 group-hover:border-red-500/60
                                      flex items-center justify-center shrink-0 transition-colors">
                         <span className="w-2 h-2 rounded-sm bg-transparent" />
                     </span>
                     <FaShieldAlt size={13} className="text-red-500/50 shrink-0" />
                     <span className="text-sm font-bold tracking-widest">VERIFY — I'M NOT A BOT</span>
-                    {/* Cloudflare badge */}
                     <span className="ml-auto flex items-center gap-1.5 opacity-40 group-hover:opacity-60 transition-opacity">
                         <img
                             src="https://challenges.cloudflare.com/turnstile/e/favicon.ico"
@@ -104,7 +97,6 @@ const TurnstileWidget = forwardRef(function TurnstileWidget({ onVerify, onExpire
                     </span>
                 </button>
             ) : (
-                /* ── Step 2: Turnstile challenge renders here ── */
                 <div>
                     {!ready && (
                         <div className="flex items-center gap-2.5 px-4 py-3.5 rounded-xl border border-white/[0.07] bg-white/[0.02]">
@@ -115,7 +107,6 @@ const TurnstileWidget = forwardRef(function TurnstileWidget({ onVerify, onExpire
                             </span>
                         </div>
                     )}
-                    {/* Turnstile mounts here — it renders its own iframe */}
                     <div ref={containerRef} />
                 </div>
             )}
@@ -124,7 +115,7 @@ const TurnstileWidget = forwardRef(function TurnstileWidget({ onVerify, onExpire
 });
 
 /* ─────────────────────────────────────────────────────────────
-   CaptchaSection  — shows either TurnstileWidget or Verified UI
+   CaptchaSection
 ───────────────────────────────────────────────────────────── */
 function CaptchaSection({ dark, captchaReady, turnstileRef, handleVerify, resetCaptcha, issuedAt, TOKEN_MAX_AGE_MS }) {
     const [timeLeft, setTimeLeft] = useState(0);
@@ -154,7 +145,6 @@ function CaptchaSection({ dark, captchaReady, turnstileRef, handleVerify, resetC
 
         return (
             <div>
-                {/* Verified banner */}
                 <div className={`w-full py-3 px-4 rounded-xl border flex items-center gap-2.5 ${
                     dark ? 'border-green-500/30 bg-green-500/[0.06]' : 'border-green-400/40 bg-green-50'
                 }`}>
@@ -163,13 +153,11 @@ function CaptchaSection({ dark, captchaReady, turnstileRef, handleVerify, resetC
                           style={{ fontFamily: "'Rajdhani', sans-serif" }}>
                         VERIFIED — READY TO LAUNCH
                     </span>
-                    {/* Countdown */}
                     <span className={`ml-auto text-xs font-bold tabular-nums ${expiring ? 'text-red-400' : 'text-amber-400'}`}
                           style={{ fontFamily: "'Rajdhani', sans-serif" }}>
                         {mins}:{String(secs).padStart(2, '0')}
                     </span>
                 </div>
-                {/* Expiry progress bar */}
                 <div className={`h-0.5 rounded-full mt-1.5 overflow-hidden ${dark ? 'bg-white/[0.06]' : 'bg-slate-100'}`}>
                     <div
                         className="h-full rounded-full transition-all duration-1000"
@@ -226,6 +214,16 @@ export default function Attack({ toggleTheme, theme, setIsAuth }) {
     const navigate = useNavigate();
     const dark = theme !== 'light';
     const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+
+    // Check if user is Pro and subscription is active
+    const isProActive = user?.subscription?.type === 'pro' && user?.subscription?.expiresAt && new Date(user.subscription.expiresAt) > new Date();
+    
+    const daysLeft = isProActive && user?.subscription?.expiresAt 
+        ? Math.ceil((new Date(user.subscription.expiresAt) - new Date()) / (1000 * 60 * 60 * 24))
+        : 0;
+    
+    // Check if user can attack - Pro always can (unlimited), Free needs credits
+    const canAttack = isProActive ? true : (user?.credits || 0) > 0;
 
     /* ── History helpers ── */
     useEffect(() => {
@@ -322,14 +320,31 @@ export default function Attack({ toggleTheme, theme, setIsAuth }) {
         } catch {}
     }, [API_URL, startCountdown, startStatusPolling]);
 
-    /* ── Bootstrap ── */
+    /* ── Bootstrap - Fetch user with subscription data ── */
     useEffect(() => {
         const token = localStorage.getItem('token');
         axios.get(`${API_URL}/api/panel/me`, { headers: { Authorization: `Bearer ${token}` } })
-            .then(r => { setUser(r.data); localStorage.setItem('user', JSON.stringify(r.data)); })
+            .then(r => { 
+                setUser(r.data); 
+                localStorage.setItem('user', JSON.stringify(r.data));
+            })
             .catch(() => { localStorage.clear(); navigate('/login'); });
         checkAttackStatus();
-        return () => { clearInterval(countdownRef.current); clearInterval(statusPollRef.current); };
+        
+        // Refresh user data every minute to update remaining attacks/credits
+        const interval = setInterval(() => {
+            if (token) {
+                axios.get(`${API_URL}/api/panel/me`, { headers: { Authorization: `Bearer ${token}` } })
+                    .then(r => { setUser(r.data); })
+                    .catch(() => {});
+            }
+        }, 60000);
+        
+        return () => { 
+            clearInterval(countdownRef.current); 
+            clearInterval(statusPollRef.current);
+            clearInterval(interval);
+        };
     }, [navigate, API_URL, checkAttackStatus]);
 
     useEffect(() => () => {
@@ -372,7 +387,7 @@ export default function Attack({ toggleTheme, theme, setIsAuth }) {
 
     const validate = () => {
         const errs = {};
-        const MAX  = user?.isPro ? 300 : 60;
+        const MAX  = isProActive ? 300 : 60;
         if (!form.ip)
             errs.ip = 'IP address is required';
         else if (!/^(\d{1,3}\.){3}\d{1,3}$/.test(form.ip))
@@ -392,7 +407,7 @@ export default function Attack({ toggleTheme, theme, setIsAuth }) {
         else if (isNaN(dur) || dur < 1)
             errs.duration = 'Duration must be at least 1 second';
         else if (dur > MAX)
-            errs.duration = `Max duration is ${MAX}s${!user?.isPro ? ' (Pro: 300s)' : ''}`;
+            errs.duration = `Max duration is ${MAX}s${!isProActive ? ' (Pro: 300s)' : ''}`;
 
         return errs;
     };
@@ -428,8 +443,12 @@ export default function Attack({ toggleTheme, theme, setIsAuth }) {
                 { ip: form.ip, port: form.port, duration: form.duration, captchaToken },
                 { headers: { Authorization: `Bearer ${token}` } }
             );
-            setUser(prev => ({ ...prev, credits: data.credits }));
-            localStorage.setItem('user', JSON.stringify({ ...user, credits: data.credits }));
+            
+            // Update user data
+            if (data.user) {
+                setUser(data.user);
+                localStorage.setItem('user', JSON.stringify(data.user));
+            }
 
             const status = {
                 status:    'running',
@@ -446,10 +465,21 @@ export default function Attack({ toggleTheme, theme, setIsAuth }) {
             setTimeout(() => setLaunched(false), 3000);
             resetCaptcha();
             setForm({ ip: '', port: '', duration: '' });
+            
+            // Refresh stats after attack
+            axios.get(`${API_URL}/api/panel/stats`)
+                .then(r => setStats(r.data))
+                .catch(() => {});
+                
         } catch (err) {
             const status  = err.response?.status;
             const msg     = err.response?.data?.message;
             const credits = err.response?.data?.credits;
+            const remainingAttacks = err.response?.data?.remainingAttacks;
+
+            if (remainingAttacks !== undefined) {
+                setUser(prev => ({ ...prev, remainingAttacks }));
+            }
 
             if (status === 429) {
                 const cooldownTime = err.response?.data?.cooldown || 5;
@@ -476,7 +506,7 @@ export default function Attack({ toggleTheme, theme, setIsAuth }) {
     };
 
     /* ── Derived ── */
-    const MAX_DURATION = user?.isPro ? 300 : 60;
+    const MAX_DURATION = isProActive ? 300 : 60;
     const progressPct  = attackStatus
         ? Math.min(100, Math.round(((attackStatus.duration - timeLeft) / attackStatus.duration) * 100))
         : 0;
@@ -514,49 +544,47 @@ export default function Attack({ toggleTheme, theme, setIsAuth }) {
                 <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
                     <div className="flex flex-col gap-6">
 
-                        {/* ── Credits + Stats ── */}
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                            {/* Credits */}
-                            <div className={`rounded-2xl p-4 sm:p-5 border transition-all ${cardCls}`}>
+                        {/* ── User Stats Cards ── */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                            
+                            {/* Plan Type Card */}
+                            <div className={`rounded-2xl p-4 sm:p-5 border transition-all ${cardCls} ${isProActive ? 'border-red-500/30' : ''}`}>
                                 <div className="flex items-center gap-3">
-                                    <div className="w-9 h-9 rounded-xl bg-red-600/10 border border-red-600/20 flex items-center justify-center shrink-0">
-                                        <FaGem className="text-red-500" size={15} />
+                                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isProActive ? 'bg-red-600/20 border border-red-600/30' : 'bg-red-600/10 border border-red-600/20'}`}>
+                                        {isProActive ? <FaCrown className="text-yellow-500" size={15} /> : <FaGem className="text-red-500" size={15} />}
                                     </div>
                                     <div>
                                         <p className={`text-xs font-semibold uppercase tracking-[0.12em] ${dark ? 'text-slate-500' : 'text-slate-400'}`}>
-                                            Available Credits
+                                            Current Plan
                                         </p>
-                                        <p
-                                            className={`font-black text-2xl ${user.credits > 0 ? 'text-red-500' : dark ? 'text-slate-600' : 'text-slate-400'}`}
-                                            style={{ fontFamily: "'Rajdhani', sans-serif" }}
-                                        >
-                                            {user.credits}
+                                        <p className="font-black text-xl text-red-500" style={{ fontFamily: "'Rajdhani', sans-serif" }}>
+                                            {isProActive ? 'PRO ACTIVE' : 'FREE TIER'}
                                         </p>
                                     </div>
                                 </div>
-                                {user.credits < 1 && (
-                                    <p className="text-xs text-red-400 font-semibold mt-2">Need credits to launch</p>
-                                )}
                             </div>
 
-                            {/* Total Attacks */}
+                            {/* Total Attacks Card - FIXED */}
                             <div className={`rounded-2xl p-4 sm:p-5 border transition-all ${cardCls}`}>
                                 <div className="flex items-center gap-3">
                                     <div className="w-9 h-9 rounded-xl bg-red-600/10 border border-red-600/20 flex items-center justify-center shrink-0">
-                                        <FaBullseye className="text-red-500" size={15} />
+                                        <FaFire className="text-red-500" size={15} />
                                     </div>
                                     <div>
                                         <p className={`text-xs font-semibold uppercase tracking-[0.12em] ${dark ? 'text-slate-500' : 'text-slate-400'}`}>
                                             Total Attacks
                                         </p>
                                         <p className="font-black text-2xl text-red-500" style={{ fontFamily: "'Rajdhani', sans-serif" }}>
-                                            {stats.totalAttacks.toLocaleString()}
+                                            {stats.totalAttacks?.toLocaleString() || 0}
+                                        </p>
+                                        <p className={`text-[10px] mt-0.5 ${dark ? 'text-slate-600' : 'text-slate-400'}`}>
+                                            All time
                                         </p>
                                     </div>
                                 </div>
                             </div>
 
-                            {/* Total Users */}
+                            {/* Total Users Card */}
                             <div className={`rounded-2xl p-4 sm:p-5 border transition-all ${cardCls}`}>
                                 <div className="flex items-center gap-3">
                                     <div className="w-9 h-9 rounded-xl bg-red-600/10 border border-red-600/20 flex items-center justify-center shrink-0">
@@ -567,15 +595,37 @@ export default function Attack({ toggleTheme, theme, setIsAuth }) {
                                             Total Users
                                         </p>
                                         <p className="font-black text-2xl text-red-500" style={{ fontFamily: "'Rajdhani', sans-serif" }}>
-                                            {stats.totalUsers.toLocaleString()}
+                                            {stats.totalUsers?.toLocaleString() || 0}
                                         </p>
                                     </div>
                                 </div>
                             </div>
                         </div>
 
+                        {/* Subscription Expiry (Pro only) */}
+                        {isProActive && (
+                            <div className={`rounded-2xl p-4 sm:p-5 border transition-all ${cardCls}`}>
+                                <div className="flex items-center gap-3">
+                                    <div className="w-9 h-9 rounded-xl bg-red-600/10 border border-red-600/20 flex items-center justify-center shrink-0">
+                                        <FaCalendarAlt className="text-red-500" size={15} />
+                                    </div>
+                                    <div>
+                                        <p className={`text-xs font-semibold uppercase tracking-[0.12em] ${dark ? 'text-slate-500' : 'text-slate-400'}`}>
+                                            Plan Expires In
+                                        </p>
+                                        <p className="font-black text-xl text-red-500" style={{ fontFamily: "'Rajdhani', sans-serif" }}>
+                                            {daysLeft} days
+                                        </p>
+                                        <p className={`text-xs mt-1 ${dark ? 'text-slate-600' : 'text-slate-400'}`}>
+                                            {user?.subscription?.plan?.toUpperCase() || 'PRO'} plan
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
                         {/* ── Free Tier Warning ── */}
-                        {!user?.isPro && (
+                        {!isProActive && (
                             <div className={`rounded-2xl p-4 sm:p-5 border flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 ${dark
                                 ? 'bg-yellow-500/[0.06] border-yellow-500/25'
                                 : 'bg-yellow-50 border-yellow-200'
@@ -592,8 +642,9 @@ export default function Attack({ toggleTheme, theme, setIsAuth }) {
                                             FREE TIER — LIMITED ACCESS
                                         </p>
                                         <p className={`text-xs leading-relaxed ${dark ? 'text-yellow-400/70' : 'text-yellow-600'}`}>
-                                            You can only run attacks up to <span className="font-bold">60 seconds</span> on the free plan.
-                                            Upgrade to <span className="font-bold">Pro</span> to unlock <span className="font-bold">300 second</span> attacks and more.
+                                            You have <span className="font-bold">{user?.credits || 0} credits</span> remaining. 
+                                            Each attack costs 1 credit. Max duration: <span className="font-bold">60 seconds</span>.
+                                            Upgrade to <span className="font-bold">Pro</span> to unlock <span className="font-bold">unlimited attacks</span> and <span className="font-bold">300 second</span> attacks!
                                         </p>
                                     </div>
                                 </div>
@@ -605,6 +656,36 @@ export default function Attack({ toggleTheme, theme, setIsAuth }) {
                                     <FaCrown size={12} />
                                     UPGRADE TO PRO
                                 </a>
+                            </div>
+                        )}
+
+                        {/* ── Pro User Info ── */}
+                        {isProActive && (
+                            <div className={`rounded-2xl p-4 sm:p-5 border flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 ${dark
+                                ? 'bg-green-500/[0.06] border-green-500/25'
+                                : 'bg-green-50 border-green-200'
+                            }`}>
+                                <div className="flex items-start gap-3 flex-1 min-w-0">
+                                    <div className="w-9 h-9 rounded-xl bg-green-500/10 border border-green-500/20 flex items-center justify-center shrink-0 mt-0.5">
+                                        <FaCrown className="text-green-500" size={15} />
+                                    </div>
+                                    <div>
+                                        <p
+                                            className={`font-bold text-sm mb-0.5 ${dark ? 'text-green-300' : 'text-green-700'}`}
+                                            style={{ fontFamily: "'Rajdhani', sans-serif", letterSpacing: '0.05em' }}
+                                        >
+                                            PRO PLAN ACTIVE — UNLIMITED ATTACKS
+                                        </p>
+                                        <p className={`text-xs leading-relaxed ${dark ? 'text-green-400/70' : 'text-green-600'}`}>
+                                            You have <span className="font-bold">unlimited attacks</span>. Max duration: <span className="font-bold">300 seconds</span> per attack.
+                                            {daysLeft <= 7 && daysLeft > 0 && (
+                                                <span className="block mt-1 text-yellow-500 font-bold">
+                                                    ⚠️ Your plan expires in {daysLeft} days! Consider renewing to keep unlimited access.
+                                                </span>
+                                            )}
+                                        </p>
+                                    </div>
+                                </div>
                             </div>
                         )}
 
@@ -621,7 +702,11 @@ export default function Attack({ toggleTheme, theme, setIsAuth }) {
                                     >
                                         ATTACK CONFIGURATION
                                     </h2>
-                                    <p className={`text-xs ${dark ? 'text-slate-500' : 'text-slate-400'}`}>Configure and launch your operation</p>
+                                    <p className={`text-xs ${dark ? 'text-slate-500' : 'text-slate-400'}`}>
+                                        {isProActive 
+                                            ? '⚡ Unlimited attacks — launch as many as you want!'
+                                            : `💎 Each attack costs 1 credit · ${user?.credits || 0} credits left`}
+                                    </p>
                                 </div>
                             </div>
 
@@ -661,7 +746,7 @@ export default function Attack({ toggleTheme, theme, setIsAuth }) {
                                     <div>
                                         <label className="bd-label">
                                             Duration (seconds){' '}
-                                            <span className={`normal-case font-normal ${user?.isPro ? 'text-green-500' : dark ? 'text-slate-600' : 'text-slate-400'}`}>
+                                            <span className={`normal-case font-normal ${isProActive ? 'text-green-500' : dark ? 'text-slate-600' : 'text-slate-400'}`}>
                                                 max {MAX_DURATION}s
                                             </span>
                                         </label>
@@ -671,7 +756,7 @@ export default function Attack({ toggleTheme, theme, setIsAuth }) {
                                             className={`${inputCls} ${errors.duration ? 'border-red-500/60' : ''}`}
                                             disabled={
                                                 launching ||
-                                                user.credits < 1 ||
+                                                !canAttack ||
                                                 attackStatus?.status === 'running' ||
                                                 cooldown > 0
                                             }
@@ -700,11 +785,15 @@ export default function Attack({ toggleTheme, theme, setIsAuth }) {
                                 {launched && (
                                     <div className="rounded-xl p-4 border border-green-500/25 bg-green-500/8 flex items-center gap-2.5 text-sm">
                                         <FaCheckCircle className="text-green-400 shrink-0" size={15} />
-                                        <span className="text-green-400">Attack launched — watch live progress in Recent Activity below</span>
+                                        <span className="text-green-400">
+                                            Attack launched! {isProActive 
+                                                ? 'You have unlimited attacks remaining' 
+                                                : `${(user?.credits || 0) - 1} credits remaining`}
+                                        </span>
                                     </div>
                                 )}
 
-                                {/* ── CAPTCHA — themed, always visible & clickable ── */}
+                                {/* ── CAPTCHA ── */}
                                 <CaptchaSection
                                     dark={dark}
                                     captchaReady={captchaReady}
@@ -721,7 +810,7 @@ export default function Attack({ toggleTheme, theme, setIsAuth }) {
                                     disabled={
                                         MAINTENANCE ||
                                         launching ||
-                                        user.credits < 1 ||
+                                        !canAttack ||
                                         !captchaReady ||
                                         attackStatus?.status === 'running' ||
                                         cooldown > 0
@@ -731,7 +820,7 @@ export default function Attack({ toggleTheme, theme, setIsAuth }) {
                                             ? dark
                                                 ? 'bg-yellow-500/10 text-yellow-500/60 cursor-not-allowed'
                                                 : 'bg-yellow-50 text-yellow-400 cursor-not-allowed'
-                                            : user.credits < 1 || !captchaReady || attackStatus?.status === 'running' || cooldown > 0
+                                            : !canAttack || !captchaReady || attackStatus?.status === 'running' || cooldown > 0
                                                 ? dark
                                                     ? 'bg-white/[0.05] text-slate-600 cursor-not-allowed'
                                                     : 'bg-slate-100 text-slate-400 cursor-not-allowed'
@@ -749,8 +838,8 @@ export default function Attack({ toggleTheme, theme, setIsAuth }) {
                                             <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
                                             LAUNCHING...
                                         </>
-                                    ) : user.credits < 1 ? (
-                                        <><FaBan size={15} /> INSUFFICIENT CREDITS</>
+                                    ) : !canAttack ? (
+                                        <>{isProActive ? <FaBan size={15} /> : <FaGem size={15} />} {isProActive ? 'SERVICE UNAVAILABLE' : 'INSUFFICIENT CREDITS'}</>
                                     ) : !captchaReady ? (
                                         <><FaLock size={15} /> COMPLETE CAPTCHA</>
                                     ) : attackStatus?.status === 'running' ? (

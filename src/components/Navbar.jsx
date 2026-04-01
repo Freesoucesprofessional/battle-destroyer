@@ -46,7 +46,7 @@ export default function Navbar({ toggleTheme, theme, setIsAuth }) {
 
   // Public nav links (accessible to everyone)
   const publicNavLinks = [
-    { path: '/contact',    label: 'Buy Credits',  icon: FaGem },
+    { path: '/contact',    label: 'Upgrade Plan',  icon: FaGem },
   ];
 
   // Combined nav links for logged in users

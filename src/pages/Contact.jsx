@@ -2,8 +2,9 @@ import React, { useEffect, useRef } from 'react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import {
-    FaGem, FaTelegram, FaBolt, FaCrown, FaFire,
+    FaTelegram, FaBolt, FaCrown, FaCalendarAlt,
     FaRupeeSign, FaInfoCircle, FaShoppingCart, FaChevronRight,
+    FaClock, FaInfinity
 } from 'react-icons/fa';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
@@ -13,13 +14,47 @@ gsap.registerPlugin(ScrollTrigger);
 
 const TELEGRAM_URL = 'https://t.me/BattleDestroyerDDOS_Bot';
 
+// Updated plans for subscription system
 const plans = [
-    { credits: 50, price: 499, label: 'Starter', icon: FaBolt, color: 'text-blue-400', bg: 'from-blue-600/10 to-blue-600/5', border: 'border-blue-600/20', popular: false },
-    { credits: 150, price: 999, label: 'Basic', icon: FaGem, color: 'text-green-400', bg: 'from-green-600/10 to-green-600/5', border: 'border-green-600/20', popular: false },
-    { credits: 250, price: 1499, label: 'Standard', icon: FaFire, color: 'text-orange-400', bg: 'from-orange-600/10 to-orange-600/5', border: 'border-orange-600/20', popular: true },
-    { credits: 333, price: 1999, label: 'Advanced', icon: FaFire, color: 'text-red-400', bg: 'from-red-600/10 to-red-600/5', border: 'border-red-600/20', popular: false },
-    { credits: 400, price: 2499, label: 'Pro', icon: FaCrown, color: 'text-yellow-400', bg: 'from-yellow-600/10 to-yellow-600/5', border: 'border-yellow-600/20', popular: false },
-    { credits: 500, price: 2999, label: 'Elite', icon: FaCrown, color: 'text-purple-400', bg: 'from-purple-600/10 to-purple-600/5', border: 'border-purple-600/20', popular: false },
+    { 
+        days: 7, 
+        price: 850, 
+        label: 'Weekly', 
+        displayName: 'Weekly Pro',
+        icon: FaBolt, 
+        color: 'text-blue-400', 
+        bg: 'from-blue-600/10 to-blue-600/5', 
+        border: 'border-blue-600/20', 
+        popular: false,
+        attacksPerDay: 30,
+        maxDuration: 300
+    },
+    { 
+        days: 30, 
+        price: 1800, 
+        label: 'Monthly', 
+        displayName: 'Monthly Pro',
+        icon: FaCalendarAlt, 
+        color: 'text-green-400', 
+        bg: 'from-green-600/10 to-green-600/5', 
+        border: 'border-green-600/20', 
+        popular: true,
+        attacksPerDay: 30,
+        maxDuration: 300
+    },
+    { 
+        days: 60, 
+        price: 2500, 
+        label: 'Season', 
+        displayName: 'Season Pro',
+        icon: FaCrown, 
+        color: 'text-yellow-400', 
+        bg: 'from-yellow-600/10 to-yellow-600/5', 
+        border: 'border-yellow-600/20', 
+        popular: false,
+        attacksPerDay: 30,
+        maxDuration: 300
+    },
 ];
 
 export default function Contact({ toggleTheme, theme, setIsAuth }) {
@@ -52,20 +87,23 @@ export default function Contact({ toggleTheme, theme, setIsAuth }) {
                 ? Array.from(gridRef.current.querySelectorAll('.plan-card'))
                 : [];
 
-            const burstOrigins = [
-                { x: -220, y: -100, rotation: -18 },  // top-left
-                { x: 0, y: -200, rotation: 8 },  // top-center
-                { x: 220, y: -100, rotation: 20 },  // top-right
-                { x: -260, y: 60, rotation: -14 },  // mid-left
-                { x: 260, y: 60, rotation: 16 },  // mid-right
-                { x: 0, y: 200, rotation: -8 },  // bottom-center
-            ];
-
             if (cards.length) {
                 // set all invisible before ScrollTrigger fires
                 gsap.set(cards, { opacity: 0 });
 
                 cards.forEach((card, i) => {
+                    const isMobile = window.innerWidth < 640;
+                    const dist = isMobile ? 80 : 220;
+
+                    const burstOrigins = [
+                        { x: -dist, y: -dist * 0.5, rotation: -18 },
+                        { x: 0, y: -dist, rotation: 8 },
+                        { x: dist, y: -dist * 0.5, rotation: 20 },
+                        { x: -dist * 1.2, y: dist * 0.3, rotation: -14 },
+                        { x: dist * 1.2, y: dist * 0.3, rotation: 16 },
+                        { x: 0, y: dist, rotation: -8 },
+                    ];
+
                     const origin = burstOrigins[i % burstOrigins.length];
 
                     gsap.fromTo(card,
@@ -73,8 +111,8 @@ export default function Contact({ toggleTheme, theme, setIsAuth }) {
                             opacity: 0,
                             x: origin.x,
                             y: origin.y,
-                            rotation: origin.rotation,
-                            scale: 0.55,
+                            rotation: isMobile ? 0 : origin.rotation,
+                            scale: isMobile ? 0.75 : 0.55,
                         },
                         {
                             opacity: 1,
@@ -82,8 +120,8 @@ export default function Contact({ toggleTheme, theme, setIsAuth }) {
                             y: 0,
                             rotation: 0,
                             scale: 1,
-                            duration: 0.85,
-                            ease: 'back.out(1.3)',
+                            duration: isMobile ? 0.65 : 0.85,
+                            ease: 'back.out(1.2)',
                             scrollTrigger: {
                                 trigger: card,
                                 start: 'top 88%',
@@ -96,52 +134,9 @@ export default function Contact({ toggleTheme, theme, setIsAuth }) {
                 });
             }
 
-            cards.forEach((card, i) => {
-                // ── responsive burst distance based on screen width ──
-                const isMobile = window.innerWidth < 640;
-                const dist = isMobile ? 80 : 220;
-
-                const burstOrigins = [
-                    { x: -dist, y: -dist * 0.5, rotation: -18 },
-                    { x: 0, y: -dist, rotation: 8 },
-                    { x: dist, y: -dist * 0.5, rotation: 20 },
-                    { x: -dist * 1.2, y: dist * 0.3, rotation: -14 },
-                    { x: dist * 1.2, y: dist * 0.3, rotation: 16 },
-                    { x: 0, y: dist, rotation: -8 },
-                ];
-
-                const origin = burstOrigins[i % burstOrigins.length];
-
-                gsap.fromTo(card,
-                    {
-                        opacity: 0,
-                        x: origin.x,
-                        y: origin.y,
-                        rotation: isMobile ? 0 : origin.rotation, // ← no rotation on mobile
-                        scale: isMobile ? 0.75 : 0.55,             // ← less scale on mobile
-                    },
-                    {
-                        opacity: 1,
-                        x: 0,
-                        y: 0,
-                        rotation: 0,
-                        scale: 1,
-                        duration: isMobile ? 0.65 : 0.85,
-                        ease: 'back.out(1.2)',
-                        scrollTrigger: {
-                            trigger: card,
-                            start: 'top 88%',
-                            end: 'top 50%',
-                            scrub: 1.0,
-                            toggleActions: 'play none none reverse',
-                        },
-                    }
-                );
-            });
-
-            // ── CREDIT BARS — animate width on scroll, per card ──
+            // ── PROGRESS BARS — animate width on scroll, per card ──
             cards.forEach((card) => {
-                const bar = card.querySelector('.credit-bar-fill');
+                const bar = card.querySelector('.progress-bar-fill');
                 if (!bar) return;
                 gsap.fromTo(bar,
                     { scaleX: 0, transformOrigin: 'left center' },
@@ -202,7 +197,7 @@ export default function Contact({ toggleTheme, theme, setIsAuth }) {
         : 'bg-white border-slate-200 shadow-sm';
 
     return (
-        <div className={`relative min-h-screen transition-colors duration-300 ${dark ? 'bg-surface-950' : 'bg-slate-50'}` } style={{ overflowX: 'hidden' }}>
+        <div className={`relative min-h-screen transition-colors duration-300 ${dark ? 'bg-surface-950' : 'bg-slate-50'}`} style={{ overflowX: 'hidden' }}>
             <AnimatedBackground intensity={0.35} />
             <div className="fixed inset-0 bg-grid opacity-20 pointer-events-none z-0" />
 
@@ -213,18 +208,17 @@ export default function Contact({ toggleTheme, theme, setIsAuth }) {
 
                     {/* ── Header ── */}
                     <div ref={headerRef} className="text-center mb-12">
-                        {/* ✅ NO style={{ opacity: 0 }} — GSAP owns opacity */}
-                        <p className="bd-section-tag mb-2">Pricing Plans</p>
+                        <p className="bd-section-tag mb-2">Pro Subscription Plans</p>
 
                         <h1
                             className={`text-3xl sm:text-5xl font-bold mb-3 ${dark ? 'text-white' : 'text-slate-900'}`}
                             style={{ fontFamily: "'Rajdhani', sans-serif", letterSpacing: '0.04em' }}
                         >
-                            Buy <span className="text-gradient-red">Credits</span>
+                            Get <span className="text-gradient-red">Pro Access</span>
                         </h1>
 
                         <p className={`text-sm max-w-md mx-auto mb-6 ${dark ? 'text-slate-400' : 'text-slate-500'}`}>
-                            Purchase credits to power your attacks. All payments handled securely via Telegram bot.
+                            Subscribe to Pro for unlimited attacks and premium features. All payments handled securely via Telegram bot.
                         </p>
                         <a
                             href={TELEGRAM_URL}
@@ -269,8 +263,8 @@ export default function Contact({ toggleTheme, theme, setIsAuth }) {
                                                 boxShadow: '0 4px 16px rgba(220,38,38,0.4)',
                                             }}
                                         >
-                                            <FaFire size={10} />
-                                            MOST POPULAR
+                                            <FaCrown size={10} />
+                                            BEST VALUE
                                         </span>
                                     </div>
                                 )}
@@ -285,33 +279,54 @@ export default function Contact({ toggleTheme, theme, setIsAuth }) {
                                             className={`font-bold text-sm ${dark ? 'text-white' : 'text-slate-900'}`}
                                             style={{ fontFamily: "'Rajdhani', sans-serif", letterSpacing: '0.05em' }}
                                         >
-                                            {plan.label}
+                                            {plan.displayName}
                                         </p>
                                         <p className={`text-xs ${dark ? 'text-slate-500' : 'text-slate-400'}`}>
-                                            Credit Pack
+                                            {plan.days} Days Access
                                         </p>
                                     </div>
                                 </div>
 
-                                {/* Credits count */}
+                                {/* Days count */}
                                 <div className="flex items-end gap-2 mb-1">
                                     <span
                                         className={`text-5xl font-black ${plan.color}`}
                                         style={{ fontFamily: "'Rajdhani', sans-serif" }}
                                     >
-                                        {plan.credits}
+                                        {plan.days}
                                     </span>
                                     <span className={`text-sm mb-2.5 font-semibold ${dark ? 'text-slate-500' : 'text-slate-400'}`}>
-                                        credits
+                                        days
                                     </span>
                                 </div>
 
-                                {/* Animated credit bar */}
+                                {/* Animated progress bar (days relative to 90 days max) */}
                                 <div className={`w-full h-1.5 rounded-full mb-5 overflow-hidden ${dark ? 'bg-white/[0.06]' : 'bg-slate-100'}`}>
                                     <div
-                                        className="credit-bar-fill h-full rounded-full bg-gradient-to-r from-red-600 to-red-400"
-                                        style={{ width: `${(plan.credits / 500) * 100}%` }}
+                                        className="progress-bar-fill h-full rounded-full bg-gradient-to-r from-red-600 to-red-400"
+                                        style={{ width: `${(plan.days / 90) * 100}%` }}
                                     />
+                                </div>
+
+                                {/* Features list */}
+                                <div className={`rounded-xl px-4 py-3 mb-4 border ${dark ? 'bg-white/[0.03] border-white/[0.07]' : 'bg-slate-50 border-slate-200'}`}>
+                                    <div className="flex items-center justify-between mb-2">
+                                        <span className={`text-xs font-medium ${dark ? 'text-slate-500' : 'text-slate-400'}`}>
+                                            Attacks per day
+                                        </span>
+                                        <span className={`text-sm font-bold flex items-center gap-1 ${plan.color}`}>
+                                            <FaInfinity size={12} />
+                                            {plan.attacksPerDay}
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center justify-between">
+                                        <span className={`text-xs ${dark ? 'text-slate-500' : 'text-slate-400'}`}>
+                                            Max Duration
+                                        </span>
+                                        <span className={`text-sm font-bold ${plan.color}`}>
+                                            {plan.maxDuration}s
+                                        </span>
+                                    </div>
                                 </div>
 
                                 {/* Price box */}
@@ -325,16 +340,16 @@ export default function Contact({ toggleTheme, theme, setIsAuth }) {
                                             style={{ fontFamily: "'Rajdhani', sans-serif" }}
                                         >
                                             <FaRupeeSign size={17} />
-                                            {plan.price}
+                                            {plan.price.toLocaleString()}
                                         </span>
                                     </div>
                                     <div className="flex items-center justify-between mt-1">
                                         <span className={`text-xs ${dark ? 'text-slate-600' : 'text-slate-400'}`}>
-                                            Per credit
+                                            Per day
                                         </span>
                                         <span className={`text-xs font-bold flex items-center gap-0.5 ${plan.color}`}>
                                             <FaRupeeSign size={10} />
-                                            {(plan.price / plan.credits).toFixed(1)}/credit
+                                            {(plan.price / plan.days).toFixed(1)}/day
                                         </span>
                                     </div>
                                 </div>
@@ -357,14 +372,13 @@ export default function Contact({ toggleTheme, theme, setIsAuth }) {
                                     }}
                                 >
                                     <FaShoppingCart size={13} />
-                                    BUY NOW
+                                    GET PRO ACCESS
                                 </a>
                             </div>
                         ))}
                     </div>
 
                     {/* ── Info note ── */}
-                    {/* ✅ NO style={{ opacity: 0 }} — GSAP owns it */}
                     <div
                         ref={infoRef}
                         className={`rounded-2xl border p-5 flex items-start gap-4 ${cardCls}`}
@@ -378,15 +392,46 @@ export default function Contact({ toggleTheme, theme, setIsAuth }) {
                                 className={`font-bold text-sm mb-1 ${dark ? 'text-white' : 'text-slate-900'}`}
                                 style={{ fontFamily: "'Rajdhani', sans-serif", letterSpacing: '0.04em' }}
                             >
-                                HOW TO PURCHASE
+                                HOW TO GET PRO
                             </p>
                             <p className={`text-xs leading-relaxed ${dark ? 'text-slate-400' : 'text-slate-500'}`}>
-                                Click{' '}
-                                <span className="text-blue-400 font-semibold">Buy Now</span>{' '}
+                                Click <span className="text-blue-400 font-semibold">Get Pro Access</span>{' '}
                                 on any plan to open our Telegram bot. Send the plan name and complete
-                                payment via UPI/bank transfer. Credits are added to your account within
-                                minutes after confirmation.
+                                payment via UPI/bank transfer. Your Pro account will be activated within
+                                minutes after confirmation. Pro users get <span className="font-semibold">30 attacks per day</span> with{' '}
+                                <span className="font-semibold">300 seconds max duration</span>.
                             </p>
+                        </div>
+                    </div>
+
+                    {/* ── Additional Info: Pro Benefits ── */}
+                    <div className={`mt-6 rounded-2xl border p-5 ${cardCls}`}>
+                        <div className="flex items-center gap-3 mb-3">
+                            <FaCrown className="text-yellow-400" size={18} />
+                            <h3 className={`font-bold text-sm ${dark ? 'text-white' : 'text-slate-900'}`}
+                                style={{ fontFamily: "'Rajdhani', sans-serif", letterSpacing: '0.04em' }}>
+                                Why Go Pro?
+                            </h3>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div className="flex items-center gap-2">
+                                <FaBolt className="text-blue-400" size={12} />
+                                <span className={`text-xs ${dark ? 'text-slate-400' : 'text-slate-500'}`}>
+                                    Unlimited attacks
+                                </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <FaClock className="text-green-400" size={12} />
+                                <span className={`text-xs ${dark ? 'text-slate-400' : 'text-slate-500'}`}>
+                                    300 seconds max duration
+                                </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <FaCrown className="text-yellow-400" size={12} />
+                                <span className={`text-xs ${dark ? 'text-slate-400' : 'text-slate-500'}`}>
+                                    Priority support
+                                </span>
+                            </div>
                         </div>
                     </div>
 

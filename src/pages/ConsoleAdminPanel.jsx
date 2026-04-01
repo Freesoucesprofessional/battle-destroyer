@@ -1,47 +1,59 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+// AdminPanel.js - Fully Responsive with Single Edit Button
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import {
     FaSearch, FaSignOutAlt, FaLock, FaCheckCircle, FaExclamationTriangle,
-    FaEdit, FaTrash, FaPlus, FaTimes, FaSave, FaUserShield, FaChevronLeft, FaChevronRight
+    FaEdit, FaTrash, FaTimes, FaSave, FaChevronLeft, FaChevronRight,
+    FaCrown, FaGem, FaClock, FaUsers, FaUser,
+    FaStar, FaCalendarAlt,FaBullseye  
 } from 'react-icons/fa';
 import { MdWbSunny, MdNightlight } from 'react-icons/md';
 import AnimatedBackground from '../components/AnimatedBackground';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
-const ITEMS_PER_PAGE = 50;
+const ITEMS_PER_PAGE = 20; // Reduced for better mobile performance
 
+// Toast Component
 function Toast({ toasts }) {
     return (
-        <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-2">
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex flex-col gap-2 w-full max-w-xs px-4">
             {toasts.map(t => (
-                <div key={t.id} className={`flex items-center gap-3 px-4 py-3 rounded-2xl border text-sm font-semibold shadow-2xl backdrop-blur-xl
+                <div key={t.id} className={`flex items-center gap-2 px-4 py-3 rounded-xl border text-sm font-semibold shadow-2xl backdrop-blur-xl animate-slide-up
                     ${t.type === 'success'
                         ? 'bg-green-500/10 border-green-500/30 text-green-400'
                         : 'bg-red-500/10 border-red-500/30 text-red-400'}`}>
-                    {t.type === 'success' ? <FaCheckCircle size={14} /> : <FaExclamationTriangle size={14} />}
-                    {t.message}
+                    {t.type === 'success' ? <FaCheckCircle size={12} /> : <FaExclamationTriangle size={12} />}
+                    <span className="flex-1 text-center text-xs">{t.message}</span>
                 </div>
             ))}
         </div>
     );
 }
 
-// ── Modal Component ──
-function Modal({ title, onClose, children, dark }) {
+// Modal Component - Responsive
+function Modal({ title, onClose, children, dark, size = 'md' }) {
+    const sizeClasses = {
+        sm: 'max-w-sm',
+        md: 'max-w-md',
+        lg: 'max-w-lg',
+        xl: 'max-w-xl'
+    };
+
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-4"
-            style={{ background: 'rgba(0,0,0,0.7)' }}>
-            <div className={`relative w-full max-w-lg rounded-2xl border p-6 shadow-2xl
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in"
+            style={{ background: 'rgba(0,0,0,0.7)' }}
+            onClick={(e) => e.target === e.currentTarget && onClose()}>
+            <div className={`relative w-full ${sizeClasses[size]} rounded-2xl border p-5 shadow-2xl max-h-[90vh] overflow-y-auto
                 ${dark ? 'bg-surface-800 border-white/[0.1] backdrop-blur-xl' : 'bg-white border-slate-200'}`}>
-                <div className="flex items-center justify-between mb-5">
-                    <h2 className={`font-black text-lg ${dark ? 'text-white' : 'text-slate-900'}`}
+                <div className="flex items-center justify-between mb-4 sticky top-0 bg-inherit pb-2">
+                    <h2 className={`font-black text-base ${dark ? 'text-white' : 'text-slate-900'}`}
                         style={{ fontFamily: "'Rajdhani', sans-serif", letterSpacing: '0.05em' }}>
                         {title}
                     </h2>
                     <button onClick={onClose}
                         className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all
                             ${dark ? 'bg-white/[0.06] hover:bg-white/[0.12] text-slate-400' : 'bg-slate-100 hover:bg-slate-200 text-slate-600'}`}>
-                        <FaTimes size={13} />
+                        <FaTimes size={12} />
                     </button>
                 </div>
                 {children}
@@ -50,31 +62,176 @@ function Modal({ title, onClose, children, dark }) {
     );
 }
 
-// ── Pagination Component ──
+// Pagination Component - Mobile Friendly
 function Pagination({ currentPage, totalPages, onPageChange, dark }) {
     if (totalPages <= 1) return null;
 
     return (
-        <div className="flex items-center justify-center gap-3 mt-6">
+        <div className="flex items-center justify-center gap-2 mt-6">
             <button onClick={() => onPageChange(currentPage - 1)} disabled={currentPage === 1}
-                className={`px-3 py-2 rounded-lg flex items-center gap-2 transition-all disabled:opacity-50 ${dark
+                className={`px-3 py-2 rounded-lg flex items-center gap-1 transition-all disabled:opacity-50 text-sm ${dark
                     ? 'bg-white/[0.05] text-slate-400 hover:bg-white/[0.1]'
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
-                <FaChevronLeft size={12} /> Prev
+                <FaChevronLeft size={10} /> Prev
             </button>
-            <span className={`text-sm font-semibold ${dark ? 'text-slate-400' : 'text-slate-600'}`}>
-                Page {currentPage} of {totalPages}
+            <span className={`text-xs font-semibold ${dark ? 'text-slate-400' : 'text-slate-600'}`}>
+                {currentPage} / {totalPages}
             </span>
             <button onClick={() => onPageChange(currentPage + 1)} disabled={currentPage === totalPages}
-                className={`px-3 py-2 rounded-lg flex items-center gap-2 transition-all disabled:opacity-50 ${dark
+                className={`px-3 py-2 rounded-lg flex items-center gap-1 transition-all disabled:opacity-50 text-sm ${dark
                     ? 'bg-white/[0.05] text-slate-400 hover:bg-white/[0.1]'
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
-                Next <FaChevronRight size={12} />
+                Next <FaChevronRight size={10} />
             </button>
         </div>
     );
 }
 
+// Updated UserCard Component - Shows credits for all users
+function UserCard({ user, onEdit, onDelete, dark }) {
+    const isPro = user.isPro;
+    const daysLeft = user.subscriptionStatus?.daysLeft || 0;
+    const isExpiringSoon = isPro && daysLeft <= 7 && daysLeft > 0;
+    const remainingAttacks = isPro ? user.subscription?.dailyCredits || 30 : user.credits || 0;
+
+    return (
+        <div className={`rounded-xl border p-4 transition-all ${dark ? 'bg-surface-800/50 border-white/[0.07]' : 'bg-white border-slate-200 shadow-sm'}`}>
+            {/* User Header */}
+            <div className="flex items-start justify-between mb-3">
+                <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isPro ? 'bg-yellow-500/10' : 'bg-blue-500/10'}`}>
+                        {isPro ? <FaCrown className="text-yellow-500" size={14} /> : <FaUser className="text-blue-500" size={14} />}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                        <p className={`font-bold text-sm truncate ${dark ? 'text-white' : 'text-slate-900'}`}>{user.username}</p>
+                        <p className={`text-xs truncate ${dark ? 'text-slate-500' : 'text-slate-400'}`}>{user.email}</p>
+                    </div>
+                </div>
+                <div className="flex items-center gap-1">
+                    <button onClick={() => onEdit(user)}
+                        className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${dark ? 'bg-blue-500/10 hover:bg-blue-500/20 text-blue-400' : 'bg-blue-50 hover:bg-blue-100 text-blue-600'}`}
+                        title="Edit user">
+                        <FaEdit size={12} />
+                    </button>
+                    <button onClick={() => onDelete(user)}
+                        className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${dark ? 'bg-red-500/10 hover:bg-red-500/20 text-red-400' : 'bg-red-50 hover:bg-red-100 text-red-600'}`}
+                        title="Delete user">
+                        <FaTrash size={11} />
+                    </button>
+                </div>
+            </div>
+
+            {/* User Stats - Show credits for all users */}
+            <div className="grid grid-cols-2 gap-3 mt-3">
+                {/* Credits Card - Show for ALL users */}
+                <div className={`rounded-lg p-2 ${dark ? 'bg-white/[0.03]' : 'bg-slate-50'}`}>
+                    <div className="flex items-center gap-1.5 mb-1">
+                        <FaGem className={isPro ? 'text-yellow-500' : 'text-blue-500'} size={10} />
+                        <span className={`text-xs font-semibold ${dark ? 'text-slate-500' : 'text-slate-400'}`}>
+                            Credits Balance
+                        </span>
+                    </div>
+                    <p className={`text-lg font-black ${isPro ? 'text-yellow-500' : 'text-blue-500'}`} style={{ fontFamily: "'Rajdhani', sans-serif" }}>
+                        {user.credits || 0}
+                    </p>
+                    {isPro && (
+                        <p className={`text-[10px] ${dark ? 'text-slate-600' : 'text-slate-400'}`}>
+                            +30 daily attacks
+                        </p>
+                    )}
+                </div>
+
+                {/* Attacks/Subscription Card */}
+                <div className={`rounded-lg p-2 ${dark ? 'bg-white/[0.03]' : 'bg-slate-50'}`}>
+                    <div className="flex items-center gap-1.5 mb-1">
+                        {isPro ? <FaStar className="text-yellow-500" size={10} /> : <FaBullseye className="text-purple-500" size={10} />}
+                        <span className={`text-xs font-semibold ${dark ? 'text-slate-500' : 'text-slate-400'}`}>
+                            {isPro ? 'Daily Attacks' : 'Remaining'}
+                        </span>
+                    </div>
+                    <p className={`text-lg font-black ${isPro ? 'text-yellow-500' : 'text-purple-500'}`} style={{ fontFamily: "'Rajdhani', sans-serif" }}>
+                        {isPro ? `${remainingAttacks}/30` : remainingAttacks}
+                    </p>
+                    {isPro && (
+                        <p className={`text-[10px] ${dark ? 'text-slate-600' : 'text-slate-400'}`}>
+                            Resets daily
+                        </p>
+                    )}
+                </div>
+            </div>
+
+            {/* Third Row - Subscription Info for Pro, Joined Date for Free */}
+            <div className="grid grid-cols-2 gap-3 mt-3">
+                {isPro ? (
+                    <>
+                        <div className={`rounded-lg p-2 ${dark ? 'bg-white/[0.03]' : 'bg-slate-50'}`}>
+                            <div className="flex items-center gap-1.5 mb-1">
+                                <FaCalendarAlt className="text-purple-500" size={10} />
+                                <span className={`text-xs font-semibold ${dark ? 'text-slate-500' : 'text-slate-400'}`}>
+                                    Plan
+                                </span>
+                            </div>
+                            <p className={`text-sm font-semibold ${dark ? 'text-white' : 'text-slate-700'}`}>
+                                {user.subscription?.plan || 'Pro'} · {user.subscription?.expiresAt ? `${daysLeft}d left` : 'Active'}
+                            </p>
+                            {isExpiringSoon && (
+                                <p className="text-[10px] text-yellow-500 mt-0.5">⚠️ Expiring soon!</p>
+                            )}
+                        </div>
+                        <div className={`rounded-lg p-2 ${dark ? 'bg-white/[0.03]' : 'bg-slate-50'}`}>
+                            <div className="flex items-center gap-1.5 mb-1">
+                                <FaClock className="text-green-500" size={10} />
+                                <span className={`text-xs font-semibold ${dark ? 'text-slate-500' : 'text-slate-400'}`}>
+                                    Total Attacks
+                                </span>
+                            </div>
+                            <p className={`text-sm font-semibold ${dark ? 'text-white' : 'text-slate-700'}`}>
+                                {user.totalAttacks?.toLocaleString() || 0}
+                            </p>
+                        </div>
+                    </>
+                ) : (
+                    <>
+                        <div className={`rounded-lg p-2 ${dark ? 'bg-white/[0.03]' : 'bg-slate-50'}`}>
+                            <div className="flex items-center gap-1.5 mb-1">
+                                <FaCalendarAlt className="text-purple-500" size={10} />
+                                <span className={`text-xs font-semibold ${dark ? 'text-slate-500' : 'text-slate-400'}`}>
+                                    Joined
+                                </span>
+                            </div>
+                            <p className={`text-sm font-semibold ${dark ? 'text-white' : 'text-slate-700'}`}>
+                                {new Date(user.createdAt).toLocaleDateString()}
+                            </p>
+                        </div>
+                        <div className={`rounded-lg p-2 ${dark ? 'bg-white/[0.03]' : 'bg-slate-50'}`}>
+                            <div className="flex items-center gap-1.5 mb-1">
+                                <FaClock className="text-green-500" size={10} />
+                                <span className={`text-xs font-semibold ${dark ? 'text-slate-500' : 'text-slate-400'}`}>
+                                    Total Attacks
+                                </span>
+                            </div>
+                            <p className={`text-sm font-semibold ${dark ? 'text-white' : 'text-slate-700'}`}>
+                                {user.totalAttacks?.toLocaleString() || 0}
+                            </p>
+                        </div>
+                    </>
+                )}
+            </div>
+
+            {/* Status Badge */}
+            <div className="mt-3">
+                <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold ${isPro
+                    ? (dark ? 'bg-yellow-500/10 text-yellow-400' : 'bg-yellow-50 text-yellow-600')
+                    : (dark ? 'bg-blue-500/10 text-blue-400' : 'bg-blue-50 text-blue-600')}`}>
+                    {isPro ? '⭐ Pro Member' : '💎 Free User'}
+                    {isPro && user.subscription?.plan && ` · ${user.subscription.plan.charAt(0).toUpperCase() + user.subscription.plan.slice(1)} Plan`}
+                </span>
+            </div>
+        </div>
+    );
+}
+
+// Main Admin Panel Component
 export default function ConsoleAdminPanel({ toggleTheme, theme }) {
     const dark = theme !== 'light';
 
@@ -86,34 +243,37 @@ export default function ConsoleAdminPanel({ toggleTheme, theme }) {
     const [token, setToken] = useState('');
 
     // Panel state
-    const [stats, setStats] = useState({ total: 0, pro: 0, withCredits: 0, today: 0, activeResellers: 0, totalResellers: 0 });
+    const [stats, setStats] = useState({
+        total: 0, pro: 0, free: 0, withCredits: 0, today: 0,
+        activeResellers: 0, totalResellers: 0, attacksToday: 0
+    });
     const [users, setUsers] = useState([]);
-    const [resellers, setResellers] = useState([]);
     const [usersLoading, setUsersLoading] = useState(false);
-    const [resellersLoading, setResellersLoading] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [currentTab, setCurrentTab] = useState('users');
     const [toasts, setToasts] = useState([]);
 
-    // Pagination & Filter state
+    // Pagination & Filter
     const [usersPage, setUsersPage] = useState(1);
-    const [resellersPage, setResellersPage] = useState(1);
     const [usersTotalPages, setUsersTotalPages] = useState(1);
-    const [resellersTotalPages, setResellersTotalPages] = useState(1);
-    const [proFilter, setProFilter] = useState('all');
-    const [resellerFilter, setResellerFilter] = useState('all');
+    const [userFilter, setUserFilter] = useState('all');
 
     // Modal state
     const [editUserModal, setEditUserModal] = useState(null);
-    const [editResellerModal, setEditResellerModal] = useState(null);
     const [deleteConfirm, setDeleteConfirm] = useState(null);
     const [modalLoading, setModalLoading] = useState(false);
 
-    // Edit forms
-    const [userForm, setUserForm] = useState({});
-    const [resellerForm, setResellerForm] = useState({});
-
-    const loginRef = useRef(null);
+    // Edit form
+    const [userForm, setUserForm] = useState({
+        username: '',
+        email: '',
+        credits: 0,
+        password: '',
+        hasPro: false,
+        proPlan: 'month',
+        proDays: 30,
+        proAction: 'add' // 'add', 'extend', 'remove'
+    });
 
     const toast = useCallback((message, type = 'success') => {
         const id = Date.now();
@@ -130,13 +290,11 @@ export default function ConsoleAdminPanel({ toggleTheme, theme }) {
         setIsLoggedIn(false);
         setToken('');
         setUsers([]);
-        setResellers([]);
         setAdminSecret('');
         localStorage.removeItem('adminToken');
         toast('Logged out successfully');
     }, [toast]);
 
-    // ── FIX: removed usersPage from closure — always use the passed-in `page` arg ──
     const loadUsers = useCallback(async (tkn, query, page = 1, filter = 'all') => {
         setUsersLoading(true);
         try {
@@ -144,7 +302,7 @@ export default function ConsoleAdminPanel({ toggleTheme, theme }) {
                 page,
                 limit: ITEMS_PER_PAGE,
                 ...(query && { search: query }),
-                ...(filter !== 'all' && { isPro: filter === 'pro' ? 'true' : 'false' })
+                ...(filter !== 'all' && { subscriptionType: filter })
             });
 
             const { data } = await axios.get(`${API_URL}/api/admin/users?${params}`, {
@@ -161,34 +319,7 @@ export default function ConsoleAdminPanel({ toggleTheme, theme }) {
         } finally {
             setUsersLoading(false);
         }
-    }, [logout, toast]); // ✅ No stale state in closure
-
-    // ── FIX: removed resellersPage from closure — always use the passed-in `page` arg ──
-    const loadResellers = useCallback(async (tkn, query, page = 1, filter = 'all') => {
-        setResellersLoading(true);
-        try {
-            const params = new URLSearchParams({
-                page,
-                limit: ITEMS_PER_PAGE,
-                ...(query && { search: query }),
-                ...(filter !== 'all' && { isBlocked: filter === 'blocked' ? 'true' : 'false' })
-            });
-
-            const { data } = await axios.get(`${API_URL}/api/admin/resellers?${params}`, {
-                headers: { 'x-admin-token': tkn },
-                withCredentials: true
-            });
-
-            setResellers(data.resellers || []);
-            setResellersTotalPages(data.totalPages || 1);
-            setResellersPage(page);
-        } catch (err) {
-            if (err.response?.status === 401) logout();
-            else toast(err.response?.data?.message || 'Failed to load resellers', 'error');
-        } finally {
-            setResellersLoading(false);
-        }
-    }, [logout, toast]); // ✅ No stale state in closure
+    }, [logout, toast]);
 
     const loadStats = useCallback(async () => {
         try {
@@ -201,7 +332,6 @@ export default function ConsoleAdminPanel({ toggleTheme, theme }) {
         }
     }, [token, logout]);
 
-    // ── FIX: added loadUsers to dependency array ──
     useEffect(() => {
         const savedToken = localStorage.getItem('adminToken');
         if (!savedToken) return;
@@ -223,7 +353,7 @@ export default function ConsoleAdminPanel({ toggleTheme, theme }) {
             }
         };
         init();
-    }, [loadUsers]); // ✅ loadUsers is now stable (no stale deps), safe to include
+    }, [loadUsers]);
 
     const doLogin = async () => {
         setLoginError('');
@@ -253,14 +383,16 @@ export default function ConsoleAdminPanel({ toggleTheme, theme }) {
         }
     };
 
-    // ── Edit User ──
     const openEditUser = (user) => {
         setUserForm({
             username: user.username,
             email: user.email,
             credits: user.credits || 0,
-            isPro: user.isPro || false,
             password: '',
+            hasPro: user.isPro,
+            proPlan: user.subscription?.plan || 'month',
+            proDays: 30,
+            proAction: 'add'
         });
         setEditUserModal(user);
     };
@@ -269,25 +401,69 @@ export default function ConsoleAdminPanel({ toggleTheme, theme }) {
         setModalLoading(true);
         try {
             const csrfToken = await getCsrfToken();
+            const user = editUserModal;
 
-            const payload = {
+            // 1. Update basic info
+            const basicPayload = {
                 username: userForm.username,
                 email: userForm.email,
                 credits: Number(userForm.credits),
-                isPro: userForm.isPro,
             };
-            if (userForm.password) payload.password = userForm.password;
+            if (userForm.password) basicPayload.password = userForm.password;
 
-            await axios.patch(`${API_URL}/api/admin/users/${editUserModal._id}`, payload, {
-                headers: {
-                    'x-admin-token': token,
-                    'X-CSRF-Token': csrfToken
-                },
+            await axios.patch(`${API_URL}/api/admin/users/${user._id}`, basicPayload, {
+                headers: { 'x-admin-token': token, 'X-CSRF-Token': csrfToken },
                 withCredentials: true
             });
+
+            // 2. Handle Pro subscription changes
+            if (userForm.hasPro && !user.isPro) {
+                // Give Pro
+                const proPayload = {
+                    planType: userForm.proPlan === 'custom' ? 'custom' : userForm.proPlan,
+                    ...(userForm.proPlan === 'custom' && { customDays: userForm.proDays })
+                };
+                await axios.post(`${API_URL}/api/admin/users/${user._id}/give-pro`, proPayload, {
+                    headers: { 'x-admin-token': token, 'X-CSRF-Token': csrfToken },
+                    withCredentials: true
+                });
+                toast(`✨ ${user.username} now has Pro access!`);
+            } else if (!userForm.hasPro && user.isPro) {
+                // Remove Pro
+                await axios.delete(`${API_URL}/api/admin/users/${user._id}/remove-pro`, {
+                    headers: { 'x-admin-token': token, 'X-CSRF-Token': csrfToken },
+                    withCredentials: true
+                });
+                toast(`❌ Removed Pro status from ${user.username}`);
+            } else if (userForm.hasPro && user.isPro) {
+                if (userForm.proAction === 'extend') {
+                    // Extend Pro
+                    const proPayload = {
+                        planType: userForm.proPlan === 'custom' ? 'custom' : userForm.proPlan,
+                        ...(userForm.proPlan === 'custom' && { customDays: userForm.proDays })
+                    };
+                    await axios.post(`${API_URL}/api/admin/users/${user._id}/extend-pro`, proPayload, {
+                        headers: { 'x-admin-token': token, 'X-CSRF-Token': csrfToken },
+                        withCredentials: true
+                    });
+                    toast(`➕ Extended Pro for ${user.username}!`);
+                } else if (userForm.proAction === 'replace') {
+                    // Replace Pro
+                    const proPayload = {
+                        planType: userForm.proPlan === 'custom' ? 'custom' : userForm.proPlan,
+                        ...(userForm.proPlan === 'custom' && { customDays: userForm.proDays })
+                    };
+                    await axios.post(`${API_URL}/api/admin/users/${user._id}/replace-pro`, proPayload, {
+                        headers: { 'x-admin-token': token, 'X-CSRF-Token': csrfToken },
+                        withCredentials: true
+                    });
+                    toast(`🔄 Replaced Pro plan for ${user.username}!`);
+                }
+            }
+
             toast('User updated successfully');
             setEditUserModal(null);
-            loadUsers(token, searchQuery, usersPage, proFilter);
+            loadUsers(token, searchQuery, usersPage, userFilter);
             loadStats();
         } catch (err) {
             toast(err.response?.data?.message || 'Failed to update user', 'error');
@@ -296,95 +472,20 @@ export default function ConsoleAdminPanel({ toggleTheme, theme }) {
         }
     };
 
-    // ── Add / Edit Reseller ──
-    const openAddReseller = () => {
-        setResellerForm({ username: '', email: '', password: '', credits: 0 });
-        setEditResellerModal('new');
-    };
-
-    const openEditReseller = (reseller) => {
-        setResellerForm({
-            username: reseller.username,
-            email: reseller.email,
-            credits: reseller.credits || 0,
-            isBlocked: reseller.isBlocked || false,
-            password: '',
-        });
-        setEditResellerModal(reseller);
-    };
-
-    const saveReseller = async () => {
-        setModalLoading(true);
-        try {
-            const csrfToken = await getCsrfToken();
-
-            if (editResellerModal === 'new') {
-                const payload = {
-                    username: resellerForm.username,
-                    email: resellerForm.email,
-                    password: resellerForm.password,
-                    credits: Number(resellerForm.credits),
-                };
-                await axios.post(`${API_URL}/api/admin/resellers`, payload, {
-                    headers: {
-                        'x-admin-token': token,
-                        'X-CSRF-Token': csrfToken
-                    },
-                    withCredentials: true
-                });
-                toast('Reseller created successfully');
-            } else {
-                const payload = {
-                    username: resellerForm.username,
-                    email: resellerForm.email,
-                    credits: Number(resellerForm.credits),
-                    isBlocked: resellerForm.isBlocked,
-                };
-                if (resellerForm.password) payload.password = resellerForm.password;
-
-                await axios.patch(`${API_URL}/api/admin/resellers/${editResellerModal._id}`, payload, {
-                    headers: {
-                        'x-admin-token': token,
-                        'X-CSRF-Token': csrfToken
-                    },
-                    withCredentials: true
-                });
-                toast('Reseller updated successfully');
-            }
-            setEditResellerModal(null);
-            loadResellers(token, searchQuery, resellersPage, resellerFilter);
-            loadStats();
-        } catch (err) {
-            toast(err.response?.data?.message || 'Failed to save reseller', 'error');
-        } finally {
-            setModalLoading(false);
-        }
-    };
-
-    // ── Delete ──
-    const confirmDelete = (type, id, name) => setDeleteConfirm({ type, id, name });
+    const confirmDelete = (user) => setDeleteConfirm(user);
 
     const doDelete = async () => {
         if (!deleteConfirm) return;
         setModalLoading(true);
         try {
             const csrfToken = await getCsrfToken();
-
-            const url = deleteConfirm.type === 'user'
-                ? `${API_URL}/api/admin/users/${deleteConfirm.id}`
-                : `${API_URL}/api/admin/resellers/${deleteConfirm.id}`;
-
-            await axios.delete(url, {
-                headers: {
-                    'x-admin-token': token,
-                    'X-CSRF-Token': csrfToken
-                },
+            await axios.delete(`${API_URL}/api/admin/users/${deleteConfirm._id}`, {
+                headers: { 'x-admin-token': token, 'X-CSRF-Token': csrfToken },
                 withCredentials: true
             });
-            toast(`${deleteConfirm.type === 'user' ? 'User' : 'Reseller'} deleted successfully`);
+            toast(`User ${deleteConfirm.username} deleted successfully`);
             setDeleteConfirm(null);
-            if (deleteConfirm.type === 'user') loadUsers(token, searchQuery, 1, proFilter);
-            else loadResellers(token, searchQuery, 1, resellerFilter);
+            loadUsers(token, searchQuery, usersPage, userFilter);
             loadStats();
         } catch (err) {
             toast(err.response?.data?.message || 'Failed to delete', 'error');
@@ -393,65 +494,43 @@ export default function ConsoleAdminPanel({ toggleTheme, theme }) {
         }
     };
 
-    const cardCls = dark
-        ? 'bg-surface-800/70 border-white/[0.07] backdrop-blur-xl'
-        : 'bg-white border-slate-200 shadow-sm';
-
-    const inputCls = `w-full rounded-xl px-4 py-3 text-sm border outline-none transition ${dark
-        ? 'bg-white/[0.04] border-white/[0.1] text-slate-100 placeholder-slate-600 focus:border-red-500/50 focus:ring-2 focus:ring-red-500/10'
-        : 'bg-slate-50 border-slate-200 text-slate-900 placeholder-slate-400 focus:border-red-500 focus:ring-2 focus:ring-red-500/10'}`;
-
-    const modalInputCls = `w-full rounded-xl px-4 py-2.5 text-sm border outline-none transition ${dark
-        ? 'bg-white/[0.04] border-white/[0.1] text-slate-100 placeholder-slate-600 focus:border-red-500/50'
-        : 'bg-slate-50 border-slate-200 text-slate-900 placeholder-slate-400 focus:border-red-500'}`;
-
-    const labelCls = `block text-xs font-semibold uppercase tracking-[0.08em] mb-1.5 ${dark ? 'text-slate-500' : 'text-slate-400'}`;
-
-    const filterBtnCls = (active) => `px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${active
-        ? 'bg-red-600 text-white'
-        : dark
-            ? 'bg-white/[0.05] text-slate-400 hover:bg-white/[0.1]'
-            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`;
-
-    // ── LOGIN SCREEN ──
+    // Login Screen
     if (!isLoggedIn) {
         return (
             <div className={`min-h-screen flex items-center justify-center px-4 relative ${dark ? 'bg-surface-950' : 'bg-slate-50'}`}>
                 <AnimatedBackground intensity={0.5} />
                 <div className="fixed inset-0 bg-grid opacity-20 pointer-events-none z-0" />
-                <button onClick={toggleTheme} className={`fixed top-4 right-4 z-50 w-9 h-9 rounded-xl flex items-center justify-center transition-all ${dark ? 'bg-white/[0.06] text-yellow-400' : 'bg-black/[0.05] text-slate-600'}`}>
-                    {dark ? <MdWbSunny size={17} /> : <MdNightlight size={17} />}
+                <button onClick={toggleTheme} className={`fixed top-4 right-4 z-50 w-10 h-10 rounded-xl flex items-center justify-center transition-all ${dark ? 'bg-white/[0.06] text-yellow-400' : 'bg-black/[0.05] text-slate-600'}`}>
+                    {dark ? <MdWbSunny size={18} /> : <MdNightlight size={18} />}
                 </button>
-                <div ref={loginRef} className={`relative z-10 w-full max-w-md rounded-3xl border p-8 ${dark ? 'bg-surface-800/80 border-white/[0.08] backdrop-blur-xl' : 'bg-white border-slate-200 shadow-xl'}`}>
-                    <div className="absolute -top-10 left-1/2 -translate-x-1/2 w-48 h-48 rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(220,38,38,0.15) 0%, transparent 70%)' }} />
-                    <div className="flex items-center gap-3 mb-8">
+                <div className={`relative z-10 w-full max-w-md rounded-3xl border p-6 ${dark ? 'bg-surface-800/80 border-white/[0.08] backdrop-blur-xl' : 'bg-white border-slate-200 shadow-xl'}`}>
+                    <div className="flex items-center gap-3 mb-6">
                         <div className="relative">
                             <div className="absolute inset-0 bg-red-600/30 rounded-lg blur-md" />
-                            <img src="/logo512.png" alt="" className="relative w-9 h-9 rounded-xl object-contain" style={{ filter: 'drop-shadow(0 0 6px rgba(220,38,38,0.5))' }} />
+                            <img src="/logo512.png" alt="" className="relative w-10 h-10 rounded-xl object-contain" />
                         </div>
                         <div>
-                            <p className="text-red-500 font-bold tracking-[0.12em] text-sm" style={{ fontFamily: "'Rajdhani', sans-serif" }}>BATTLE-DESTROYER</p>
+                            <p className="text-red-500 font-bold tracking-[0.12em] text-sm">BATTLE-DESTROYER</p>
                             <p className={`text-xs ${dark ? 'text-slate-500' : 'text-slate-400'}`}>Admin Panel</p>
                         </div>
                     </div>
-                    <h1 className={`text-2xl font-black mb-1 ${dark ? 'text-white' : 'text-slate-900'}`} style={{ fontFamily: "'Rajdhani', sans-serif", letterSpacing: '0.04em' }}>ADMIN LOGIN</h1>
+                    <h1 className={`text-2xl font-black mb-1 ${dark ? 'text-white' : 'text-slate-900'}`}>ADMIN LOGIN</h1>
                     <p className={`text-xs mb-6 ${dark ? 'text-slate-500' : 'text-slate-400'}`}>Sign in with your admin secret</p>
                     {loginError && (
                         <div className="flex items-center gap-2 rounded-xl p-3 border border-red-500/25 bg-red-500/8 text-red-400 text-sm mb-4">
-                            <FaExclamationTriangle size={13} /> {loginError}
+                            <FaExclamationTriangle size={12} /> {loginError}
                         </div>
                     )}
                     <div className="space-y-4">
                         <div>
-                            <label className={labelCls}>Admin Secret</label>
-                            <input type="password" className={inputCls} placeholder="Your ADMIN_SECRET value"
-                                value={adminSecret} onChange={e => setAdminSecret(e.target.value)}
+                            <label className="block text-xs font-semibold uppercase tracking-[0.08em] mb-1.5 text-slate-500">Admin Secret</label>
+                            <input type="password" className={`w-full rounded-xl px-4 py-3 text-sm border outline-none transition ${dark ? 'bg-white/[0.04] border-white/[0.1] text-slate-100' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                placeholder="Your ADMIN_SECRET value" value={adminSecret} onChange={e => setAdminSecret(e.target.value)}
                                 onKeyDown={e => e.key === 'Enter' && doLogin()} />
                         </div>
                         <button onClick={doLogin} disabled={loginLoading}
-                            className="w-full py-3 rounded-xl font-bold text-sm text-white bg-red-600 hover:bg-red-500 transition-all active:scale-95 disabled:opacity-60 flex items-center justify-center gap-2"
-                            style={{ fontFamily: "'Rajdhani', sans-serif", letterSpacing: '0.08em', boxShadow: '0 4px 20px rgba(220,38,38,0.35)' }}>
-                            {loginLoading ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <FaLock size={14} />}
+                            className="w-full py-3 rounded-xl font-bold text-sm text-white bg-red-600 hover:bg-red-500 transition-all active:scale-95 disabled:opacity-60 flex items-center justify-center gap-2">
+                            {loginLoading ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <FaLock size={12} />}
                             {loginLoading ? 'SIGNING IN...' : 'SIGN IN'}
                         </button>
                     </div>
@@ -461,426 +540,386 @@ export default function ConsoleAdminPanel({ toggleTheme, theme }) {
         );
     }
 
-    // ── MAIN PANEL ──
+    // Main Panel
     return (
         <div className={`relative min-h-screen transition-colors duration-300 ${dark ? 'bg-surface-950' : 'bg-slate-50'}`}>
             <AnimatedBackground intensity={0.3} />
             <div className="fixed inset-0 bg-grid opacity-20 pointer-events-none z-0" />
 
-            <div className="relative z-10">
+            <div className="relative z-10 pb-20">
                 {/* Navbar */}
                 <header className={`sticky top-0 z-40 border-b ${dark ? 'border-white/[0.06] bg-surface-900/80 backdrop-blur-xl' : 'border-black/[0.07] bg-white/80 backdrop-blur-xl shadow-sm'}`}>
-                    <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                            <div className="relative">
-                                <div className="absolute inset-0 bg-red-600/30 rounded-lg blur-md" />
-                                <img src="/logo512.png" alt="" className="relative w-8 h-8 rounded-xl object-contain" style={{ filter: 'drop-shadow(0 0 6px rgba(220,38,38,0.5))' }} />
-                            </div>
-                            <div>
-                                <p className="text-red-500 font-bold tracking-[0.12em] text-sm" style={{ fontFamily: "'Rajdhani', sans-serif" }}>BATTLE-DESTROYER</p>
-                                <p className={`text-[10px] ${dark ? 'text-slate-500' : 'text-slate-400'}`}>Admin Panel</p>
+                    <div className="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <img src="/logo512.png" alt="" className="w-7 h-7 rounded-xl object-contain" />
+                            <div className="hidden sm:block">
+                                <p className="text-red-500 font-bold tracking-[0.12em] text-xs">BATTLE-DESTROYER</p>
+                                <p className="text-[8px] text-slate-500">Admin Panel</p>
                             </div>
                         </div>
-                        <div className="flex items-center gap-3">
-                            <button onClick={loadStats} className={`text-xs px-3 py-1.5 rounded-lg border font-semibold transition-all ${dark ? 'border-white/10 text-slate-400 hover:border-white/20 hover:text-white' : 'border-slate-200 text-slate-500 hover:text-slate-800'}`}>
-                                ↻ Refresh
+                        <div className="flex items-center gap-2">
+                            <button onClick={loadStats} className={`text-xs px-3 py-1.5 rounded-lg border font-semibold transition-all ${dark ? 'border-white/10 text-slate-400 hover:border-white/20' : 'border-slate-200 text-slate-500 hover:text-slate-800'}`}>
+                                ↻
                             </button>
-                            <button onClick={toggleTheme} className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${dark ? 'bg-white/[0.06] text-yellow-400' : 'bg-black/[0.05] text-slate-600'}`}>
-                                {dark ? <MdWbSunny size={17} /> : <MdNightlight size={17} />}
+                            <button onClick={toggleTheme} className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${dark ? 'bg-white/[0.06] text-yellow-400' : 'bg-black/[0.05] text-slate-600'}`}>
+                                {dark ? <MdWbSunny size={16} /> : <MdNightlight size={16} />}
                             </button>
-                            <button onClick={logout} className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-sm font-semibold transition-all ${dark ? 'bg-red-600/10 hover:bg-red-600 border border-red-600/25 text-red-400 hover:text-white' : 'bg-red-50 hover:bg-red-600 border border-red-200 text-red-500 hover:text-white'}`}>
-                                <FaSignOutAlt size={13} /> Logout
+                            <button onClick={logout} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${dark ? 'bg-red-600/10 text-red-400' : 'bg-red-50 text-red-500'}`}>
+                                <FaSignOutAlt size={10} /> Logout
                             </button>
                         </div>
                     </div>
                 </header>
 
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
-
-                    {/* Stats */}
-                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-8">
+                <div className="max-w-7xl mx-auto px-4 py-4 sm:py-6">
+                    {/* Stats Cards - Mobile Responsive Grid */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
                         {[
-                            { label: 'Total Users', value: stats.total, color: 'text-red-500' },
-                            { label: 'Pro Users', value: stats.pro, color: 'text-green-400' },
-                            { label: 'Have Credits', value: stats.withCredits, color: 'text-blue-400' },
-                            { label: 'Today', value: stats.today, color: 'text-yellow-400' },
-                            { label: 'Active Resellers', value: stats.activeResellers, color: 'text-purple-400' },
-                            { label: 'Total Resellers', value: stats.totalResellers, color: 'text-cyan-400' },
+                            { label: 'Total', value: stats.total, icon: '👥', color: 'text-red-500' },
+                            { label: 'Pro', value: stats.pro, icon: '⭐', color: 'text-yellow-500' },
+                            { label: 'Free', value: stats.free, icon: '💎', color: 'text-blue-500' },
+                            { label: 'Today', value: stats.today, icon: '📅', color: 'text-green-500' },
                         ].map(stat => (
-                            <div key={stat.label} className={`rounded-2xl p-5 border transition-all ${cardCls}`}>
-                                <p className={`text-xs font-semibold uppercase tracking-[0.12em] mb-2 ${dark ? 'text-slate-500' : 'text-slate-400'}`}>{stat.label}</p>
-                                <p className={`text-2xl font-black ${stat.color}`} style={{ fontFamily: "'Rajdhani', sans-serif" }}>{stat.value}</p>
+                            <div key={stat.label} className={`rounded-xl p-3 border transition-all ${dark ? 'bg-surface-800/50 border-white/[0.07]' : 'bg-white border-slate-200 shadow-sm'}`}>
+                                <div className="flex items-center justify-between mb-1">
+                                    <p className={`text-[10px] font-semibold uppercase tracking-wider ${dark ? 'text-slate-500' : 'text-slate-400'}`}>{stat.label}</p>
+                                    <span className="text-sm">{stat.icon}</span>
+                                </div>
+                                <p className={`text-xl font-black ${stat.color}`} style={{ fontFamily: "'Rajdhani', sans-serif" }}>{stat.value.toLocaleString()}</p>
                             </div>
                         ))}
                     </div>
 
-                    {/* Tabs + Add Reseller button */}
-                    <div className="flex items-center justify-between gap-2 mb-6">
+                    {/* Tabs */}
+                    <div className="flex gap-2 mb-4">
+                        <button onClick={() => { setCurrentTab('users'); setSearchQuery(''); setUserFilter('all'); loadUsers(token, '', 1, 'all'); }}
+                            className={`px-4 py-2 rounded-xl font-semibold text-sm transition-all flex-1 sm:flex-none ${currentTab === 'users'
+                                ? 'bg-red-600 text-white'
+                                : dark ? 'bg-white/[0.05] text-slate-400' : 'bg-slate-100 text-slate-600'}`}>
+                            👥 Users
+                        </button>
+                        <button onClick={() => setCurrentTab('resellers')}
+                            className={`px-4 py-2 rounded-xl font-semibold text-sm transition-all flex-1 sm:flex-none ${currentTab === 'resellers'
+                                ? 'bg-red-600 text-white'
+                                : dark ? 'bg-white/[0.05] text-slate-400' : 'bg-slate-100 text-slate-600'}`}>
+                            🤝 Resellers
+                        </button>
+                    </div>
+
+                    {/* Search & Filter */}
+                    <div className={`rounded-xl p-4 border mb-4 transition-all ${dark ? 'bg-surface-800/50 border-white/[0.07]' : 'bg-white border-slate-200 shadow-sm'}`}>
                         <div className="flex gap-2">
-                            {[
-                                { id: 'users', label: '👥 Users' },
-                                { id: 'resellers', label: '🤝 Resellers' },
-                            ].map(tab => (
-                                <button key={tab.id}
-                                    onClick={() => {
-                                        setCurrentTab(tab.id);
-                                        setSearchQuery('');
-                                        if (tab.id === 'resellers') {
-                                            setResellerFilter('all');
-                                            loadResellers(token, '', 1, 'all');
-                                        } else {
-                                            setProFilter('all');
-                                            loadUsers(token, '', 1, 'all');
-                                        }
-                                    }}
-                                    className={`px-4 py-2 rounded-xl font-semibold text-sm transition-all ${currentTab === tab.id
+                            <div className="flex-1 relative">
+                                <FaSearch className={`absolute left-3 top-1/2 -translate-y-1/2 ${dark ? 'text-slate-600' : 'text-slate-400'}`} size={12} />
+                                <input type="text" placeholder="Search users..." value={searchQuery}
+                                    onChange={e => setSearchQuery(e.target.value)}
+                                    onKeyDown={e => e.key === 'Enter' && loadUsers(token, searchQuery, 1, userFilter)}
+                                    className={`w-full pl-9 pr-3 py-2.5 rounded-lg text-sm border outline-none transition ${dark ? 'bg-white/[0.04] border-white/[0.1] text-slate-100' : 'bg-slate-50 border-slate-200 text-slate-900'}`} />
+                            </div>
+                            <button onClick={() => loadUsers(token, searchQuery, 1, userFilter)}
+                                className="px-4 py-2.5 rounded-lg font-semibold text-sm text-white bg-red-600 hover:bg-red-500 transition-all">
+                                Go
+                            </button>
+                        </div>
+
+                        {/* Filter Buttons */}
+                        <div className="flex gap-2 mt-3">
+                            <span className={`text-[10px] font-semibold uppercase tracking-wider self-center ${dark ? 'text-slate-500' : 'text-slate-400'}`}>Filter:</span>
+                            {['all', 'pro', 'free'].map(filter => (
+                                <button key={filter}
+                                    onClick={() => { setUserFilter(filter); loadUsers(token, searchQuery, 1, filter); }}
+                                    className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${userFilter === filter
                                         ? 'bg-red-600 text-white'
-                                        : dark ? 'bg-white/[0.05] text-slate-400 hover:text-white hover:bg-white/[0.1]'
-                                            : 'bg-slate-100 text-slate-600 hover:text-slate-900 hover:bg-slate-200'}`}>
-                                    {tab.label}
+                                        : dark ? 'bg-white/[0.05] text-slate-400' : 'bg-slate-100 text-slate-600'}`}>
+                                    {filter === 'all' ? 'All' : filter === 'pro' ? '⭐ Pro' : '💎 Free'}
                                 </button>
                             ))}
                         </div>
-                        {currentTab === 'resellers' && (
-                            <button onClick={openAddReseller}
-                                className="flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-sm text-white bg-red-600 hover:bg-red-500 transition-all active:scale-95"
-                                style={{ fontFamily: "'Rajdhani', sans-serif" }}>
-                                <FaPlus size={12} /> Add Reseller
-                            </button>
-                        )}
                     </div>
 
-                    {/* Search & Filters */}
-                    <div className={`rounded-2xl p-5 border mb-6 transition-all space-y-3 ${cardCls}`}>
-                        <div className="flex gap-3 flex-wrap">
-                            <div className="flex-1 relative min-w-[250px]">
-                                <FaSearch className={`absolute left-4 top-1/2 -translate-y-1/2 ${dark ? 'text-slate-600' : 'text-slate-400'}`} size={14} />
-                                <input type="text"
-                                    placeholder={currentTab === 'users' ? 'Search users by name, email, ID...' : 'Search resellers by name, email...'}
-                                    value={searchQuery}
-                                    onChange={e => setSearchQuery(e.target.value)}
-                                    onKeyDown={e => e.key === 'Enter' && (currentTab === 'users'
-                                        ? loadUsers(token, searchQuery, 1, proFilter)
-                                        : loadResellers(token, searchQuery, 1, resellerFilter))}
-                                    className={`w-full pl-10 pr-4 py-3 rounded-xl text-sm border outline-none transition ${dark
-                                        ? 'bg-white/[0.04] border-white/[0.1] text-slate-100 placeholder-slate-600 focus:border-red-500/50'
-                                        : 'bg-slate-50 border-slate-200 text-slate-900 placeholder-slate-400 focus:border-red-500'}`}
-                                />
-                            </div>
-                            <button onClick={() => currentTab === 'users'
-                                ? loadUsers(token, searchQuery, 1, proFilter)
-                                : loadResellers(token, searchQuery, 1, resellerFilter)}
-                                className="px-4 py-3 rounded-xl font-bold text-sm text-white bg-red-600 hover:bg-red-500 transition-all">
-                                Search
-                            </button>
-                        </div>
-
-                        {/* User Filters */}
-                        {currentTab === 'users' && (
-                            <div className="flex gap-2 flex-wrap">
-                                <span className={`text-xs font-semibold uppercase tracking-wider ${dark ? 'text-slate-500' : 'text-slate-400'}`}>Filter:</span>
-                                <button onClick={() => { setProFilter('all'); loadUsers(token, searchQuery, 1, 'all'); }}
-                                    className={filterBtnCls(proFilter === 'all')}>All Users</button>
-                                <button onClick={() => { setProFilter('pro'); loadUsers(token, searchQuery, 1, 'pro'); }}
-                                    className={filterBtnCls(proFilter === 'pro')}>⭐ Pro Users</button>
-                                <button onClick={() => { setProFilter('free'); loadUsers(token, searchQuery, 1, 'free'); }}
-                                    className={filterBtnCls(proFilter === 'free')}>Free Users</button>
-                            </div>
-                        )}
-
-                        {/* Reseller Filters */}
-                        {currentTab === 'resellers' && (
-                            <div className="flex gap-2 flex-wrap">
-                                <span className={`text-xs font-semibold uppercase tracking-wider ${dark ? 'text-slate-500' : 'text-slate-400'}`}>Filter:</span>
-                                <button onClick={() => { setResellerFilter('all'); loadResellers(token, searchQuery, 1, 'all'); }}
-                                    className={filterBtnCls(resellerFilter === 'all')}>All Resellers</button>
-                                <button onClick={() => { setResellerFilter('active'); loadResellers(token, searchQuery, 1, 'active'); }}
-                                    className={filterBtnCls(resellerFilter === 'active')}>✅ Active</button>
-                                <button onClick={() => { setResellerFilter('blocked'); loadResellers(token, searchQuery, 1, 'blocked'); }}
-                                    className={filterBtnCls(resellerFilter === 'blocked')}>🔒 Blocked</button>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* ── Users Table ── */}
+                    {/* Users List - Card View (Mobile First) */}
                     {currentTab === 'users' && (
-                        <div>
-                            <div className={`rounded-2xl border overflow-hidden transition-all ${cardCls}`}>
-                                <div className="overflow-x-auto">
-                                    <table className="w-full">
-                                        <thead>
-                                            <tr className={dark ? 'bg-white/[0.02] border-b border-white/[0.06]' : 'bg-slate-50 border-b border-slate-200'}>
-                                                {['Username', 'Email', 'Credits', 'Status', 'Joined', 'Actions'].map(h => (
-                                                    <th key={h} className={`px-5 py-4 text-left text-xs font-bold uppercase tracking-wider ${dark ? 'text-slate-500' : 'text-slate-500'}`}>{h}</th>
-                                                ))}
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {usersLoading ? (
-                                                <tr><td colSpan={6} className="px-6 py-8 text-center">
-                                                    <div className="inline-flex items-center gap-2">
-                                                        <div className="w-4 h-4 border-2 border-red-600 border-t-transparent rounded-full animate-spin" />
-                                                        <span className={dark ? 'text-slate-400' : 'text-slate-500'}>Loading...</span>
-                                                    </div>
-                                                </td></tr>
-                                            ) : users.length === 0 ? (
-                                                <tr><td colSpan={6} className={`px-6 py-8 text-center ${dark ? 'text-slate-500' : 'text-slate-400'}`}>No users found</td></tr>
-                                            ) : (
-                                                users.map(user => (
-                                                    <tr key={user._id} className={`border-t ${dark ? 'border-white/[0.06] hover:bg-white/[0.02]' : 'border-slate-200 hover:bg-slate-50'} transition`}>
-                                                        <td className={`px-5 py-4 font-semibold text-sm ${dark ? 'text-white' : 'text-slate-900'}`}>{user.username}</td>
-                                                        <td className={`px-5 py-4 text-sm ${dark ? 'text-slate-400' : 'text-slate-600'}`}>{user.email}</td>
-                                                        <td className="px-5 py-4">
-                                                            <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold ${dark ? 'bg-green-500/10 text-green-400' : 'bg-green-50 text-green-600'}`}>
-                                                                💎 {user.credits || 0}
-                                                            </span>
-                                                        </td>
-                                                        <td className="px-5 py-4">
-                                                            <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold ${user.isPro
-                                                                ? (dark ? 'bg-yellow-500/10 text-yellow-400' : 'bg-yellow-50 text-yellow-600')
-                                                                : (dark ? 'bg-blue-500/10 text-blue-400' : 'bg-blue-50 text-blue-600')}`}>
-                                                                {user.isPro ? '⭐ Pro' : 'Free'}
-                                                            </span>
-                                                        </td>
-                                                        <td className={`px-5 py-4 text-sm ${dark ? 'text-slate-500' : 'text-slate-500'}`}>
-                                                            {new Date(user.createdAt).toLocaleDateString()}
-                                                        </td>
-                                                        <td className="px-5 py-4">
-                                                            <div className="flex items-center gap-2">
-                                                                <button onClick={() => openEditUser(user)}
-                                                                    className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${dark ? 'bg-blue-500/10 hover:bg-blue-500/20 text-blue-400' : 'bg-blue-50 hover:bg-blue-100 text-blue-600'}`}
-                                                                    title="Edit user">
-                                                                    <FaEdit size={12} />
-                                                                </button>
-                                                                <button onClick={() => confirmDelete('user', user._id, user.username)}
-                                                                    className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${dark ? 'bg-red-500/10 hover:bg-red-500/20 text-red-400' : 'bg-red-50 hover:bg-red-100 text-red-600'}`}
-                                                                    title="Delete user">
-                                                                    <FaTrash size={11} />
-                                                                </button>
-                                                            </div>
-                                                        </td>
-                                                    </tr>
-                                                ))
-                                            )}
-                                        </tbody>
-                                    </table>
+                        <>
+                            {usersLoading ? (
+                                <div className="flex justify-center py-12">
+                                    <div className="w-6 h-6 border-2 border-red-600 border-t-transparent rounded-full animate-spin" />
                                 </div>
-                            </div>
+                            ) : users.length === 0 ? (
+                                <div className={`text-center py-12 rounded-xl border ${dark ? 'border-white/[0.07]' : 'border-slate-200'}`}>
+                                    <p className={dark ? 'text-slate-500' : 'text-slate-400'}>No users found</p>
+                                </div>
+                            ) : (
+                                <div className="space-y-3">
+                                    {users.map(user => (
+                                        <UserCard key={user._id} user={user} onEdit={openEditUser} onDelete={confirmDelete} dark={dark} />
+                                    ))}
+                                </div>
+                            )}
                             <Pagination currentPage={usersPage} totalPages={usersTotalPages}
-                                onPageChange={(page) => loadUsers(token, searchQuery, page, proFilter)}
-                                dark={dark} />
-                        </div>
+                                onPageChange={(page) => loadUsers(token, searchQuery, page, userFilter)} dark={dark} />
+                        </>
                     )}
 
-                    {/* ── Resellers Table ── */}
+                    {/* Resellers Section (Simplified) */}
                     {currentTab === 'resellers' && (
-                        <div>
-                            <div className={`rounded-2xl border overflow-hidden transition-all ${cardCls}`}>
-                                <div className="overflow-x-auto">
-                                    <table className="w-full">
-                                        <thead>
-                                            <tr className={dark ? 'bg-white/[0.02] border-b border-white/[0.06]' : 'bg-slate-50 border-b border-slate-200'}>
-                                                {['Username', 'Email', 'Credits', 'Given', 'Status', 'Last Login', 'Actions'].map(h => (
-                                                    <th key={h} className={`px-5 py-4 text-left text-xs font-bold uppercase tracking-wider ${dark ? 'text-slate-500' : 'text-slate-500'}`}>{h}</th>
-                                                ))}
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {resellersLoading ? (
-                                                <tr><td colSpan={7} className="px-6 py-8 text-center">
-                                                    <div className="inline-flex items-center gap-2">
-                                                        <div className="w-4 h-4 border-2 border-red-600 border-t-transparent rounded-full animate-spin" />
-                                                        <span className={dark ? 'text-slate-400' : 'text-slate-500'}>Loading...</span>
-                                                    </div>
-                                                </td></tr>
-                                            ) : resellers.length === 0 ? (
-                                                <tr><td colSpan={7} className={`px-6 py-8 text-center ${dark ? 'text-slate-500' : 'text-slate-400'}`}>No resellers found</td></tr>
-                                            ) : (
-                                                resellers.map(reseller => (
-                                                    <tr key={reseller._id} className={`border-t ${dark ? 'border-white/[0.06] hover:bg-white/[0.02]' : 'border-slate-200 hover:bg-slate-50'} transition`}>
-                                                        <td className={`px-5 py-4 font-semibold text-sm ${dark ? 'text-white' : 'text-slate-900'}`}>{reseller.username}</td>
-                                                        <td className={`px-5 py-4 text-sm ${dark ? 'text-slate-400' : 'text-slate-600'}`}>{reseller.email}</td>
-                                                        <td className="px-5 py-4">
-                                                            <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold ${dark ? 'bg-green-500/10 text-green-400' : 'bg-green-50 text-green-600'}`}>
-                                                                💎 {reseller.credits || 0}
-                                                            </span>
-                                                        </td>
-                                                        <td className={`px-5 py-4 text-sm ${dark ? 'text-slate-400' : 'text-slate-600'}`}>💸 {reseller.totalGiven || 0}</td>
-                                                        <td className="px-5 py-4">
-                                                            <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold ${reseller.isBlocked
-                                                                ? (dark ? 'bg-red-500/10 text-red-400' : 'bg-red-50 text-red-600')
-                                                                : (dark ? 'bg-green-500/10 text-green-400' : 'bg-green-50 text-green-600')}`}>
-                                                                {reseller.isBlocked ? '🔒 Blocked' : '✅ Active'}
-                                                            </span>
-                                                        </td>
-                                                        <td className={`px-5 py-4 text-sm ${dark ? 'text-slate-500' : 'text-slate-500'}`}>
-                                                            {reseller.lastLogin ? new Date(reseller.lastLogin).toLocaleDateString() : 'Never'}
-                                                        </td>
-                                                        <td className="px-5 py-4">
-                                                            <div className="flex items-center gap-2">
-                                                                <button onClick={() => openEditReseller(reseller)}
-                                                                    className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${dark ? 'bg-blue-500/10 hover:bg-blue-500/20 text-blue-400' : 'bg-blue-50 hover:bg-blue-100 text-blue-600'}`}
-                                                                    title="Edit reseller">
-                                                                    <FaEdit size={12} />
-                                                                </button>
-                                                                <button onClick={() => confirmDelete('reseller', reseller._id, reseller.username)}
-                                                                    className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${dark ? 'bg-red-500/10 hover:bg-red-500/20 text-red-400' : 'bg-red-50 hover:bg-red-100 text-red-600'}`}
-                                                                    title="Delete reseller">
-                                                                    <FaTrash size={11} />
-                                                                </button>
-                                                            </div>
-                                                        </td>
-                                                    </tr>
-                                                ))
-                                            )}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                            <Pagination currentPage={resellersPage} totalPages={resellersTotalPages}
-                                onPageChange={(page) => loadResellers(token, searchQuery, page, resellerFilter)}
-                                dark={dark} />
+                        <div className={`rounded-xl p-6 border text-center ${dark ? 'bg-surface-800/50 border-white/[0.07]' : 'bg-white border-slate-200'}`}>
+                            <FaUsers className="mx-auto mb-3 text-3xl opacity-50" />
+                            <p className={dark ? 'text-slate-400' : 'text-slate-500'}>Reseller management coming soon</p>
                         </div>
                     )}
                 </div>
             </div>
 
-            {/* ── Edit User Modal ── */}
             {editUserModal && (
-                <Modal title="EDIT USER" onClose={() => setEditUserModal(null)} dark={dark}>
-                    <div className="space-y-4">
-                        <div className="grid grid-cols-2 gap-3">
+                <Modal title={`EDIT USER - ${editUserModal.username}`} onClose={() => setEditUserModal(null)} dark={dark} size="lg">
+                    <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
+                        {/* Basic Info */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div>
-                                <label className={labelCls}>Username</label>
-                                <input className={modalInputCls} value={userForm.username}
-                                    onChange={e => setUserForm(p => ({ ...p, username: e.target.value }))} />
+                                <label className="block text-xs font-semibold uppercase tracking-[0.08em] mb-1.5 text-slate-500">Username</label>
+                                <input className={`w-full rounded-xl px-3 py-2 text-sm border outline-none transition ${dark ? 'bg-white/[0.04] border-white/[0.1] text-slate-100' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                    value={userForm.username} onChange={e => setUserForm(p => ({ ...p, username: e.target.value }))} />
                             </div>
                             <div>
-                                <label className={labelCls}>Email</label>
-                                <input className={modalInputCls} type="email" value={userForm.email}
-                                    onChange={e => setUserForm(p => ({ ...p, email: e.target.value }))} />
-                            </div>
-                        </div>
-                        <div className="grid grid-cols-2 gap-3">
-                            <div>
-                                <label className={labelCls}>Credits</label>
-                                <input className={modalInputCls} type="number" min="0" value={userForm.credits}
-                                    onChange={e => setUserForm(p => ({ ...p, credits: e.target.value }))} />
-                            </div>
-                            <div>
-                                <label className={labelCls}>New Password (optional)</label>
-                                <input className={modalInputCls} type="password" placeholder="Leave blank to keep"
-                                    value={userForm.password}
-                                    onChange={e => setUserForm(p => ({ ...p, password: e.target.value }))} />
+                                <label className="block text-xs font-semibold uppercase tracking-[0.08em] mb-1.5 text-slate-500">Email</label>
+                                <input className={`w-full rounded-xl px-3 py-2 text-sm border outline-none transition ${dark ? 'bg-white/[0.04] border-white/[0.1] text-slate-100' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                    type="email" value={userForm.email} onChange={e => setUserForm(p => ({ ...p, email: e.target.value }))} />
                             </div>
                         </div>
-                        <div className="flex items-center gap-3">
-                            <label className={`flex items-center gap-2.5 cursor-pointer select-none text-sm font-semibold ${dark ? 'text-slate-300' : 'text-slate-700'}`}>
-                                <div className={`relative w-10 h-5 rounded-full transition-colors ${userForm.isPro ? 'bg-yellow-500' : dark ? 'bg-white/10' : 'bg-slate-200'}`}
-                                    onClick={() => setUserForm(p => ({ ...p, isPro: !p.isPro }))}>
-                                    <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${userForm.isPro ? 'translate-x-5' : 'translate-x-0.5'}`} />
+
+                        {/* Credits Section - Show for ALL users */}
+                        <div className={`rounded-xl p-4 border ${dark ? 'border-blue-500/20 bg-blue-500/5' : 'border-blue-200 bg-blue-50'}`}>
+                            <div className="flex items-center gap-2 mb-3">
+                                <FaGem className="text-blue-500" size={14} />
+                                <label className={`font-bold text-sm ${dark ? 'text-blue-400' : 'text-blue-700'}`}>Credits Balance</label>
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label className="block text-xs font-semibold uppercase tracking-[0.08em] mb-1.5 text-slate-500">Current Credits</label>
+                                    <div className={`text-xl font-black ${dark ? 'text-blue-400' : 'text-blue-600'}`}>
+                                        {editUserModal.credits || 0}
+                                    </div>
+                                    {editUserModal.isPro && (
+                                        <p className="text-[10px] mt-1 text-yellow-500">+30 daily attacks included</p>
+                                    )}
                                 </div>
-                                Pro Status {userForm.isPro ? '⭐' : ''}
-                            </label>
+                                <div>
+                                    <label className="block text-xs font-semibold uppercase tracking-[0.08em] mb-1.5 text-slate-500">Update Credits</label>
+                                    <div className="flex gap-2">
+                                        <input className={`flex-1 rounded-xl px-3 py-2 text-sm border outline-none transition ${dark ? 'bg-white/[0.04] border-white/[0.1] text-slate-100' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                            type="number" min="0" value={userForm.credits}
+                                            onChange={e => setUserForm(p => ({ ...p, credits: parseInt(e.target.value) || 0 }))}
+                                            placeholder="New credit amount" />
+                                        <button
+                                            onClick={() => {
+                                                const amount = parseInt(prompt('Enter amount to add:', '10'));
+                                                if (amount && amount > 0) {
+                                                    setUserForm(p => ({ ...p, credits: (p.credits || 0) + amount }));
+                                                }
+                                            }}
+                                            className="px-3 py-2 rounded-lg text-xs font-semibold bg-green-500 text-white hover:bg-green-600 transition-all">
+                                            + Add
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                const amount = parseInt(prompt('Enter amount to remove:', '10'));
+                                                if (amount && amount > 0) {
+                                                    setUserForm(p => ({ ...p, credits: Math.max(0, (p.credits || 0) - amount) }));
+                                                }
+                                            }}
+                                            className="px-3 py-2 rounded-lg text-xs font-semibold bg-red-500 text-white hover:bg-red-600 transition-all">
+                                            - Remove
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            <p className={`text-xs mt-2 ${dark ? 'text-slate-500' : 'text-slate-500'}`}>
+                                💡 Credits are used for attacks (1 credit = 1 attack) for free users. Pro users get 30 free attacks daily.
+                            </p>
                         </div>
+
+                        {/* Password */}
+                        <div>
+                            <label className="block text-xs font-semibold uppercase tracking-[0.08em] mb-1.5 text-slate-500">New Password (optional)</label>
+                            <input className={`w-full rounded-xl px-3 py-2 text-sm border outline-none transition ${dark ? 'bg-white/[0.04] border-white/[0.1] text-slate-100' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                type="password" placeholder="Leave blank to keep" value={userForm.password} onChange={e => setUserForm(p => ({ ...p, password: e.target.value }))} />
+                        </div>
+
+                        {/* Pro Subscription Section */}
+                        <div className={`rounded-xl p-4 border ${dark ? 'border-yellow-500/20 bg-yellow-500/5' : 'border-yellow-200 bg-yellow-50'}`}>
+                            <div className="flex items-center justify-between mb-3">
+                                <div className="flex items-center gap-2">
+                                    <FaCrown className="text-yellow-500" size={14} />
+                                    <label className={`font-bold text-sm ${dark ? 'text-yellow-400' : 'text-yellow-700'}`}>Pro Subscription</label>
+                                </div>
+                                <label className="flex items-center gap-2 cursor-pointer">
+                                    <span className={`text-xs ${dark ? 'text-slate-400' : 'text-slate-500'}`}>
+                                        {userForm.hasPro ? 'Active' : 'Inactive'}
+                                    </span>
+                                    <div className={`relative w-10 h-5 rounded-full transition-colors ${userForm.hasPro ? 'bg-yellow-500' : dark ? 'bg-white/10' : 'bg-slate-200'}`}
+                                        onClick={() => setUserForm(p => ({ ...p, hasPro: !p.hasPro, proAction: !p.hasPro ? 'add' : 'remove' }))}>
+                                        <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${userForm.hasPro ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                                    </div>
+                                </label>
+                            </div>
+
+                            {/* Current Pro Status Display */}
+                            {editUserModal.isPro && (
+                                <div className={`mb-3 p-2 rounded-lg ${dark ? 'bg-white/5' : 'bg-white'} text-xs`}>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <div>
+                                            <span className={dark ? 'text-slate-400' : 'text-slate-500'}>Current Plan:</span>
+                                            <span className="ml-2 font-semibold text-yellow-500">{editUserModal.subscription?.plan || 'Pro'}</span>
+                                        </div>
+                                        <div>
+                                            <span className={dark ? 'text-slate-400' : 'text-slate-500'}>Days Left:</span>
+                                            <span className="ml-2 font-mono">
+                                                {editUserModal.subscriptionStatus?.daysLeft || 0} days
+                                            </span>
+                                        </div>
+                                    </div>
+                                    {editUserModal.subscription?.expiresAt && (
+                                        <div className="mt-1">
+                                            <span className={dark ? 'text-slate-400' : 'text-slate-500'}>Expires:</span>
+                                            <span className="ml-2 text-xs">
+                                                {new Date(editUserModal.subscription.expiresAt).toLocaleDateString()}
+                                            </span>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Pro Settings */}
+                            {userForm.hasPro && (
+                                <div className="space-y-3">
+                                    {/* Action Selection (for existing Pro users) */}
+                                    {editUserModal.isPro && (
+                                        <div className="flex gap-2">
+                                            <button onClick={() => setUserForm(p => ({ ...p, proAction: 'extend' }))}
+                                                className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-all ${userForm.proAction === 'extend'
+                                                    ? 'bg-yellow-500 text-white'
+                                                    : dark ? 'bg-white/10 text-slate-400' : 'bg-slate-200 text-slate-600'}`}>
+                                                ➕ Extend
+                                            </button>
+                                            <button onClick={() => setUserForm(p => ({ ...p, proAction: 'replace' }))}
+                                                className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-all ${userForm.proAction === 'replace'
+                                                    ? 'bg-yellow-500 text-white'
+                                                    : dark ? 'bg-white/10 text-slate-400' : 'bg-slate-200 text-slate-600'}`}>
+                                                🔄 Replace
+                                            </button>
+                                        </div>
+                                    )}
+
+                                    {/* Plan Selection */}
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <button onClick={() => setUserForm(p => ({ ...p, proPlan: 'week', proDays: 7 }))}
+                                            className={`p-2 rounded-lg border transition-all text-xs ${userForm.proPlan === 'week'
+                                                ? 'border-yellow-500 bg-yellow-500/10 text-yellow-400'
+                                                : dark ? 'border-white/10 text-slate-400' : 'border-slate-200 text-slate-600'}`}>
+                                            <div className="font-bold">7 Days</div>
+                                            <div className="text-[10px]">Weekly</div>
+                                        </button>
+                                        <button onClick={() => setUserForm(p => ({ ...p, proPlan: 'month', proDays: 30 }))}
+                                            className={`p-2 rounded-lg border transition-all text-xs ${userForm.proPlan === 'month'
+                                                ? 'border-yellow-500 bg-yellow-500/10 text-yellow-400'
+                                                : dark ? 'border-white/10 text-slate-400' : 'border-slate-200 text-slate-600'}`}>
+                                            <div className="font-bold">30 Days</div>
+                                            <div className="text-[10px]">Monthly</div>
+                                        </button>
+                                        <button onClick={() => setUserForm(p => ({ ...p, proPlan: 'season', proDays: 90 }))}
+                                            className={`p-2 rounded-lg border transition-all text-xs ${userForm.proPlan === 'season'
+                                                ? 'border-yellow-500 bg-yellow-500/10 text-yellow-400'
+                                                : dark ? 'border-white/10 text-slate-400' : 'border-slate-200 text-slate-600'}`}>
+                                            <div className="font-bold">90 Days</div>
+                                            <div className="text-[10px]">Season</div>
+                                        </button>
+                                        <button onClick={() => setUserForm(p => ({ ...p, proPlan: 'custom' }))}
+                                            className={`p-2 rounded-lg border transition-all text-xs ${userForm.proPlan === 'custom'
+                                                ? 'border-yellow-500 bg-yellow-500/10 text-yellow-400'
+                                                : dark ? 'border-white/10 text-slate-400' : 'border-slate-200 text-slate-600'}`}>
+                                            <div className="font-bold">Custom</div>
+                                            <div className="text-[10px]">Set days</div>
+                                        </button>
+                                    </div>
+
+                                    {userForm.proPlan === 'custom' && (
+                                        <div>
+                                            <label className="block text-xs font-semibold uppercase tracking-[0.08em] mb-1.5 text-slate-500">Number of Days</label>
+                                            <input type="number" className={`w-full rounded-xl px-3 py-2 text-sm border outline-none transition ${dark ? 'bg-white/[0.04] border-white/[0.1] text-slate-100' : 'bg-slate-50 border-slate-200 text-slate-900'}`}
+                                                min="1" max="365" value={userForm.proDays}
+                                                onChange={e => setUserForm(p => ({ ...p, proDays: parseInt(e.target.value) || 30 }))} />
+                                        </div>
+                                    )}
+
+                                    <div className={`text-xs text-center ${dark ? 'text-slate-500' : 'text-slate-500'}`}>
+                                        {!editUserModal.isPro && `✨ Give Pro access for ${userForm.proPlan === 'custom' ? userForm.proDays : { week: 7, month: 30, season: 90 }[userForm.proPlan]} days`}
+                                        {editUserModal.isPro && userForm.proAction === 'extend' && `➕ Add ${userForm.proPlan === 'custom' ? userForm.proDays : { week: 7, month: 30, season: 90 }[userForm.proPlan]} days to existing subscription`}
+                                        {editUserModal.isPro && userForm.proAction === 'replace' && `🔄 Replace current plan with ${userForm.proPlan === 'custom' ? userForm.proDays : { week: 7, month: 30, season: 90 }[userForm.proPlan]} day plan`}
+                                        {editUserModal.isPro && !userForm.hasPro && `❌ Remove Pro subscription`}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Stats Summary */}
+                        <div className={`rounded-xl p-4 border ${dark ? 'border-green-500/20 bg-green-500/5' : 'border-green-200 bg-green-50'}`}>
+                            <div className="flex items-center gap-2 mb-2">
+                                <FaClock className="text-green-500" size={14} />
+                                <label className={`font-bold text-sm ${dark ? 'text-green-400' : 'text-green-700'}`}>User Statistics</label>
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <p className={`text-xs ${dark ? 'text-slate-500' : 'text-slate-500'}`}>Total Attacks</p>
+                                    <p className={`text-lg font-black ${dark ? 'text-green-400' : 'text-green-600'}`}>
+                                        {editUserModal.totalAttacks?.toLocaleString() || 0}
+                                    </p>
+                                </div>
+                                <div>
+                                    <p className={`text-xs ${dark ? 'text-slate-500' : 'text-slate-500'}`}>Member Since</p>
+                                    <p className={`text-sm font-semibold ${dark ? 'text-white' : 'text-slate-700'}`}>
+                                        {new Date(editUserModal.createdAt).toLocaleDateString()}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Action Buttons */}
                         <div className="flex gap-3 pt-2">
                             <button onClick={() => setEditUserModal(null)}
                                 className={`flex-1 py-2.5 rounded-xl font-semibold text-sm transition-all ${dark ? 'bg-white/[0.05] text-slate-400 hover:bg-white/[0.1]' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
                                 Cancel
                             </button>
                             <button onClick={saveUser} disabled={modalLoading}
-                                className="flex-1 py-2.5 rounded-xl font-bold text-sm text-white bg-red-600 hover:bg-red-500 transition-all disabled:opacity-60 flex items-center justify-center gap-2"
-                                style={{ fontFamily: "'Rajdhani', sans-serif" }}>
-                                {modalLoading ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <FaSave size={13} />}
-                                Save Changes
+                                className="flex-1 py-2.5 rounded-xl font-bold text-sm text-white bg-red-600 hover:bg-red-500 transition-all disabled:opacity-60 flex items-center justify-center gap-2">
+                                {modalLoading ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <FaSave size={12} />}
+                                Save All Changes
                             </button>
                         </div>
                     </div>
                 </Modal>
             )}
 
-            {/* ── Add / Edit Reseller Modal ── */}
-            {editResellerModal && (
-                <Modal
-                    title={editResellerModal === 'new' ? 'ADD RESELLER' : 'EDIT RESELLER'}
-                    onClose={() => setEditResellerModal(null)}
-                    dark={dark}>
-                    <div className="space-y-4">
-                        <div className="grid grid-cols-2 gap-3">
-                            <div>
-                                <label className={labelCls}>Username</label>
-                                <input className={modalInputCls} value={resellerForm.username}
-                                    onChange={e => setResellerForm(p => ({ ...p, username: e.target.value }))} />
-                            </div>
-                            <div>
-                                <label className={labelCls}>Email</label>
-                                <input className={modalInputCls} type="email" value={resellerForm.email}
-                                    onChange={e => setResellerForm(p => ({ ...p, email: e.target.value }))} />
-                            </div>
-                        </div>
-                        <div className="grid grid-cols-2 gap-3">
-                            <div>
-                                <label className={labelCls}>Credits</label>
-                                <input className={modalInputCls} type="number" min="0" value={resellerForm.credits}
-                                    onChange={e => setResellerForm(p => ({ ...p, credits: e.target.value }))} />
-                            </div>
-                            <div>
-                                <label className={labelCls}>{editResellerModal === 'new' ? 'Password' : 'New Password (optional)'}</label>
-                                <input className={modalInputCls} type="password"
-                                    placeholder={editResellerModal === 'new' ? 'Set a strong password' : 'Leave blank to keep'}
-                                    value={resellerForm.password}
-                                    onChange={e => setResellerForm(p => ({ ...p, password: e.target.value }))} />
-                            </div>
-                        </div>
-                        {editResellerModal !== 'new' && (
-                            <div className="flex items-center gap-3">
-                                <label className={`flex items-center gap-2.5 cursor-pointer select-none text-sm font-semibold ${dark ? 'text-slate-300' : 'text-slate-700'}`}>
-                                    <div className={`relative w-10 h-5 rounded-full transition-colors ${resellerForm.isBlocked ? 'bg-red-500' : dark ? 'bg-white/10' : 'bg-slate-200'}`}
-                                        onClick={() => setResellerForm(p => ({ ...p, isBlocked: !p.isBlocked }))}>
-                                        <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${resellerForm.isBlocked ? 'translate-x-5' : 'translate-x-0.5'}`} />
-                                    </div>
-                                    {resellerForm.isBlocked ? '🔒 Blocked' : '✅ Active'}
-                                </label>
-                            </div>
-                        )}
-                        <div className="flex gap-3 pt-2">
-                            <button onClick={() => setEditResellerModal(null)}
-                                className={`flex-1 py-2.5 rounded-xl font-semibold text-sm transition-all ${dark ? 'bg-white/[0.05] text-slate-400 hover:bg-white/[0.1]' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
-                                Cancel
-                            </button>
-                            <button onClick={saveReseller} disabled={modalLoading}
-                                className="flex-1 py-2.5 rounded-xl font-bold text-sm text-white bg-red-600 hover:bg-red-500 transition-all disabled:opacity-60 flex items-center justify-center gap-2"
-                                style={{ fontFamily: "'Rajdhani', sans-serif" }}>
-                                {modalLoading ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <FaUserShield size={13} />}
-                                {editResellerModal === 'new' ? 'Create Reseller' : 'Save Changes'}
-                            </button>
-                        </div>
-                    </div>
-                </Modal>
-            )}
-
-            {/* ── Delete Confirm Modal ── */}
+            {/* Delete Confirm Modal */}
             {deleteConfirm && (
-                <Modal title="CONFIRM DELETE" onClose={() => setDeleteConfirm(null)} dark={dark}>
+                <Modal title="CONFIRM DELETE" onClose={() => setDeleteConfirm(null)} dark={dark} size="sm">
                     <div className="text-center py-2">
-                        <div className="w-14 h-14 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center mx-auto mb-4">
-                            <FaTrash className="text-red-400" size={20} />
+                        <div className="w-12 h-12 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center mx-auto mb-3">
+                            <FaTrash className="text-red-400" size={18} />
                         </div>
                         <p className={`font-semibold mb-1 ${dark ? 'text-white' : 'text-slate-900'}`}>
-                            Delete {deleteConfirm.type === 'user' ? 'user' : 'reseller'} <span className="text-red-400">"{deleteConfirm.name}"</span>?
+                            Delete user <span className="text-red-400">"{deleteConfirm.username}"</span>?
                         </p>
-                        <p className={`text-sm mb-6 ${dark ? 'text-slate-500' : 'text-slate-400'}`}>
+                        <p className={`text-xs mb-5 ${dark ? 'text-slate-500' : 'text-slate-400'}`}>
                             This action cannot be undone.
                         </p>
                         <div className="flex gap-3">
                             <button onClick={() => setDeleteConfirm(null)}
-                                className={`flex-1 py-2.5 rounded-xl font-semibold text-sm transition-all ${dark ? 'bg-white/[0.05] text-slate-400 hover:bg-white/[0.1]' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
+                                className={`flex-1 py-2 rounded-xl font-semibold text-sm transition-all ${dark ? 'bg-white/[0.05] text-slate-400' : 'bg-slate-100 text-slate-600'}`}>
                                 Cancel
                             </button>
                             <button onClick={doDelete} disabled={modalLoading}
-                                className="flex-1 py-2.5 rounded-xl font-bold text-sm text-white bg-red-600 hover:bg-red-500 transition-all disabled:opacity-60 flex items-center justify-center gap-2"
-                                style={{ fontFamily: "'Rajdhani', sans-serif" }}>
-                                {modalLoading ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <FaTrash size={12} />}
+                                className="flex-1 py-2 rounded-xl font-bold text-sm text-white bg-red-600 hover:bg-red-500 transition-all disabled:opacity-60 flex items-center justify-center gap-2">
+                                {modalLoading ? <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <FaTrash size={10} />}
                                 Delete
                             </button>
                         </div>

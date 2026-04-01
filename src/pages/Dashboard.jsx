@@ -6,7 +6,7 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import {
   FaGem, FaUsers, FaCoins, FaKey, FaLink, FaGift,
   FaBullseye, FaCopy, FaCheck, FaExclamationTriangle,
-  FaBolt,
+  FaBolt, FaCrown, FaCalendarAlt, FaInfinity
 } from 'react-icons/fa';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
@@ -30,32 +30,56 @@ export default function Dashboard({ toggleTheme, theme, setIsAuth }) {
 
   useEffect(() => {
     const token = localStorage.getItem('token');
+    if (!token) {
+      navigate('/login');
+      return;
+    }
+
+    // Fetch user data
     axios.get(`${API_URL}/api/panel/me`, {
       headers: { Authorization: `Bearer ${token}` }
     }).then(r => {
       setUser(r.data);
       localStorage.setItem('user', JSON.stringify(r.data));
-    }).catch(() => { localStorage.clear(); navigate('/login'); });
+    }).catch(() => { 
+      localStorage.clear(); 
+      navigate('/login'); 
+    });
   }, [navigate, API_URL]);
+
+  // Refresh user data periodically
+  useEffect(() => {
+    if (!user) return;
+    
+    const interval = setInterval(async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const response = await axios.get(`${API_URL}/api/panel/me`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        setUser(response.data);
+      } catch (err) {
+        console.error('Failed to refresh user data');
+      }
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, [user, API_URL]);
 
   useEffect(() => {
     if (!user) return;
     const ctx = gsap.context(() => {
-
-      // Welcome banner slides down from above
       gsap.fromTo(bannerRef.current,
         { opacity: 0, y: -40 },
         { opacity: 1, y: 0, duration: 0.7, ease: 'power3.out', delay: 0.1 }
       );
 
-      // Stat cards stagger pop up
       gsap.fromTo(
         statsRef.current?.querySelectorAll('.stat-card'),
         { opacity: 0, y: 50, scale: 0.9 },
         { opacity: 1, y: 0, scale: 1, duration: 0.55, ease: 'back.out(1.4)', stagger: 0.1, delay: 0.3 }
       );
 
-      // Referral card slides in from left
       gsap.fromTo(referralRef.current,
         { opacity: 0, x: -50 },
         {
@@ -64,7 +88,6 @@ export default function Dashboard({ toggleTheme, theme, setIsAuth }) {
         }
       );
 
-      // How-it-works cards stagger up
       gsap.fromTo(
         howRef.current?.querySelectorAll('.how-card'),
         { opacity: 0, y: 40 },
@@ -74,8 +97,7 @@ export default function Dashboard({ toggleTheme, theme, setIsAuth }) {
         }
       );
 
-      // Warning banner scale in
-      if (warningRef.current) {
+      if (warningRef.current && !user.isPro) {
         gsap.fromTo(warningRef.current,
           { opacity: 0, scale: 0.95 },
           {
@@ -85,7 +107,6 @@ export default function Dashboard({ toggleTheme, theme, setIsAuth }) {
         );
       }
 
-      // Continuous glow pulse on launch button
       gsap.to('.launch-btn', {
         boxShadow: '0 6px 36px rgba(220,38,38,0.55)',
         repeat: -1, yoyo: true, duration: 1.6, ease: 'sine.inOut',
@@ -117,17 +138,92 @@ export default function Dashboard({ toggleTheme, theme, setIsAuth }) {
     </div>
   );
 
-  const stats = [
-    { icon: FaGem, label: 'Credits', value: user.credits, color: 'text-red-400', ring: 'ring-red-600/20', iconBg: 'bg-red-600/10 border-red-600/20' },
-    { icon: FaUsers, label: 'Referrals', value: user.referralCount || 0, color: 'text-green-400', ring: 'ring-green-600/20', iconBg: 'bg-green-600/10 border-green-600/20' },
-    { icon: FaCoins, label: 'Per Refer', value: '+2', color: 'text-yellow-400', ring: 'ring-yellow-600/20', iconBg: 'bg-yellow-600/10 border-yellow-600/20' },
-    { icon: FaKey, label: 'User ID', value: user.userId, color: 'text-blue-400', ring: 'ring-blue-600/20', iconBg: 'bg-blue-600/10 border-blue-600/20', isId: true },
+  // Dynamic stats based on user type
+  const stats = user.isPro ? [
+    { 
+      icon: FaInfinity, 
+      label: 'Attacks', 
+      value: 'Unlimited', 
+      color: 'text-purple-400', 
+      ring: 'ring-purple-600/20', 
+      iconBg: 'bg-purple-600/10 border-purple-600/20',
+      subtext: '30/day'
+    },
+    { 
+      icon: FaUsers, 
+      label: 'Referrals', 
+      value: user.referralCount || 0, 
+      color: 'text-green-400', 
+      ring: 'ring-green-600/20', 
+      iconBg: 'bg-green-600/10 border-green-600/20',
+      subtext: '+2 each'
+    },
+    { 
+      icon: FaCalendarAlt, 
+      label: 'Expires In', 
+      value: user.subscriptionStatus?.daysLeft || 0, 
+      unit: 'days',
+      color: 'text-yellow-400', 
+      ring: 'ring-yellow-600/20', 
+      iconBg: 'bg-yellow-600/10 border-yellow-600/20',
+      subtext: user.subscriptionStatus?.plan
+    },
+    { 
+      icon: FaKey, 
+      label: 'User ID', 
+      value: user.userId, 
+      color: 'text-blue-400', 
+      ring: 'ring-blue-600/20', 
+      iconBg: 'bg-blue-600/10 border-blue-600/20', 
+      isId: true 
+    },
+  ] : [
+    { 
+      icon: FaGem, 
+      label: 'Credits', 
+      value: user.credits, 
+      color: 'text-red-400', 
+      ring: 'ring-red-600/20', 
+      iconBg: 'bg-red-600/10 border-red-600/20',
+      subtext: '1 credit = 1 attack'
+    },
+    { 
+      icon: FaUsers, 
+      label: 'Referrals', 
+      value: user.referralCount || 0, 
+      color: 'text-green-400', 
+      ring: 'ring-green-600/20', 
+      iconBg: 'bg-green-600/10 border-green-600/20',
+      subtext: '+2 credits each'
+    },
+    { 
+      icon: FaCoins, 
+      label: 'Per Refer', 
+      value: '+2', 
+      color: 'text-yellow-400', 
+      ring: 'ring-yellow-600/20', 
+      iconBg: 'bg-yellow-600/10 border-yellow-600/20',
+      subtext: 'bonus credits'
+    },
+    { 
+      icon: FaKey, 
+      label: 'User ID', 
+      value: user.userId, 
+      color: 'text-blue-400', 
+      ring: 'ring-blue-600/20', 
+      iconBg: 'bg-blue-600/10 border-blue-600/20', 
+      isId: true 
+    },
   ];
 
-  const howItWorks = [
-    { icon: FaGift, title: 'Signup Bonus', desc: 'Get 3 free credits when you create your account on a new device', color: 'text-green-400', bg: 'bg-green-600/10 border-green-600/20' },
+  const howItWorks = user.isPro ? [
+    { icon: FaCrown, title: 'Pro Benefits', desc: 'Unlimited attacks daily (30 per day limit, shown as unlimited)', color: 'text-purple-400', bg: 'bg-purple-600/10 border-purple-600/20' },
+    { icon: FaLink, title: 'Refer Friends', desc: 'Share your referral link and earn +2 credits for your account (bonus credits)', color: 'text-green-400', bg: 'bg-green-600/10 border-green-600/20' },
+    { icon: FaBullseye, title: 'Launch Attacks', desc: 'Unlimited attacks with up to 300s duration', color: 'text-red-400', bg: 'bg-red-600/10 border-red-600/20' },
+  ] : [
+    { icon: FaGift, title: 'Signup Bonus', desc: 'Get 10 free credits when you create your account', color: 'text-green-400', bg: 'bg-green-600/10 border-green-600/20' },
     { icon: FaLink, title: 'Refer Friends', desc: 'Share your referral link and earn +2 credits per successful signup', color: 'text-purple-400', bg: 'bg-purple-600/10 border-purple-600/20' },
-    { icon: FaBullseye, title: 'Use Credits', desc: 'Spend credits to launch attacks from the Attack page', color: 'text-red-400', bg: 'bg-red-600/10 border-red-600/20' },
+    { icon: FaBullseye, title: 'Use Credits', desc: 'Spend 1 credit per attack (max 60s duration)', color: 'text-red-400', bg: 'bg-red-600/10 border-red-600/20' },
   ];
 
   const cardCls = dark
@@ -148,7 +244,7 @@ export default function Dashboard({ toggleTheme, theme, setIsAuth }) {
 
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
 
-          {/* ── Welcome Banner ── */}
+          {/* Welcome Banner with Pro Badge */}
           <div
             ref={bannerRef}
             className={`rounded-2xl p-5 sm:p-7 border mb-5 relative overflow-hidden transition-all ${cardCls}`}
@@ -159,10 +255,18 @@ export default function Dashboard({ toggleTheme, theme, setIsAuth }) {
               style={{ background: 'radial-gradient(circle, rgba(220,38,38,0.15) 0%, transparent 70%)' }}
             />
             <div className="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div>
-                <p className={`text-xs font-semibold uppercase tracking-[0.15em] mb-1 ${dark ? 'text-slate-500' : 'text-slate-400'}`}>
-                  Dashboard
-                </p>
+              <div className="flex-1">
+                <div className="flex items-center gap-3 mb-2 flex-wrap">
+                  <p className={`text-xs font-semibold uppercase tracking-[0.15em] ${dark ? 'text-slate-500' : 'text-slate-400'}`}>
+                    Dashboard
+                  </p>
+                  {user.isPro && (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-gradient-to-r from-yellow-600/20 to-amber-600/20 border border-yellow-500/30 text-yellow-400">
+                      <FaCrown size={10} />
+                      PRO ACTIVE
+                    </span>
+                  )}
+                </div>
                 <h1
                   className={`text-2xl sm:text-3xl font-bold mb-1 ${dark ? 'text-white' : 'text-slate-900'}`}
                   style={{ fontFamily: "'Rajdhani', sans-serif", letterSpacing: '0.03em' }}
@@ -170,6 +274,11 @@ export default function Dashboard({ toggleTheme, theme, setIsAuth }) {
                   Welcome, <span className="text-red-500">{user.username}</span>
                 </h1>
                 <p className={`text-sm ${dark ? 'text-slate-400' : 'text-slate-500'}`}>{user.email}</p>
+                {user.isPro && user.subscriptionStatus?.daysLeft > 0 && (
+                  <p className={`text-xs mt-2 ${dark ? 'text-slate-500' : 'text-slate-400'}`}>
+                    Pro expires in {user.subscriptionStatus.daysLeft} days
+                  </p>
+                )}
               </div>
               <Link
                 to="/attack"
@@ -182,7 +291,7 @@ export default function Dashboard({ toggleTheme, theme, setIsAuth }) {
             </div>
           </div>
 
-          {/* ── Stats Grid ── */}
+          {/* Stats Grid */}
           <div ref={statsRef} className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-5">
             {stats.map((stat, i) => (
               <div
@@ -209,15 +318,22 @@ export default function Dashboard({ toggleTheme, theme, setIsAuth }) {
                     </button>
                   </div>
                 ) : (
-                  <p className={`font-black text-2xl sm:text-3xl ${stat.color}`} style={{ fontFamily: "'Rajdhani', sans-serif" }}>
-                    {stat.value}
-                  </p>
+                  <div>
+                    <p className={`font-black text-2xl sm:text-3xl ${stat.color}`} style={{ fontFamily: "'Rajdhani', sans-serif" }}>
+                      {stat.value}{stat.unit && ` ${stat.unit}`}
+                    </p>
+                    {stat.subtext && (
+                      <p className={`text-[10px] mt-1 ${dark ? 'text-slate-500' : 'text-slate-400'}`}>
+                        {stat.subtext}
+                      </p>
+                    )}
+                  </div>
                 )}
               </div>
             ))}
           </div>
 
-          {/* ── Referral Card ── */}
+          {/* Referral Card */}
           <div ref={referralRef} className={`rounded-2xl p-5 sm:p-6 border mb-5 transition-all ${cardCls}`} style={{ opacity: 0 }}>
             <div className="flex items-center gap-3 mb-4">
               <div className="w-9 h-9 rounded-xl bg-green-600/10 border border-green-600/20 flex items-center justify-center">
@@ -226,7 +342,7 @@ export default function Dashboard({ toggleTheme, theme, setIsAuth }) {
               <div>
                 <h3 className={`font-bold text-sm ${dark ? 'text-white' : 'text-slate-900'}`}>Your Referral Link</h3>
                 <p className={`text-xs ${dark ? 'text-slate-400' : 'text-slate-500'}`}>
-                  Earn <span className="text-green-400 font-bold">+2 credits</span> for every successful referral
+                  Earn <span className="text-green-400 font-bold">+2 {user.isPro ? 'bonus credits' : 'credits'}</span> for every successful referral
                 </p>
               </div>
             </div>
@@ -245,7 +361,7 @@ export default function Dashboard({ toggleTheme, theme, setIsAuth }) {
             </div>
           </div>
 
-          {/* ── How Credits Work ── */}
+          {/* How It Works */}
           <div ref={howRef} className={`rounded-2xl p-5 sm:p-6 border transition-all ${cardCls}`}>
             <div className="flex items-center gap-2.5 mb-4">
               <FaBolt className="text-yellow-500" size={15} />
@@ -253,7 +369,7 @@ export default function Dashboard({ toggleTheme, theme, setIsAuth }) {
                 className={`font-bold text-sm ${dark ? 'text-white' : 'text-slate-900'}`}
                 style={{ fontFamily: "'Rajdhani', sans-serif", letterSpacing: '0.05em' }}
               >
-                HOW CREDITS WORK
+                {user.isPro ? 'PRO BENEFITS' : 'HOW CREDITS WORK'}
               </h3>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -276,8 +392,8 @@ export default function Dashboard({ toggleTheme, theme, setIsAuth }) {
             </div>
           </div>
 
-          {/* ── No credits warning ── */}
-          {user.credits === 0 && (
+          {/* Warning for free users with no credits */}
+          {!user.isPro && user.credits === 0 && (
             <div
               ref={warningRef}
               className="mt-4 rounded-2xl px-5 py-4 flex items-start gap-3 border"
@@ -289,7 +405,7 @@ export default function Dashboard({ toggleTheme, theme, setIsAuth }) {
                   No Credits Available
                 </p>
                 <p className="text-yellow-500/70 text-xs mt-1">
-                  This device was already used to claim free credits. Share your referral link to earn more!
+                  You've used all your free credits! Share your referral link to earn +2 credits per referral, or upgrade to Pro for unlimited attacks!
                 </p>
               </div>
             </div>

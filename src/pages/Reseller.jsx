@@ -2,23 +2,41 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import axios from 'axios';
 import gsap from 'gsap';
 import {
-    FaBolt, FaGem, FaFire, FaCrown, FaHistory,
+    FaBolt, FaGem, FaCrown, FaHistory,
     FaSearch, FaSignOutAlt, FaShieldAlt, FaCheckCircle,
-    FaExclamationTriangle, FaStar, FaRupeeSign,
+    FaExclamationTriangle, FaStar, FaRupeeSign, FaCalendarAlt,
+    FaClock,
 } from 'react-icons/fa';
 import { MdWbSunny, MdNightlight, MdRadar } from 'react-icons/md';
 import AnimatedBackground from '../components/AnimatedBackground';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 
-const PLANS = [
-    { credits: 50,  label: 'Starter',  icon: FaBolt,  color: 'text-blue-400',   bg: 'from-blue-600/10 to-blue-600/5',     border: 'border-blue-600/20',   glow: 'rgba(59,130,246,0.3)' },
-    { credits: 150, label: 'Basic',    icon: FaGem,   color: 'text-green-400',  bg: 'from-green-600/10 to-green-600/5',   border: 'border-green-600/20',  glow: 'rgba(16,185,129,0.3)' },
-    { credits: 250, label: 'Standard', icon: FaFire,  color: 'text-orange-400', bg: 'from-orange-600/10 to-orange-600/5', border: 'border-orange-600/20', glow: 'rgba(249,115,22,0.3)', popular: true },
-    { credits: 333, label: 'Advanced', icon: FaFire,  color: 'text-red-400',    bg: 'from-red-600/10 to-red-600/5',       border: 'border-red-600/20',    glow: 'rgba(239,68,68,0.3)' },
-    { credits: 400, label: 'Pro',      icon: FaCrown, color: 'text-yellow-400', bg: 'from-yellow-600/10 to-yellow-600/5', border: 'border-yellow-600/20', glow: 'rgba(234,179,8,0.3)' },
-    { credits: 500, label: 'Elite',    icon: FaCrown, color: 'text-purple-400', bg: 'from-purple-600/10 to-purple-600/5', border: 'border-purple-600/20', glow: 'rgba(168,85,247,0.3)' },
+// Plans will be fetched from backend, but we keep a fallback
+const DEFAULT_PLANS = [
+    { label: 'Week', days: 7, price: 850, displayName: 'Weekly Pro (7 days)' },
+    { label: 'Month', days: 30, price: 1800, displayName: 'Monthly Pro (30 days)' },
+    { label: 'Season', days: 60, price: 2500, displayName: 'Season Pro (60 days)' },
 ];
+
+// Icons for different plans
+const PLAN_ICONS = {
+    Week: FaBolt,
+    Month: FaGem,
+    Season: FaCrown,
+};
+
+const PLAN_COLORS = {
+    Week: 'text-blue-400',
+    Month: 'text-green-400',
+    Season: 'text-yellow-400',
+};
+
+const PLAN_GLOWS = {
+    Week: 'rgba(59,130,246,0.3)',
+    Month: 'rgba(16,185,129,0.3)',
+    Season: 'rgba(234,179,8,0.3)',
+};
 
 function Toast({ toasts }) {
     return (
@@ -45,6 +63,7 @@ export default function Reseller({ toggleTheme, theme }) {
     const [loginLoading, setLoginLoading] = useState(false);
     const [token, setToken] = useState('');
     const [reseller, setReseller] = useState(null);
+    const [plans, setPlans] = useState(DEFAULT_PLANS);
 
     const [searchQuery, setSearchQuery] = useState('');
     const [searchLoading, setSearchLoading] = useState(false);
@@ -56,6 +75,7 @@ export default function Reseller({ toggleTheme, theme }) {
     const [giveError, setGiveError] = useState('');
     const [history, setHistory] = useState([]);
     const [toasts, setToasts] = useState([]);
+    const [stats, setStats] = useState(null);
 
     const loginRef = useRef(null);
     const plansRef = useRef(null);
@@ -64,6 +84,33 @@ export default function Reseller({ toggleTheme, theme }) {
         const id = Date.now();
         setToasts(prev => [...prev, { id, message, type }]);
         setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3500);
+    }, []);
+
+    // Fetch plans on login
+    const fetchPlans = useCallback(async (authToken) => {
+        try {
+            const { data } = await axios.get(`${API_URL}/api/reseller/plans`, {
+                headers: { Authorization: `Bearer ${authToken}` },
+                withCredentials: true
+            });
+            setPlans(data.plans);
+        } catch (err) {
+            console.error('Failed to fetch plans:', err);
+            // Keep default plans
+        }
+    }, []);
+
+    // Fetch reseller stats
+    const fetchStats = useCallback(async (authToken) => {
+        try {
+            const { data } = await axios.get(`${API_URL}/api/reseller/stats`, {
+                headers: { Authorization: `Bearer ${authToken}` },
+                withCredentials: true
+            });
+            setStats(data);
+        } catch (err) {
+            console.error('Failed to fetch stats:', err);
+        }
     }, []);
 
     useEffect(() => {
@@ -77,6 +124,9 @@ export default function Reseller({ toggleTheme, theme }) {
             setToken(savedToken);
             setReseller(resellerData);
             setIsLoggedIn(true);
+            fetchPlans(savedToken);
+            fetchStats(savedToken);
+            
             axios.get(`${API_URL}/api/reseller/me`, {
                 headers: { Authorization: `Bearer ${savedToken}` },
                 withCredentials: true
@@ -97,7 +147,7 @@ export default function Reseller({ toggleTheme, theme }) {
             localStorage.removeItem('resellerToken');
             localStorage.removeItem('resellerData');
         }
-    }, []);
+    }, [fetchPlans, fetchStats]);
 
     useEffect(() => {
         if (!isLoggedIn && loginRef.current) {
@@ -134,6 +184,8 @@ export default function Reseller({ toggleTheme, theme }) {
             setIsLoggedIn(true);
             localStorage.setItem('resellerToken', data.token);
             localStorage.setItem('resellerData', JSON.stringify(data.reseller));
+            await fetchPlans(data.token);
+            await fetchStats(data.token);
             toast('Login successful!');
         } catch (err) {
             setLoginError(err.response?.data?.message || 'Login failed');
@@ -149,6 +201,8 @@ export default function Reseller({ toggleTheme, theme }) {
         setReseller(null);
         setFoundUser(null);
         setHistory([]);
+        setPlans(DEFAULT_PLANS);
+        setStats(null);
         setLoginForm({ username: '', password: '' });
         localStorage.removeItem('resellerToken');
         localStorage.removeItem('resellerData');
@@ -174,32 +228,66 @@ export default function Reseller({ toggleTheme, theme }) {
         }
     };
 
-    const giveCredits = async () => {
+    const giveProSubscription = async () => {
         setGiveError(''); setGiveSuccess('');
         if (!foundUser) { setGiveError('Search for a user first'); return; }
         if (!selectedPlan) { setGiveError('Select a plan to give'); return; }
-        if (reseller.credits < selectedPlan.credits) {
-            setGiveError(`Insufficient credits. You have ${reseller.credits}, need ${selectedPlan.credits}.`);
+        if (reseller.credits < selectedPlan.price) {
+            setGiveError(`Insufficient credits. You have ${reseller.credits}, need ${selectedPlan.price}.`);
             return;
         }
         setGiveLoading(true);
         try {
             const csrfRes = await axios.get(`${API_URL}/api/csrf-token`, { withCredentials: true });
             const { data } = await axios.post(
-                `${API_URL}/api/reseller/give-credits`,
-                { userId: foundUser.userId || foundUser.email, planLabel: selectedPlan.label },
-                { headers: { Authorization: `Bearer ${token}`, 'X-CSRF-Token': csrfRes.data.csrfToken }, withCredentials: true }
+                `${API_URL}/api/reseller/give-pro`,
+                { 
+                    userId: foundUser.userId || foundUser.email, 
+                    planLabel: selectedPlan.label 
+                },
+                { 
+                    headers: { 
+                        Authorization: `Bearer ${token}`, 
+                        'X-CSRF-Token': csrfRes.data.csrfToken 
+                    }, 
+                    withCredentials: true 
+                }
             );
-            const updatedReseller = { ...reseller, credits: data.resellerCreditsLeft, totalGiven: (reseller.totalGiven || 0) + selectedPlan.credits };
+            
+            // Update reseller credits
+            const updatedReseller = { 
+                ...reseller, 
+                credits: data.resellerCreditsLeft, 
+                totalGiven: (reseller.totalGiven || 0) + selectedPlan.price 
+            };
             setReseller(updatedReseller);
             localStorage.setItem('resellerData', JSON.stringify(updatedReseller));
-            setFoundUser(prev => ({ ...prev, credits: data.userNewCredits, isPro: true }));
-            setGiveSuccess(`${selectedPlan.label} plan (${selectedPlan.credits} credits) sent to ${foundUser.username}!`);
-            toast(`Sent ${selectedPlan.credits} credits to ${foundUser.username}`);
-            setHistory(prev => [{ user: foundUser.username, plan: selectedPlan.label, credits: selectedPlan.credits, time: new Date() }, ...prev].slice(0, 20));
+            
+            // Update found user with new subscription status
+            setFoundUser(prev => ({ 
+                ...prev, 
+                ...data.user,
+                isPro: data.user.isPro,
+                subscriptionStatus: data.user.subscription
+            }));
+            
+            setGiveSuccess(`${selectedPlan.displayName} successfully given to ${foundUser.username}!`);
+            toast(`✅ ${selectedPlan.displayName} given to ${foundUser.username}`);
+            
+            // Add to history
+            setHistory(prev => [{ 
+                user: foundUser.username, 
+                plan: selectedPlan.displayName, 
+                days: selectedPlan.days,
+                price: selectedPlan.price,
+                time: new Date() 
+            }, ...prev].slice(0, 20));
+            
+            // Refresh stats
+            await fetchStats(token);
             setSelectedPlan(null);
         } catch (err) {
-            const msg = err.response?.data?.message || 'Failed to give credits';
+            const msg = err.response?.data?.message || 'Failed to give Pro subscription';
             setGiveError(msg);
             toast(msg, 'error');
         } finally {
@@ -215,6 +303,7 @@ export default function Reseller({ toggleTheme, theme }) {
             const resellerData = data.reseller ?? data;
             setReseller(resellerData);
             localStorage.setItem('resellerData', JSON.stringify(resellerData));
+            await fetchStats(token);
             toast('Account refreshed');
         } catch (err) {
             toast(err.response?.data?.message || 'Failed to refresh', 'error');
@@ -229,6 +318,13 @@ export default function Reseller({ toggleTheme, theme }) {
     const inputCls = `w-full rounded-xl px-4 py-3 text-sm border outline-none transition font-mono ${dark
         ? 'bg-white/[0.04] border-white/[0.1] text-slate-100 placeholder-slate-600 focus:border-red-500/50 focus:ring-2 focus:ring-red-500/10'
         : 'bg-slate-50 border-slate-200 text-slate-900 placeholder-slate-400 focus:border-red-500 focus:ring-2 focus:ring-red-500/10'}`;
+
+    // Format date nicely
+    const formatExpiryDate = (date) => {
+        if (!date) return 'No expiry';
+        const d = new Date(date);
+        return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    };
 
     // ── LOGIN SCREEN ──
     if (!isLoggedIn) {
@@ -318,6 +414,15 @@ export default function Reseller({ toggleTheme, theme }) {
                                     <p className={`text-[10px] uppercase tracking-wider mb-0.5 ${dark ? 'text-slate-600' : 'text-slate-400'}`}>Given</p>
                                     <p className="text-green-400 font-black text-lg leading-none" style={{ fontFamily: "'Rajdhani', sans-serif" }}>{(reseller?.totalGiven ?? 0).toLocaleString()}</p>
                                 </div>
+                                {stats && (
+                                    <>
+                                        <div className={`w-px h-8 ${dark ? 'bg-white/[0.08]' : 'bg-slate-200'}`} />
+                                        <div className="text-center">
+                                            <p className={`text-[10px] uppercase tracking-wider mb-0.5 ${dark ? 'text-slate-600' : 'text-slate-400'}`}>Served</p>
+                                            <p className={`font-black text-lg leading-none ${dark ? 'text-white' : 'text-slate-900'}`}>{stats.usersServed || 0}</p>
+                                        </div>
+                                    </>
+                                )}
                                 <div className={`w-px h-8 ${dark ? 'bg-white/[0.08]' : 'bg-slate-200'}`} />
                                 <div className="text-center">
                                     <p className={`text-[10px] uppercase tracking-wider mb-0.5 ${dark ? 'text-slate-600' : 'text-slate-400'}`}>Account</p>
@@ -397,7 +502,7 @@ export default function Reseller({ toggleTheme, theme }) {
                             {/* User result card */}
                             {foundUser && (
                                 <div className={`mt-4 rounded-xl p-4 border ${dark ? 'bg-white/[0.03] border-white/[0.08]' : 'bg-slate-50 border-slate-200'}`}>
-                                    <div className="flex items-center gap-3">
+                                    <div className="flex items-center gap-3 flex-wrap">
                                         <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-red-600/30 to-red-600/10 border border-red-600/20 flex items-center justify-center font-black text-lg text-red-400 shrink-0" style={{ fontFamily: "'Rajdhani', sans-serif" }}>
                                             {(foundUser.username || '?').charAt(0).toUpperCase()}
                                         </div>
@@ -405,16 +510,41 @@ export default function Reseller({ toggleTheme, theme }) {
                                             <p className={`font-bold text-sm truncate ${dark ? 'text-white' : 'text-slate-900'}`}>{foundUser.username}</p>
                                             <p className={`text-xs truncate ${dark ? 'text-slate-500' : 'text-slate-400'}`}>{foundUser.email}</p>
                                         </div>
-                                        <div className="flex items-center gap-2 shrink-0">
+                                        <div className="flex items-center gap-2 shrink-0 flex-wrap">
                                             <span className={`text-xs px-2 py-1 rounded-lg font-bold whitespace-nowrap ${foundUser.isPro ? 'bg-yellow-500/10 border border-yellow-500/20 text-yellow-400' : dark ? 'bg-white/5 border border-white/10 text-slate-400' : 'bg-slate-100 border border-slate-200 text-slate-500'}`}>
-                                                {foundUser.isPro ? '⭐ Pro' : 'Free'}
+                                                {foundUser.isPro ? '⭐ Pro Active' : 'Free'}
                                             </span>
                                             <span className={`text-xs px-2 py-1 rounded-lg font-semibold whitespace-nowrap ${dark ? 'bg-white/5 border border-white/10 text-slate-300' : 'bg-white border border-slate-200 text-slate-600'}`}>
                                                 💎 {foundUser.credits}
                                             </span>
                                         </div>
                                     </div>
-                                    <p className={`text-[10px] mt-2 font-mono ${dark ? 'text-slate-600' : 'text-slate-400'}`}>ID: {foundUser.userId || foundUser._id}</p>
+                                    
+                                    {/* Show subscription info if pro */}
+                                    {foundUser.isPro && foundUser.subscriptionStatus && (
+                                        <div className={`mt-3 pt-3 border-t ${dark ? 'border-white/[0.08]' : 'border-slate-200'}`}>
+                                            <div className="flex items-center justify-between text-xs">
+                                                <div className="flex items-center gap-2">
+                                                    <FaCalendarAlt size={10} className="text-yellow-400" />
+                                                    <span className={dark ? 'text-slate-400' : 'text-slate-500'}>Plan:</span>
+                                                    <span className="font-semibold text-yellow-400">{foundUser.subscriptionStatus.plan}</span>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <FaClock size={10} className="text-yellow-400" />
+                                                    <span className={dark ? 'text-slate-400' : 'text-slate-500'}>
+                                                        {foundUser.subscriptionStatus.daysLeft} days left
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <p className={`text-[10px] mt-1 font-mono ${dark ? 'text-slate-600' : 'text-slate-400'}`}>
+                                                Expires: {formatExpiryDate(foundUser.subscriptionStatus.expiresAt)}
+                                            </p>
+                                        </div>
+                                    )}
+                                    
+                                    <p className={`text-[10px] mt-2 font-mono ${dark ? 'text-slate-600' : 'text-slate-400'}`}>
+                                        ID: {foundUser.userId || foundUser._id}
+                                    </p>
                                 </div>
                             )}
                         </div>
@@ -428,38 +558,56 @@ export default function Reseller({ toggleTheme, theme }) {
                                     </div>
                                     <div>
                                         <h3 className={`font-bold text-sm ${dark ? 'text-white' : 'text-slate-900'}`} style={{ fontFamily: "'Rajdhani', sans-serif", letterSpacing: '0.05em' }}>SELECT PLAN</h3>
-                                        <p className={`text-xs ${dark ? 'text-slate-500' : 'text-slate-400'}`}>Choose a plan for <span className="text-red-400 font-semibold">{foundUser.username}</span></p>
+                                        <p className={`text-xs ${dark ? 'text-slate-500' : 'text-slate-400'}`}>
+                                            Give Pro subscription to <span className="text-red-400 font-semibold">{foundUser.username}</span>
+                                        </p>
                                     </div>
                                 </div>
 
                                 {/* Plans grid */}
-                                <div ref={plansRef} className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
-                                    {PLANS.map((plan, i) => {
-                                        const Icon = plan.icon;
+                                <div ref={plansRef} className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+                                    {plans.map((plan, i) => {
+                                        const Icon = PLAN_ICONS[plan.label] || FaStar;
+                                        const color = PLAN_COLORS[plan.label] || 'text-red-400';
+                                        const glow = PLAN_GLOWS[plan.label] || 'rgba(220,38,38,0.3)';
                                         const isSelected = selectedPlan?.label === plan.label;
-                                        const canAfford = reseller?.credits >= plan.credits;
+                                        const canAfford = reseller?.credits >= plan.price;
+                                        const isPopular = plan.label === 'Month';
+                                        
                                         return (
-                                            <button key={i}
+                                            <button
+                                                key={i}
                                                 onClick={() => canAfford && setSelectedPlan(isSelected ? null : plan)}
                                                 disabled={!canAfford}
                                                 className={`plan-card relative rounded-xl p-4 border text-left transition-all active:scale-95 ${!canAfford ? 'opacity-40 cursor-not-allowed' :
                                                     isSelected
-                                                        ? dark ? `bg-gradient-to-br ${plan.bg} border-red-500/50 ring-2 ring-red-500/20` : `bg-gradient-to-br ${plan.bg} ${plan.border} ring-2 ring-red-500/20`
+                                                        ? dark ? `bg-gradient-to-br from-red-600/10 to-red-600/5 border-red-500/50 ring-2 ring-red-500/20` : `bg-gradient-to-br from-red-50 to-white border-red-500/50 ring-2 ring-red-500/20`
                                                         : dark ? `bg-white/[0.02] border-white/[0.07] hover:border-white/[0.15]` : `bg-slate-50 border-slate-200 hover:border-slate-300 hover:bg-white`
                                                     }`}
-                                                style={{ boxShadow: isSelected ? `0 0 20px ${plan.glow}` : 'none' }}>
-                                                {plan.popular && (
-                                                    <span className="absolute -top-2 left-1/2 -translate-x-1/2 bg-red-600 text-white text-[9px] font-bold px-2 py-0.5 rounded-full tracking-wider">HOT</span>
+                                                style={{ boxShadow: isSelected ? `0 0 20px ${glow}` : 'none' }}>
+                                                {isPopular && (
+                                                    <span className="absolute -top-2 left-1/2 -translate-x-1/2 bg-red-600 text-white text-[9px] font-bold px-2 py-0.5 rounded-full tracking-wider">
+                                                        POPULAR
+                                                    </span>
                                                 )}
                                                 {isSelected && (
                                                     <span className="absolute top-2 right-2 w-4 h-4 rounded-full bg-red-500 flex items-center justify-center">
                                                         <FaCheckCircle size={10} className="text-white" />
                                                     </span>
                                                 )}
-                                                <Icon className={`${plan.color} mb-2`} size={16} />
-                                                <p className={`font-black text-sm ${dark ? 'text-white' : 'text-slate-900'}`} style={{ fontFamily: "'Rajdhani', sans-serif" }}>{plan.label}</p>
-                                                <p className={`text-xl font-black ${plan.color}`} style={{ fontFamily: "'Rajdhani', sans-serif" }}>{plan.credits}</p>
-                                                <p className={`text-[10px] ${dark ? 'text-slate-500' : 'text-slate-400'}`}>credits</p>
+                                                <Icon className={`${color} mb-2`} size={20} />
+                                                <p className={`font-black text-sm ${dark ? 'text-white' : 'text-slate-900'}`} style={{ fontFamily: "'Rajdhani', sans-serif" }}>
+                                                    {plan.displayName || plan.label}
+                                                </p>
+                                                <p className={`text-2xl font-black ${color}`} style={{ fontFamily: "'Rajdhani', sans-serif" }}>
+                                                    ₹{plan.price}
+                                                </p>
+                                                <p className={`text-[10px] mt-1 ${dark ? 'text-slate-500' : 'text-slate-400'}`}>
+                                                    {plan.days} days of Pro access
+                                                </p>
+                                                <p className={`text-[9px] ${dark ? 'text-slate-600' : 'text-slate-400'}`}>
+                                                    30 attacks/day
+                                                </p>
                                             </button>
                                         );
                                     })}
@@ -476,13 +624,19 @@ export default function Reseller({ toggleTheme, theme }) {
                                     </div>
                                 )}
 
-                                <button onClick={giveCredits} disabled={!selectedPlan || giveLoading}
+                                <button 
+                                    onClick={giveProSubscription} 
+                                    disabled={!selectedPlan || giveLoading}
                                     className={`w-full py-3.5 rounded-xl font-bold text-sm tracking-wider transition-all flex items-center justify-center gap-2 active:scale-95 disabled:active:scale-100 ${!selectedPlan
                                         ? dark ? 'bg-white/[0.05] text-slate-600 cursor-not-allowed' : 'bg-slate-100 text-slate-400 cursor-not-allowed'
-                                        : 'bg-red-600 hover:bg-red-500 text-white'}`}
+                                        : 'bg-gradient-to-r from-red-600 to-red-500 hover:from-red-500 hover:to-red-400 text-white shadow-lg'}`}
                                     style={{ fontFamily: "'Rajdhani', sans-serif", letterSpacing: '0.06em', boxShadow: selectedPlan ? '0 4px 20px rgba(220,38,38,0.35)' : 'none' }}>
-                                    {giveLoading ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <FaGem size={14} />}
-                                    {giveLoading ? 'PROCESSING...' : selectedPlan ? `GIVE ${selectedPlan.label.toUpperCase()} — ${selectedPlan.credits} CREDITS` : 'SELECT A PLAN ABOVE'}
+                                    {giveLoading ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <FaCrown size={14} />}
+                                    {giveLoading 
+                                        ? 'PROCESSING...' 
+                                        : selectedPlan 
+                                            ? `GIVE ${selectedPlan.displayName?.toUpperCase() || selectedPlan.label.toUpperCase()} — ₹${selectedPlan.price}`
+                                            : 'SELECT A PLAN ABOVE'}
                                 </button>
                             </div>
                         )}
@@ -507,32 +661,40 @@ export default function Reseller({ toggleTheme, theme }) {
                                     <div className={`rounded-xl px-3 py-2.5 border text-center ${dark ? 'bg-white/[0.02] border-white/[0.06]' : 'bg-slate-50 border-slate-200'}`}>
                                         <p className={`text-[10px] font-semibold uppercase tracking-[0.1em] mb-0.5 ${dark ? 'text-slate-600' : 'text-slate-400'}`}>Available</p>
                                         <p className="text-red-500 font-black text-xl" style={{ fontFamily: "'Rajdhani', sans-serif" }}>{(reseller?.credits ?? 0).toLocaleString()}</p>
+                                        <p className={`text-[9px] ${dark ? 'text-slate-600' : 'text-slate-400'}`}>credits</p>
                                     </div>
                                     <div className={`rounded-xl px-3 py-2.5 border text-center ${dark ? 'bg-white/[0.02] border-white/[0.06]' : 'bg-slate-50 border-slate-200'}`}>
                                         <p className={`text-[10px] font-semibold uppercase tracking-[0.1em] mb-0.5 ${dark ? 'text-slate-600' : 'text-slate-400'}`}>Distributed</p>
                                         <p className="text-green-400 font-black text-xl" style={{ fontFamily: "'Rajdhani', sans-serif" }}>{(reseller?.totalGiven ?? 0).toLocaleString()}</p>
+                                        <p className={`text-[9px] ${dark ? 'text-slate-600' : 'text-slate-400'}`}>total credits</p>
                                     </div>
                                 </div>
+                                {stats && (
+                                    <div className={`rounded-xl px-3 py-2.5 border text-center ${dark ? 'bg-white/[0.02] border-white/[0.06]' : 'bg-slate-50 border-slate-200'}`}>
+                                        <p className={`text-[10px] font-semibold uppercase tracking-[0.1em] mb-0.5 ${dark ? 'text-slate-600' : 'text-slate-400'}`}>Users Served</p>
+                                        <p className={`font-black text-xl ${dark ? 'text-white' : 'text-slate-900'}`} style={{ fontFamily: "'Rajdhani', sans-serif" }}>{stats.usersServed || 0}</p>
+                                    </div>
+                                )}
                             </div>
                         </div>
 
-                        {/* ── Reseller packages ── */}
+                        {/* ── Reseller packages (for buying credits) ── */}
                         <div className={`rounded-2xl p-5 border ${cardCls}`}>
                             <div className="flex items-center gap-2.5 mb-4">
                                 <FaStar className="text-yellow-400" size={13} />
-                                <h3 className={`font-bold text-sm ${dark ? 'text-white' : 'text-slate-900'}`} style={{ fontFamily: "'Rajdhani', sans-serif", letterSpacing: '0.05em' }}>PACKAGES</h3>
+                                <h3 className={`font-bold text-sm ${dark ? 'text-white' : 'text-slate-900'}`} style={{ fontFamily: "'Rajdhani', sans-serif", letterSpacing: '0.05em' }}>BUY CREDITS</h3>
                             </div>
                             <div className="space-y-2">
                                 {[
-                                    { credits: 3000,  inr: '5K',  usdt: '55$' },
-                                    { credits: 7000,  inr: '10K', usdt: '108$' },
-                                    { credits: 15000, inr: '15K', usdt: '160$' },
-                                    { credits: 35000, inr: '20K', usdt: '215$' },
+                                    { credits: 3000,  inr: '5,000',  usdt: '55$' },
+                                    { credits: 7000,  inr: '10,000', usdt: '108$' },
+                                    { credits: 15000, inr: '15,000', usdt: '160$' },
+                                    { credits: 35000, inr: '20,000', usdt: '215$' },
                                 ].map((pkg, i) => (
                                     <div key={i} className={`rounded-xl px-3 py-2.5 border flex items-center justify-between ${dark ? 'bg-white/[0.02] border-white/[0.06]' : 'bg-slate-50 border-slate-200'}`}>
                                         <div>
-                                            <p className="text-green-400 font-black text-sm" style={{ fontFamily: "'Rajdhani', sans-serif" }}>{pkg.credits.toLocaleString()} cr</p>
-                                            <p className={`text-[10px] ${dark ? 'text-slate-600' : 'text-slate-400'}`}>Contact admin</p>
+                                            <p className="text-green-400 font-black text-sm" style={{ fontFamily: "'Rajdhani', sans-serif" }}>{pkg.credits.toLocaleString()} credits</p>
+                                            <p className={`text-[10px] ${dark ? 'text-slate-600' : 'text-slate-400'}`}>Contact admin to purchase</p>
                                         </div>
                                         <div className="text-right">
                                             <p className={`font-bold text-xs ${dark ? 'text-white' : 'text-slate-900'}`}><FaRupeeSign size={9} className="inline" />{pkg.inr}</p>
@@ -541,13 +703,16 @@ export default function Reseller({ toggleTheme, theme }) {
                                     </div>
                                 ))}
                             </div>
+                            <p className={`text-center text-[10px] mt-3 ${dark ? 'text-slate-600' : 'text-slate-400'}`}>
+                                Contact admin on Telegram for credit purchases
+                            </p>
                         </div>
 
                         {/* ── Recent activity ── */}
                         <div className={`rounded-2xl p-5 border ${cardCls}`}>
                             <div className="flex items-center gap-2.5 mb-4">
                                 <FaHistory className="text-red-500" size={13} />
-                                <h3 className={`font-bold text-sm ${dark ? 'text-white' : 'text-slate-900'}`} style={{ fontFamily: "'Rajdhani', sans-serif", letterSpacing: '0.05em' }}>ACTIVITY</h3>
+                                <h3 className={`font-bold text-sm ${dark ? 'text-white' : 'text-slate-900'}`} style={{ fontFamily: "'Rajdhani', sans-serif", letterSpacing: '0.05em' }}>RECENT GIVES</h3>
                             </div>
                             {history.length === 0 ? (
                                 <div className="text-center py-5">
@@ -559,12 +724,15 @@ export default function Reseller({ toggleTheme, theme }) {
                                     {history.map((h, i) => (
                                         <div key={i} className={`rounded-lg px-3 py-2.5 border ${dark ? 'bg-white/[0.02] border-white/[0.05]' : 'bg-slate-50 border-slate-200'}`}>
                                             <div className="flex items-center justify-between">
-                                                <div className="min-w-0">
+                                                <div className="min-w-0 flex-1">
                                                     <p className={`font-semibold text-xs truncate ${dark ? 'text-slate-300' : 'text-slate-700'}`}>{h.user}</p>
-                                                    <p className={`text-[10px] ${dark ? 'text-slate-600' : 'text-slate-400'}`}>{h.plan} plan</p>
+                                                    <p className={`text-[10px] ${dark ? 'text-slate-600' : 'text-slate-400'}`}>{h.plan}</p>
+                                                    {h.days && (
+                                                        <p className={`text-[9px] ${dark ? 'text-slate-600' : 'text-slate-400'}`}>{h.days} days Pro</p>
+                                                    )}
                                                 </div>
                                                 <div className="text-right shrink-0 ml-2">
-                                                    <p className="text-green-400 font-bold text-xs">+{h.credits}</p>
+                                                    <p className="text-yellow-400 font-bold text-xs">₹{h.price}</p>
                                                     <p className={`text-[10px] ${dark ? 'text-slate-600' : 'text-slate-400'}`}>
                                                         {new Date(h.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
                                                     </p>
