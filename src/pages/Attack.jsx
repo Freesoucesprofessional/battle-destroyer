@@ -144,9 +144,11 @@ export default function Attack({ toggleTheme, theme, setIsAuth }) {
         clearInterval(statusPollRef.current);
     }, []);
 
-    axios.get(`${API_URL}/api/panel/stats`)
-        .then(r => setStats(r.data))
-        .catch(() => { });
+    useEffect(() => {
+        axios.get(`${API_URL}/api/panel/stats`)
+            .then(r => setStats(r.data))
+            .catch(() => { });
+    }, []);
 
     const handle = e => {
         setForm({ ...form, [e.target.name]: e.target.value });
