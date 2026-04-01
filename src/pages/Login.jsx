@@ -9,7 +9,6 @@ import {
   FaArrowRight,
   FaShieldAlt,
   FaExclamationCircle,
-  FaCheckCircle,
 } from 'react-icons/fa';
 import { MdWbSunny, MdNightlight } from 'react-icons/md';
 import TurnstileWidget from '../components/TurnstileWidget';
