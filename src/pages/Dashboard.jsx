@@ -22,11 +22,11 @@ export default function Dashboard({ toggleTheme, theme, setIsAuth }) {
   const dark = theme !== 'light';
   const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 
-  const bannerRef   = useRef(null);
-  const statsRef    = useRef(null);
+  const bannerRef = useRef(null);
+  const statsRef = useRef(null);
   const referralRef = useRef(null);
-  const howRef      = useRef(null);
-  const warningRef  = useRef(null);
+  const howRef = useRef(null);
+  const warningRef = useRef(null);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -58,24 +58,30 @@ export default function Dashboard({ toggleTheme, theme, setIsAuth }) {
       // Referral card slides in from left
       gsap.fromTo(referralRef.current,
         { opacity: 0, x: -50 },
-        { opacity: 1, x: 0, duration: 0.6, ease: 'power3.out',
-          scrollTrigger: { trigger: referralRef.current, start: 'top 88%' } }
+        {
+          opacity: 1, x: 0, duration: 0.6, ease: 'power3.out',
+          scrollTrigger: { trigger: referralRef.current, start: 'top 88%' }
+        }
       );
 
       // How-it-works cards stagger up
       gsap.fromTo(
         howRef.current?.querySelectorAll('.how-card'),
         { opacity: 0, y: 40 },
-        { opacity: 1, y: 0, duration: 0.55, ease: 'power2.out', stagger: 0.12,
-          scrollTrigger: { trigger: howRef.current, start: 'top 85%' } }
+        {
+          opacity: 1, y: 0, duration: 0.55, ease: 'power2.out', stagger: 0.12,
+          scrollTrigger: { trigger: howRef.current, start: 'top 85%' }
+        }
       );
 
       // Warning banner scale in
       if (warningRef.current) {
         gsap.fromTo(warningRef.current,
           { opacity: 0, scale: 0.95 },
-          { opacity: 1, scale: 1, duration: 0.5, ease: 'power2.out',
-            scrollTrigger: { trigger: warningRef.current, start: 'top 90%' } }
+          {
+            opacity: 1, scale: 1, duration: 0.5, ease: 'power2.out',
+            scrollTrigger: { trigger: warningRef.current, start: 'top 90%' }
+          }
         );
       }
 
@@ -112,16 +118,16 @@ export default function Dashboard({ toggleTheme, theme, setIsAuth }) {
   );
 
   const stats = [
-    { icon: FaGem,   label: 'Credits',   value: user.credits,           color: 'text-red-400',    ring: 'ring-red-600/20',    iconBg: 'bg-red-600/10 border-red-600/20' },
-    { icon: FaUsers, label: 'Referrals', value: user.referralCount || 0, color: 'text-green-400',  ring: 'ring-green-600/20',  iconBg: 'bg-green-600/10 border-green-600/20' },
-    { icon: FaCoins, label: 'Per Refer', value: '+2',                    color: 'text-yellow-400', ring: 'ring-yellow-600/20', iconBg: 'bg-yellow-600/10 border-yellow-600/20' },
-    { icon: FaKey,   label: 'User ID',   value: user.userId,             color: 'text-blue-400',   ring: 'ring-blue-600/20',   iconBg: 'bg-blue-600/10 border-blue-600/20', isId: true },
+    { icon: FaGem, label: 'Credits', value: user.credits, color: 'text-red-400', ring: 'ring-red-600/20', iconBg: 'bg-red-600/10 border-red-600/20' },
+    { icon: FaUsers, label: 'Referrals', value: user.referralCount || 0, color: 'text-green-400', ring: 'ring-green-600/20', iconBg: 'bg-green-600/10 border-green-600/20' },
+    { icon: FaCoins, label: 'Per Refer', value: '+2', color: 'text-yellow-400', ring: 'ring-yellow-600/20', iconBg: 'bg-yellow-600/10 border-yellow-600/20' },
+    { icon: FaKey, label: 'User ID', value: user.userId, color: 'text-blue-400', ring: 'ring-blue-600/20', iconBg: 'bg-blue-600/10 border-blue-600/20', isId: true },
   ];
 
   const howItWorks = [
-    { icon: FaGift,     title: 'Signup Bonus',  desc: 'Get 3 free credits when you create your account on a new device',         color: 'text-green-400',  bg: 'bg-green-600/10 border-green-600/20' },
-    { icon: FaLink,     title: 'Refer Friends', desc: 'Share your referral link and earn +2 credits per successful signup',      color: 'text-purple-400', bg: 'bg-purple-600/10 border-purple-600/20' },
-    { icon: FaBullseye, title: 'Use Credits',   desc: 'Spend credits to launch attacks from the Attack page',                    color: 'text-red-400',    bg: 'bg-red-600/10 border-red-600/20' },
+    { icon: FaGift, title: 'Signup Bonus', desc: 'Get 3 free credits when you create your account on a new device', color: 'text-green-400', bg: 'bg-green-600/10 border-green-600/20' },
+    { icon: FaLink, title: 'Refer Friends', desc: 'Share your referral link and earn +2 credits per successful signup', color: 'text-purple-400', bg: 'bg-purple-600/10 border-purple-600/20' },
+    { icon: FaBullseye, title: 'Use Credits', desc: 'Spend credits to launch attacks from the Attack page', color: 'text-red-400', bg: 'bg-red-600/10 border-red-600/20' },
   ];
 
   const cardCls = dark
@@ -196,9 +202,8 @@ export default function Dashboard({ toggleTheme, theme, setIsAuth }) {
                     <p className={`font-bold text-sm font-mono truncate ${stat.color}`}>{user.userId}</p>
                     <button
                       onClick={e => { e.stopPropagation(); copyUserId(); }}
-                      className={`shrink-0 w-7 h-7 rounded-lg flex items-center justify-center border transition-all ${
-                        copiedId ? 'bg-green-600/20 border-green-500/40 text-green-400' : 'bg-blue-600/10 border-blue-500/30 text-blue-400 hover:bg-blue-600/20'
-                      }`}
+                      className={`shrink-0 w-7 h-7 rounded-lg flex items-center justify-center border transition-all ${copiedId ? 'bg-green-600/20 border-green-500/40 text-green-400' : 'bg-blue-600/10 border-blue-500/30 text-blue-400 hover:bg-blue-600/20'
+                        }`}
                     >
                       {copiedId ? <FaCheck size={11} /> : <FaCopy size={11} />}
                     </button>
@@ -231,9 +236,8 @@ export default function Dashboard({ toggleTheme, theme, setIsAuth }) {
               </div>
               <button
                 onClick={copyReferral}
-                className={`flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-sm font-bold transition-all active:scale-95 whitespace-nowrap ${
-                  copied ? 'bg-green-600 text-white' : 'bg-red-600 hover:bg-red-500 text-white'
-                }`}
+                className={`flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-sm font-bold transition-all active:scale-95 whitespace-nowrap ${copied ? 'bg-green-600 text-white' : 'bg-red-600 hover:bg-red-500 text-white'
+                  }`}
                 style={{ fontFamily: "'Rajdhani', sans-serif", letterSpacing: '0.05em', boxShadow: '0 4px 16px rgba(220,38,38,0.25)' }}
               >
                 {copied ? <><FaCheck size={13} /> COPIED!</> : <><FaCopy size={13} /> COPY LINK</>}
@@ -256,9 +260,8 @@ export default function Dashboard({ toggleTheme, theme, setIsAuth }) {
               {howItWorks.map((item, i) => (
                 <div
                   key={i}
-                  className={`how-card rounded-xl p-4 border transition-all ${
-                    dark ? 'bg-white/[0.03] border-white/[0.06] hover:bg-white/[0.05]' : 'bg-slate-50 border-slate-200 hover:bg-slate-100'
-                  }`}
+                  className={`how-card rounded-xl p-4 border transition-all ${dark ? 'bg-white/[0.03] border-white/[0.06] hover:bg-white/[0.05]' : 'bg-slate-50 border-slate-200 hover:bg-slate-100'
+                    }`}
                   style={{ opacity: 0 }}
                 >
                   <div className={`w-8 h-8 rounded-xl border flex items-center justify-center mb-3 ${item.bg}`}>
