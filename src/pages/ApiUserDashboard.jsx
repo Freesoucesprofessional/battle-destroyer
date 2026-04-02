@@ -1,4 +1,4 @@
-// src/pages/ApiUserDashboard.jsx - COMPLETELY FIXED
+// src/pages/ApiUserDashboard.jsx - FIXED with better error handling
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import {
@@ -14,6 +14,7 @@ const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 export default function ApiUserDashboard({ toggleTheme, theme, onLogout }) {
     const dark = theme !== 'light';
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
     const [userData, setUserData] = useState(null);
     const [stats, setStats] = useState(null);
     const [activeAttacks, setActiveAttacks] = useState([]);
@@ -34,18 +35,22 @@ export default function ApiUserDashboard({ toggleTheme, theme, onLogout }) {
     const handleLogout = useCallback(async () => {
         localStorage.removeItem('apiUserToken');
         localStorage.removeItem('apiUserData');
+        localStorage.removeItem('apiUserApiKey');
         toast('Logged out successfully');
         setTimeout(() => {
             if (onLogout) onLogout();
-            window.location.href = '/api-login';
+            window.location.href = '/api';
         }, 500);
     }, [toast, onLogout]);
 
     const fetchDashboardData = useCallback(async () => {
         try {
+            setError(null);
             const response = await axios.get(`${API_URL}/api/api-auth/dashboard/stats`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
+
+            console.log('Dashboard response:', response.data);
 
             if (response.data.success) {
                 setUserData(response.data.user);
@@ -55,14 +60,20 @@ export default function ApiUserDashboard({ toggleTheme, theme, onLogout }) {
                 if (response.data.apiKey) {
                     localStorage.setItem('apiUserApiKey', response.data.apiKey);
                 }
+            } else {
+                setError('Invalid response from server');
             }
         } catch (err) {
             console.error('Fetch error:', err);
             if (err.response?.status === 401) {
-                handleLogout();
+                setError('Session expired. Please login again.');
+                setTimeout(() => handleLogout(), 2000);
+            } else if (err.response?.status === 404) {
+                setError('Dashboard endpoint not found. Please check backend.');
             } else {
-                toast('Failed to fetch dashboard data', 'error');
+                setError(err.response?.data?.error || 'Failed to fetch dashboard data');
             }
+            toast(error || 'Failed to fetch dashboard data', 'error');
         } finally {
             setLoading(false);
             setRefreshing(false);
@@ -89,9 +100,10 @@ export default function ApiUserDashboard({ toggleTheme, theme, onLogout }) {
 
     useEffect(() => {
         if (!token) {
-            window.location.href = '/api-login';
+            window.location.href = '/api';
             return;
         }
+        
         fetchDashboardData();
         const interval = setInterval(() => fetchDashboardData(), 15000);
         return () => clearInterval(interval);
@@ -105,6 +117,25 @@ export default function ApiUserDashboard({ toggleTheme, theme, onLogout }) {
             setTimeout(() => setCopied(false), 2000);
         }
     };
+
+    // Show error state
+    if (error) {
+        return (
+            <div className={`min-h-screen flex items-center justify-center ${dark ? 'bg-surface-950' : 'bg-slate-50'}`}>
+                <div className="text-center max-w-md mx-auto p-6">
+                    <FaExclamationTriangle className="text-red-500 text-5xl mx-auto mb-4" />
+                    <h2 className={`text-xl font-bold mb-2 ${dark ? 'text-white' : 'text-slate-900'}`}>Error Loading Dashboard</h2>
+                    <p className={`text-sm mb-4 ${dark ? 'text-slate-400' : 'text-slate-500'}`}>{error}</p>
+                    <button onClick={refreshData} className="px-4 py-2 bg-cyan-600 text-white rounded-lg mr-2">
+                        Retry
+                    </button>
+                    <button onClick={handleLogout} className="px-4 py-2 bg-red-600 text-white rounded-lg">
+                        Go Back
+                    </button>
+                </div>
+            </div>
+        );
+    }
 
     if (loading) {
         return (
@@ -121,10 +152,10 @@ export default function ApiUserDashboard({ toggleTheme, theme, onLogout }) {
         return (
             <div className={`min-h-screen flex items-center justify-center ${dark ? 'bg-surface-950' : 'bg-slate-50'}`}>
                 <div className="text-center">
-                    <FaExclamationTriangle className="text-red-500 text-4xl mx-auto mb-3" />
-                    <p className={dark ? 'text-slate-400' : 'text-slate-500'}>Failed to load dashboard</p>
+                    <FaExclamationTriangle className="text-yellow-500 text-4xl mx-auto mb-3" />
+                    <p className={dark ? 'text-slate-400' : 'text-slate-500'}>No data available</p>
                     <button onClick={refreshData} className="mt-3 px-4 py-2 bg-cyan-600 text-white rounded-lg">
-                        Retry
+                        Refresh
                     </button>
                 </div>
             </div>
@@ -231,6 +262,7 @@ export default function ApiUserDashboard({ toggleTheme, theme, onLogout }) {
                         </div>
                     </div>
 
+                    {/* Rest of your dashboard JSX remains the same... */}
                     {/* Simple Demo Code Section */}
                     <div className={`rounded-xl p-5 border mb-6 ${cardCls}`}>
                         <div className="flex items-center gap-2 mb-4">
