@@ -1,4 +1,3 @@
-// src/pages/ApiUserLogin.jsx
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { FaSignInAlt, FaExclamationTriangle, FaEye, FaEyeSlash } from 'react-icons/fa';
@@ -24,15 +23,18 @@ export default function ApiUserLogin({ toggleTheme, theme, onLogin }) {
     };
 
     useEffect(() => {
-        if (formRef.current) {
-            // GSAP animation
-            const gsap = window.gsap;
-            if (gsap) {
-                gsap.fromTo(formRef.current,
-                    { opacity: 0, y: 40, scale: 0.95 },
-                    { opacity: 1, y: 0, scale: 1, duration: 0.6, ease: 'power3.out' }
-                );
-            }
+        // Check if already logged in
+        const token = localStorage.getItem('apiUserToken');
+        if (token) {
+            window.location.href = '/api-dashboard';
+        }
+        
+        // Animation
+        if (formRef.current && window.gsap) {
+            window.gsap.fromTo(formRef.current,
+                { opacity: 0, y: 40, scale: 0.95 },
+                { opacity: 1, y: 0, scale: 1, duration: 0.6, ease: 'power3.out' }
+            );
         }
     }, []);
 
@@ -97,25 +99,18 @@ export default function ApiUserLogin({ toggleTheme, theme, onLogin }) {
                 dark ? 'bg-surface-800/80 border-white/[0.08] backdrop-blur-xl' : 'bg-white border-slate-200 shadow-xl'
             }`}>
                 {/* Logo */}
-                <div className="absolute -top-10 left-1/2 -translate-x-1/2 w-48 h-48 rounded-full pointer-events-none"
-                    style={{ background: 'radial-gradient(circle, rgba(6,182,212,0.15) 0%, transparent 70%)' }} />
-                
                 <div className="flex items-center gap-3 mb-8">
                     <div className="relative">
                         <div className="absolute inset-0 bg-cyan-600/30 rounded-lg blur-md" />
-                        <img src="/logo512.png" alt="" className="relative w-10 h-10 rounded-xl object-contain"
-                            style={{ filter: 'drop-shadow(0 0 6px rgba(6,182,212,0.5))' }} />
+                        <img src="/logo512.png" alt="" className="relative w-10 h-10 rounded-xl object-contain" />
                     </div>
                     <div>
-                        <p className="text-cyan-500 font-bold tracking-[0.12em] text-sm" style={{ fontFamily: "'Rajdhani', sans-serif" }}>
-                            BATTLE-DESTROYER
-                        </p>
+                        <p className="text-cyan-500 font-bold tracking-[0.12em] text-sm">BATTLE-DESTROYER</p>
                         <p className={`text-xs ${dark ? 'text-slate-500' : 'text-slate-400'}`}>API User Portal</p>
                     </div>
                 </div>
                 
-                <h1 className={`text-2xl font-black mb-1 ${dark ? 'text-white' : 'text-slate-900'}`}
-                    style={{ fontFamily: "'Rajdhani', sans-serif", letterSpacing: '0.04em' }}>
+                <h1 className={`text-2xl font-black mb-1 ${dark ? 'text-white' : 'text-slate-900'}`}>
                     API DASHBOARD
                 </h1>
                 <p className={`text-xs mb-6 ${dark ? 'text-slate-500' : 'text-slate-400'}`}>
@@ -181,7 +176,6 @@ export default function ApiUserLogin({ toggleTheme, theme, onLogin }) {
                                 ? dark ? 'bg-white/[0.05] text-slate-600' : 'bg-slate-100 text-slate-400'
                                 : 'bg-gradient-to-r from-cyan-600 to-cyan-500 hover:from-cyan-500 hover:to-cyan-400 text-white shadow-lg'
                         }`}
-                        style={{ fontFamily: "'Rajdhani', sans-serif", letterSpacing: '0.06em' }}
                     >
                         {loading ? (
                             <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
