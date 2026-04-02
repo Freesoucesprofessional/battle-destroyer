@@ -98,6 +98,8 @@ export default function ConsoleAdminPanel({ toggleTheme, theme }) {
 
     // ── Modals ─────────────────────────────────────────────────
     const [editUserModal, setEditUserModal] = useState(null);
+    const [extendExpiryModal, setExtendExpiryModal] = useState(null);
+    const [extendDays, setExtendDays] = useState(30);
     const [deleteConfirm, setDeleteConfirm] = useState(null);
     const [addResellerModal, setAddResellerModal] = useState(false);
     const [editResellerModal, setEditResellerModal] = useState(null);
@@ -129,7 +131,8 @@ export default function ConsoleAdminPanel({ toggleTheme, theme }) {
         username: '',
         email: '',
         maxConcurrent: 2,
-        maxDuration: 300
+        maxDuration: 300,
+        expirationDays: 30
     });
 
     // ── Helpers ────────────────────────────────────────────────
@@ -163,6 +166,27 @@ export default function ConsoleAdminPanel({ toggleTheme, theme }) {
         localStorage.removeItem('adminToken');
         toast('Logged out successfully');
     }, [toast]);
+
+    const extendApiUserExpiry = async (apiUserId, days) => {
+        setModalLoading(true);
+        try {
+            const csrfToken = await getCsrfToken();
+            const { data } = await apiClient.post(`${API_URL}/api/admin/api-users/${apiUserId}/extend`, {
+                days: days
+            }, {
+                headers: { 'X-CSRF-Token': csrfToken }
+            });
+
+            toast(`✅ Expiration extended by ${days} days! New expiry: ${new Date(data.expiresAt).toLocaleDateString()}`);
+            setExtendExpiryModal(null);
+            loadApiUsers(token, apiUsersSearch, apiUsersPage, apiUsersStatus);
+            loadStats();
+        } catch (err) {
+            toast(err.response?.data?.message || 'Failed to extend expiration', 'error');
+        } finally {
+            setModalLoading(false);
+        }
+    };
 
     // ── Data loaders ───────────────────────────────────────────
     const loadUsers = useCallback(async (tkn, query, page = 1, filter = 'all') => {
@@ -450,12 +474,13 @@ export default function ConsoleAdminPanel({ toggleTheme, theme }) {
                 username: apiUserForm.username,
                 email: apiUserForm.email,
                 maxConcurrent: apiUserForm.maxConcurrent,
-                maxDuration: apiUserForm.maxDuration
+                maxDuration: apiUserForm.maxDuration,
+                expirationDays: apiUserForm.expirationDays || 30  // Add this
             }, {
                 headers: { 'X-CSRF-Token': csrfToken }
             });
 
-            toast(`✅ API User ${data.user.username} created!`, 'success');
+            toast(`✅ API User ${data.user.username} created! Expires: ${new Date(data.user.expiresAt).toLocaleDateString()}`, 'success');
 
             setNewApiSecret(data.user.apiSecret);
             setSelectedApiUser(data.user);
@@ -979,10 +1004,22 @@ export default function ConsoleAdminPanel({ toggleTheme, theme }) {
                                                 <div className="flex-1 min-w-0">
                                                     <div className="flex items-center gap-2 flex-wrap">
                                                         <h3 className={`font-bold text-lg ${dark ? 'text-white' : 'text-slate-900'}`}>{apiUser.username}</h3>
-                                                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${apiUser.status === 'active' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>{apiUser.status}</span>
+                                                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${apiUser.status === 'active' ? 'bg-green-500/20 text-green-400' :
+                                                            apiUser.status === 'expired' ? 'bg-red-500/20 text-red-400' : 'bg-red-500/20 text-red-400'
+                                                            }`}>
+                                                            {apiUser.status}
+                                                        </span>
                                                         <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-500/20 text-blue-400`}>
                                                             Concurrent: {apiUser.currentActive || 0}/{apiUser.limits?.maxConcurrent || 2}
                                                         </span>
+                                                        {/* EXPIRATION BADGE */}
+                                                        {apiUser.expiresAt && (
+                                                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${new Date(apiUser.expiresAt) < new Date() ? 'bg-red-500/20 text-red-400' :
+                                                                apiUser.daysRemaining <= 7 ? 'bg-yellow-500/20 text-yellow-400' : 'bg-green-500/20 text-green-400'
+                                                                }`}>
+                                                                {new Date(apiUser.expiresAt) < new Date() ? 'EXPIRED' : `${apiUser.daysRemaining || 0} days left`}
+                                                            </span>
+                                                        )}
                                                     </div>
                                                     <p className={`text-xs mt-1 ${dark ? 'text-slate-400' : 'text-slate-500'}`}>{apiUser.email}</p>
                                                     <div className="flex flex-wrap gap-3 mt-2 text-xs">
@@ -990,6 +1027,9 @@ export default function ConsoleAdminPanel({ toggleTheme, theme }) {
                                                         <span className={dark ? 'text-slate-500' : 'text-slate-400'}>🎯 {apiUser.totalAttacks || 0} attacks</span>
                                                         <span className={dark ? 'text-slate-500' : 'text-slate-400'}>🔑 {apiUser.apiKey?.slice(0, 12)}...</span>
                                                         <span className={dark ? 'text-slate-500' : 'text-slate-400'}>⏱️ Max Duration: {apiUser.limits?.maxDuration || 300}s</span>
+                                                        {apiUser.expiresAt && (
+                                                            <span className={dark ? 'text-slate-500' : 'text-slate-400'}>📅 Expires: {new Date(apiUser.expiresAt).toLocaleDateString()}</span>
+                                                        )}
                                                     </div>
                                                 </div>
                                                 <div className="flex gap-2">
@@ -1000,6 +1040,11 @@ export default function ConsoleAdminPanel({ toggleTheme, theme }) {
                                                     <button onClick={() => openEditApiUser(apiUser)}
                                                         className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${dark ? 'bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30' : 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200'}`}>
                                                         Edit
+                                                    </button>
+                                                    {/* EXTEND BUTTON */}
+                                                    <button onClick={() => { setSelectedApiUser(apiUser); setExtendExpiryModal(apiUser); setExtendDays(30); }}
+                                                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 ${dark ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30' : 'bg-green-100 text-green-700 hover:bg-green-200'}`}>
+                                                        <FaClock size={10} /> Extend
                                                     </button>
                                                     <button onClick={() => { setSelectedApiUser(apiUser); regenerateApiSecret(); }}
                                                         className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 ${dark ? 'bg-purple-500/20 text-purple-400 hover:bg-purple-500/30' : 'bg-purple-100 text-purple-700 hover:bg-purple-200'}`}>
@@ -1186,7 +1231,7 @@ export default function ConsoleAdminPanel({ toggleTheme, theme }) {
                 </Modal>
             )}
 
-            {/* ── ADD API USER MODAL ── */}
+            {/* ADD API USER MODAL - UPDATED */}
             {addApiUserModal && (
                 <Modal title="CREATE API USER" onClose={() => setAddApiUserModal(false)} dark={dark} size="md">
                     <div className="space-y-4">
@@ -1220,6 +1265,14 @@ export default function ConsoleAdminPanel({ toggleTheme, theme }) {
                                     onChange={e => setApiUserForm(p => ({ ...p, maxDuration: parseInt(e.target.value) || 60 }))} />
                                 <p className="text-[10px] mt-1 text-slate-500">Max attack length in seconds</p>
                             </div>
+                        </div>
+                        {/* ADD EXPIRATION DAYS */}
+                        <div>
+                            <label className={labelCls}>Expiration Days (default: 30)</label>
+                            <input className={inputCls} type="number" min="0" max="365"
+                                value={apiUserForm.expirationDays || 30}
+                                onChange={e => setApiUserForm(p => ({ ...p, expirationDays: parseInt(e.target.value) || 30 }))} />
+                            <p className="text-[10px] mt-1 text-slate-500">Set to 0 for no expiration, or days until account expires</p>
                         </div>
                         <div className="flex gap-3 pt-2">
                             <button onClick={() => setAddApiUserModal(false)}
@@ -1293,6 +1346,65 @@ export default function ConsoleAdminPanel({ toggleTheme, theme }) {
                                 className="flex-1 py-2.5 rounded-xl font-bold text-sm text-white bg-cyan-600 hover:bg-cyan-500 transition-all disabled:opacity-60 flex items-center justify-center gap-2">
                                 {modalLoading ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <FaSave size={12} />}
                                 Save Changes
+                            </button>
+                        </div>
+                    </div>
+                </Modal>
+            )}
+
+            {/* ── EXTEND API USER EXPIRY MODAL ── */}
+            {extendExpiryModal && (
+                <Modal title={`EXTEND EXPIRY — ${extendExpiryModal.username}`} onClose={() => setExtendExpiryModal(null)} dark={dark} size="sm">
+                    <div className="space-y-4">
+                        <div className={`rounded-xl p-3 ${dark ? 'bg-slate-800/50' : 'bg-slate-50'}`}>
+                            <p className={`text-xs ${dark ? 'text-slate-400' : 'text-slate-500'}`}>Current Expiry</p>
+                            <p className={`font-mono text-sm ${dark ? 'text-white' : 'text-slate-900'}`}>
+                                {extendExpiryModal.expiresAt ? new Date(extendExpiryModal.expiresAt).toLocaleDateString() : 'No expiry set'}
+                            </p>
+                            <p className={`text-xs mt-1 ${dark ? 'text-slate-500' : 'text-slate-400'}`}>
+                                Days remaining: {extendExpiryModal.daysRemaining || 0} days
+                            </p>
+                        </div>
+
+                        <div>
+                            <label className={labelCls}>Extend by (days)</label>
+                            <div className="flex gap-2">
+                                <input
+                                    type="number"
+                                    min="1"
+                                    max="365"
+                                    value={extendDays}
+                                    onChange={e => setExtendDays(parseInt(e.target.value) || 1)}
+                                    className={inputCls}
+                                />
+                            </div>
+                            <div className="flex gap-2 mt-2">
+                                {[7, 30, 60, 90, 180, 365].map(days => (
+                                    <button
+                                        key={days}
+                                        onClick={() => setExtendDays(days)}
+                                        className={`px-2 py-1 rounded-lg text-xs font-semibold transition-all ${extendDays === days ? 'bg-cyan-600 text-white' : dark ? 'bg-white/[0.05] text-slate-400' : 'bg-slate-100 text-slate-600'
+                                            }`}
+                                    >
+                                        +{days}d
+                                    </button>
+                                ))}
+                            </div>
+                            <p className={`text-[10px] mt-2 ${dark ? 'text-slate-500' : 'text-slate-400'}`}>
+                                New expiry date: {new Date(Date.now() + extendDays * 24 * 60 * 60 * 1000).toLocaleDateString()}
+                                {extendExpiryModal.expiresAt && ` (was ${new Date(extendExpiryModal.expiresAt).toLocaleDateString()})`}
+                            </p>
+                        </div>
+
+                        <div className="flex gap-3 pt-2">
+                            <button onClick={() => setExtendExpiryModal(null)}
+                                className={`flex-1 py-2.5 rounded-xl font-semibold text-sm transition-all ${dark ? 'bg-white/[0.05] text-slate-400 hover:bg-white/[0.1]' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
+                                Cancel
+                            </button>
+                            <button onClick={() => extendApiUserExpiry(extendExpiryModal._id, extendDays)} disabled={modalLoading}
+                                className="flex-1 py-2.5 rounded-xl font-bold text-sm text-white bg-green-600 hover:bg-green-500 transition-all disabled:opacity-60 flex items-center justify-center gap-2">
+                                {modalLoading ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <FaClock size={12} />}
+                                Extend by {extendDays} days
                             </button>
                         </div>
                     </div>

@@ -1,9 +1,10 @@
-// src/pages/ApiUserDashboard.jsx - FIXED with better error handling
+// src/pages/ApiUserDashboard.jsx - WITH EXPIRATION DISPLAY
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import {
     FaSignOutAlt, FaKey, FaExclamationTriangle, FaBolt, FaCopy, FaCheck,
-    FaCode, FaTerminal, FaPython, FaJs, FaChartLine, FaClock, FaStopCircle
+    FaCode, FaTerminal, FaPython, FaJs, FaChartLine, FaClock, FaStopCircle,
+    FaCalendarAlt
 } from 'react-icons/fa';
 import { MdWbSunny, MdNightlight } from 'react-icons/md';
 import AnimatedBackground from '../components/AnimatedBackground';
@@ -43,23 +44,6 @@ export default function ApiUserDashboard({ toggleTheme, theme, onLogout }) {
         }, 500);
     }, [toast, onLogout]);
 
-    useEffect(() => {
-        if (stats) {
-            // Fix if currentActiveAttacks is an object instead of number
-            if (typeof stats.currentActiveAttacks === 'object') {
-                setStats(prev => ({
-                    ...prev,
-                    currentActiveAttacks: 0,
-                    remainingSlots: prev.limits?.maxConcurrent || 2
-                }));
-            }
-        }
-    }, [stats]);
-
-
-
-    // In ApiUserDashboard.jsx - Fix the useCallback dependency
-
     const fetchDashboardData = useCallback(async () => {
         try {
             setError(null);
@@ -90,13 +74,12 @@ export default function ApiUserDashboard({ toggleTheme, theme, onLogout }) {
             } else {
                 setError(err.response?.data?.error || 'Failed to fetch dashboard data');
             }
-            // FIX: Remove 'error' from here - it's not needed
             toast('Failed to fetch dashboard data', 'error');
         } finally {
             setLoading(false);
             setRefreshing(false);
         }
-    }, [token, toast, handleLogout]);  // FIX: Remove 'error' from dependencies
+    }, [token, toast, handleLogout]);
 
     const refreshData = async () => {
         setRefreshing(true);
@@ -186,6 +169,12 @@ export default function ApiUserDashboard({ toggleTheme, theme, onLogout }) {
     const totalAttacks = stats.totalAttacks || 0;
     const totalRequests = stats.totalRequests || 0;
     const apiKey = localStorage.getItem('apiUserApiKey') || '';
+    
+    // Expiration info
+    const isExpired = userData.isExpired || (userData.expiresAt && new Date(userData.expiresAt) < new Date());
+    const daysRemaining = userData.daysRemaining || 0;
+    const expiresAt = userData.expiresAt;
+    const isExpiringSoon = !isExpired && daysRemaining > 0 && daysRemaining <= 7;
 
     const cardCls = dark
         ? 'bg-surface-800/70 border-white/[0.07] backdrop-blur-xl'
@@ -231,6 +220,21 @@ export default function ApiUserDashboard({ toggleTheme, theme, onLogout }) {
                 </header>
 
                 <div className="max-w-7xl mx-auto px-4 py-6">
+                    {/* EXPIRATION WARNING BANNER */}
+                    {isExpired && (
+                        <div className="mb-4 rounded-xl p-3 bg-red-500/20 border border-red-500/30 text-red-400 text-sm flex items-center gap-2">
+                            <FaExclamationTriangle size={14} /> 
+                            <strong>Account Expired!</strong> Your account has expired. Please contact the administrator to renew.
+                        </div>
+                    )}
+                    
+                    {isExpiringSoon && !isExpired && (
+                        <div className="mb-4 rounded-xl p-3 bg-yellow-500/20 border border-yellow-500/30 text-yellow-400 text-sm flex items-center gap-2">
+                            <FaExclamationTriangle size={14} /> 
+                            <strong>⚠️ Account expiring soon!</strong> Your account will expire in {daysRemaining} day{daysRemaining !== 1 ? 's' : ''}. Contact admin to renew.
+                        </div>
+                    )}
+
                     {/* Active Attacks Section */}
                     {activeAttacks.length > 0 && (
                         <div className={`rounded-xl p-5 border mb-6 ${cardCls}`}>
@@ -274,13 +278,42 @@ export default function ApiUserDashboard({ toggleTheme, theme, onLogout }) {
                         </div>
                         <div className={`rounded-xl p-3 border ${cardCls}`}>
                             <p className={`text-[10px] font-semibold uppercase tracking-wider mb-1 ${dark ? 'text-slate-500' : 'text-slate-400'}`}>Account Status</p>
-                            <p className={`text-lg font-black ${userData.status === 'active' ? 'text-green-500' : 'text-red-500'}`}>
-                                {userData.status.toUpperCase()}
+                            <p className={`text-lg font-black ${isExpired ? 'text-red-500' : userData.status === 'active' ? 'text-green-500' : 'text-red-500'}`}>
+                                {isExpired ? 'EXPIRED' : userData.status.toUpperCase()}
                             </p>
                         </div>
                     </div>
 
-                    {/* Rest of your dashboard JSX remains the same... */}
+                    {/* EXPIRATION INFO CARD - NEW */}
+                    <div className={`rounded-xl p-5 border mb-6 ${cardCls}`}>
+                        <div className="flex items-center gap-2 mb-4">
+                            <FaCalendarAlt className="text-purple-500" size={16} />
+                            <h3 className={`font-bold text-sm ${dark ? 'text-white' : 'text-slate-900'}`}>Account Expiration</h3>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="text-center p-3 rounded-lg bg-purple-500/10">
+                                <p className={`text-[10px] uppercase tracking-wider ${dark ? 'text-slate-400' : 'text-slate-500'}`}>Expires On</p>
+                                <p className={`text-lg font-black ${dark ? 'text-white' : 'text-slate-900'}`}>
+                                    {expiresAt ? new Date(expiresAt).toLocaleDateString() : 'Never'}
+                                </p>
+                            </div>
+                            <div className="text-center p-3 rounded-lg bg-purple-500/10">
+                                <p className={`text-[10px] uppercase tracking-wider ${dark ? 'text-slate-400' : 'text-slate-500'}`}>Days Remaining</p>
+                                <p className={`text-lg font-black ${isExpiringSoon ? 'text-yellow-500' : isExpired ? 'text-red-500' : 'text-green-500'}`}>
+                                    {isExpired ? 'Expired' : daysRemaining > 0 ? `${daysRemaining} days` : 'Never'}
+                                </p>
+                                {!isExpired && daysRemaining > 0 && (
+                                    <>
+                                        {progressBar(daysRemaining, 30, 'bg-purple-500')}
+                                        <p className={`text-[10px] mt-2 ${dark ? 'text-slate-500' : 'text-slate-400'}`}>
+                                            {daysRemaining <= 7 ? '⚠️ Contact admin to renew' : 'Account active'}
+                                        </p>
+                                    </>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
                     {/* Simple Demo Code Section */}
                     <div className={`rounded-xl p-5 border mb-6 ${cardCls}`}>
                         <div className="flex items-center gap-2 mb-4">
