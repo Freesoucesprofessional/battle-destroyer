@@ -9,6 +9,8 @@ import Home      from './pages/Home';
 import Reseller from './pages/Reseller';
 import ResellerPrices from './pages/ResellerPrices';
 import AdminPanel from './pages/ConsoleAdminPanel';
+import ApiUserLogin from './pages/ApiUserLogin'
+import ApiUserDashboard from './pages/ApiUserDashboard';
 
 function App() {
   const [theme, setTheme] = useState(localStorage.getItem('theme') || 'dark');
@@ -35,6 +37,7 @@ function App() {
         {/* Public landing pages — accessible always */}
         <Route path="/"          element={<Home      toggleTheme={toggleTheme} theme={theme} />} />
         <Route path="/reseller" element={<Reseller toggleTheme={toggleTheme} theme={theme} />} />
+        <Route path="/api" element={<ApiUserLogin toggleTheme={toggleTheme} theme={theme} />} />
         <Route path="/reseller-prices" element={<ResellerPrices toggleTheme={toggleTheme} theme={theme} />} />
         <Route path="/contact"   element={<Contact   toggleTheme={toggleTheme} theme={theme} setIsAuth={setIsAuth} />} />
 
@@ -45,6 +48,7 @@ function App() {
         {/* Protected routes */}
         <Route path="/dashboard" element={isAuth ? <Dashboard toggleTheme={toggleTheme} theme={theme} setIsAuth={setIsAuth} /> : <Navigate to="/login" />} />
         <Route path="/attack"    element={isAuth ? <Attack    toggleTheme={toggleTheme} theme={theme} setIsAuth={setIsAuth} /> : <Navigate to="/login" />} />
+        <Route path="/api-dashboard" element={<ApiUserDashboard toggleTheme={toggleTheme} theme={theme} />} />
 
 
         <Route path="/ConsoleAdminPanel-0987" element={<AdminPanel toggleTheme={toggleTheme} theme={theme} />} />
