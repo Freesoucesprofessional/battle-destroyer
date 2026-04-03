@@ -434,28 +434,52 @@ export default function ConsoleAdminPanel({ toggleTheme, theme }) {
         try {
             const user = editUserModal;
             const basicPayload = {
-                username: userForm.username, email: userForm.email,
+                username: userForm.username,
+                email: userForm.email,
                 credits: Number(userForm.credits),
             };
             if (userForm.password) basicPayload.password = userForm.password;
 
+            // First update basic user info
             await makeEncryptedRequest('patch', `${API_URL}/api/admin/users/${user._id}`, basicPayload);
 
+            // Handle Pro subscription changes
             if (userForm.hasPro && !user.isPro) {
+                // Giving Pro for the first time
                 const proPayload = {
                     planType: userForm.proPlan === 'custom' ? 'custom' : userForm.proPlan,
                     ...(userForm.proPlan === 'custom' && { customDays: userForm.proDays })
                 };
+
+                // Validate planType before sending
+                const validPlans = ['week', 'month', 'season', 'custom'];
+                if (!validPlans.includes(proPayload.planType)) {
+                    throw new Error(`Invalid plan type: ${proPayload.planType}. Must be one of: ${validPlans.join(', ')}`);
+                }
+
                 await makeEncryptedRequest('post', `${API_URL}/api/admin/users/${user._id}/give-pro`, proPayload);
                 toast(`✨ ${user.username} now has Pro access!`);
-            } else if (!userForm.hasPro && user.isPro) {
+            }
+            else if (!userForm.hasPro && user.isPro) {
+                // Removing Pro
                 await makeEncryptedRequest('delete', `${API_URL}/api/admin/users/${user._id}/remove-pro`);
                 toast(`❌ Removed Pro from ${user.username}`);
-            } else if (userForm.hasPro && user.isPro) {
+            }
+            else if (userForm.hasPro && user.isPro) {
+                // Modifying existing Pro subscription
+                // Use the correct endpoint based on action
                 const proPayload = {
                     planType: userForm.proPlan === 'custom' ? 'custom' : userForm.proPlan,
                     ...(userForm.proPlan === 'custom' && { customDays: userForm.proDays })
                 };
+
+                // Validate planType before sending
+                const validPlans = ['week', 'month', 'season', 'custom'];
+                if (!validPlans.includes(proPayload.planType)) {
+                    throw new Error(`Invalid plan type: ${proPayload.planType}. Must be one of: ${validPlans.join(', ')}`);
+                }
+
+                // Use 'extend-pro' or 'replace-pro' endpoints
                 const endpoint = userForm.proAction === 'extend' ? 'extend-pro' : 'replace-pro';
                 await makeEncryptedRequest('post', `${API_URL}/api/admin/users/${user._id}/${endpoint}`, proPayload);
                 toast(userForm.proAction === 'extend' ? `➕ Extended Pro for ${user.username}!` : `🔄 Replaced Pro for ${user.username}!`);
@@ -466,7 +490,8 @@ export default function ConsoleAdminPanel({ toggleTheme, theme }) {
             loadUsers(token, searchQuery, usersPage, userFilter);
             loadStats();
         } catch (err) {
-            toast(err.response?.data?.message || 'Failed to update user', 'error');
+            console.error('Save user error:', err);
+            toast(err.response?.data?.message || err.message || 'Failed to update user', 'error');
         } finally {
             setModalLoading(false);
         }
