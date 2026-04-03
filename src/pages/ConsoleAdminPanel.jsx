@@ -255,13 +255,20 @@ export default function ConsoleAdminPanel({ toggleTheme, theme }) {
     const extendApiUserExpiry = async (apiUserId, days) => {
         setModalLoading(true);
         try {
-            const { data } = await makeEncryptedRequest('post', `${API_URL}/api/admin/api-users/${apiUserId}/extend`, { days });
+            // Make sure we're sending the days as a number
+            const response = await makeEncryptedRequest('post', `${API_URL}/api/admin/api-users/${apiUserId}/extend`, {
+                days: parseInt(days)
+            });
+
+            // The response is already decrypted by the interceptor
+            const data = response.data;
 
             toast(`✅ Expiration extended by ${days} days! New expiry: ${new Date(data.expiresAt).toLocaleDateString()}`);
             setExtendExpiryModal(null);
             loadApiUsers(token, apiUsersSearch, apiUsersPage, apiUsersStatus);
             loadStats();
         } catch (err) {
+            console.error('Extend error:', err);
             toast(err.response?.data?.message || 'Failed to extend expiration', 'error');
         } finally {
             setModalLoading(false);
