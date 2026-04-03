@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef, useCallback, useImperativeHandle, forwardRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import CryptoJS from 'crypto-js';
 import {
     FaExclamationTriangle, FaCheckCircle, FaTrash, FaHistory,
     FaGem, FaBullseye, FaBan, FaLock, FaRocket, FaShieldAlt, FaUsers, FaCrown, FaWrench, FaCalendarAlt, FaFire
@@ -9,6 +10,50 @@ import { MdRadar } from 'react-icons/md';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import AnimatedBackground from '../components/AnimatedBackground';
+
+// Add encryption key
+const ENCRYPTION_KEY = process.env.REACT_APP_ENCRYPTION_KEY || 'your-secret-key-2024-battle-destroyer';
+
+/* ─── Crypto helpers ──────────────────────────────────────────── */
+
+// Function to encrypt data before sending
+function encryptData(data) {
+    try {
+        const jsonString = JSON.stringify(data);
+        const encrypted = CryptoJS.AES.encrypt(jsonString, ENCRYPTION_KEY).toString();
+        return encrypted;
+    } catch (error) {
+        console.error('Encryption error:', error);
+        throw new Error('Failed to encrypt data');
+    }
+}
+
+// Function to create SHA256 hash for integrity
+function createHash(data) {
+    const jsonString = JSON.stringify(data);
+    return CryptoJS.SHA256(jsonString + ENCRYPTION_KEY).toString();
+}
+
+// Function to decrypt response from server
+function decryptResponse(encryptedData, hash) {
+    try {
+        const bytes = CryptoJS.AES.decrypt(encryptedData, ENCRYPTION_KEY);
+        const decrypted = bytes.toString(CryptoJS.enc.Utf8);
+        if (!decrypted) throw new Error('Decryption failed');
+        const parsed = JSON.parse(decrypted);
+
+        // Verify hash of decrypted data
+        const calculatedHash = CryptoJS.SHA256(JSON.stringify(parsed) + ENCRYPTION_KEY).toString();
+        if (calculatedHash !== hash) {
+            throw new Error('Response hash verification failed');
+        }
+
+        return parsed;
+    } catch (error) {
+        console.error('Response decryption error:', error);
+        throw new Error('Failed to decrypt response');
+    }
+}
 
 /* ─────────────────────────────────────────────────────────────
    Inline TurnstileWidget (replaces the separate import)
@@ -210,7 +255,7 @@ export default function Attack({ toggleTheme, theme, setIsAuth }) {
     const runningHistoryIdRef = useRef(null);
 
     const TOKEN_MAX_AGE_MS = 270_000;
-    const MAINTENANCE = false;
+    const MAINTENANCE = true;
     const navigate = useNavigate();
     const dark = theme !== 'light';
     const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
@@ -288,11 +333,18 @@ export default function Attack({ toggleTheme, theme, setIsAuth }) {
         if (statusPollRef.current) clearInterval(statusPollRef.current);
         statusPollRef.current = setInterval(async () => {
             try {
-                const token    = localStorage.getItem('token');
+                const token = localStorage.getItem('token');
+                const requestData = { timestamp: Date.now() };
+                const dataHash = createHash(requestData);
+                const encryptedPayload = encryptData(requestData);
+                
                 const response = await axios.get(`${API_URL}/api/panel/attack-status`, {
-                    headers: { Authorization: `Bearer ${token}` }
+                    headers: { Authorization: `Bearer ${token}` },
+                    params: { encrypted: encryptedPayload, hash: dataHash }
                 });
-                if (response.data.data?.status === 'completed') {
+                
+                const decrypted = decryptResponse(response.data.encrypted, response.data.hash);
+                if (decrypted.data?.status === 'completed') {
                     clearInterval(statusPollRef.current);
                     clearInterval(countdownRef.current);
                     setAttackStatus(null);
@@ -307,11 +359,18 @@ export default function Attack({ toggleTheme, theme, setIsAuth }) {
 
     const checkAttackStatus = useCallback(async () => {
         try {
-            const token    = localStorage.getItem('token');
+            const token = localStorage.getItem('token');
+            const requestData = { timestamp: Date.now() };
+            const dataHash = createHash(requestData);
+            const encryptedPayload = encryptData(requestData);
+            
             const response = await axios.get(`${API_URL}/api/panel/attack-status`, {
-                headers: { Authorization: `Bearer ${token}` }
+                headers: { Authorization: `Bearer ${token}` },
+                params: { encrypted: encryptedPayload, hash: dataHash }
             });
-            const data = response.data.data;
+            
+            const decrypted = decryptResponse(response.data.encrypted, response.data.hash);
+            const data = decrypted.data;
             if (data?.status === 'running') {
                 setAttackStatus(data);
                 startCountdown(data.startedAt, data.duration);
@@ -322,21 +381,35 @@ export default function Attack({ toggleTheme, theme, setIsAuth }) {
 
     /* ── Bootstrap - Fetch user with subscription data ── */
     useEffect(() => {
-        const token = localStorage.getItem('token');
-        axios.get(`${API_URL}/api/panel/me`, { headers: { Authorization: `Bearer ${token}` } })
-            .then(r => { 
-                setUser(r.data); 
-                localStorage.setItem('user', JSON.stringify(r.data));
-            })
-            .catch(() => { localStorage.clear(); navigate('/login'); });
+        const fetchUser = async () => {
+            try {
+                const token = localStorage.getItem('token');
+                const requestData = { timestamp: Date.now() };
+                const dataHash = createHash(requestData);
+                const encryptedPayload = encryptData(requestData);
+                
+                const response = await axios.get(`${API_URL}/api/panel/me`, { 
+                    headers: { Authorization: `Bearer ${token}` },
+                    params: { encrypted: encryptedPayload, hash: dataHash }
+                });
+                
+                const decrypted = decryptResponse(response.data.encrypted, response.data.hash);
+                setUser(decrypted);
+                localStorage.setItem('user', JSON.stringify(decrypted));
+            } catch {
+                localStorage.clear();
+                navigate('/login');
+            }
+        };
+        
+        fetchUser();
         checkAttackStatus();
         
-        // Refresh user data every minute to update remaining attacks/credits
+        // Refresh user data every minute
         const interval = setInterval(() => {
+            const token = localStorage.getItem('token');
             if (token) {
-                axios.get(`${API_URL}/api/panel/me`, { headers: { Authorization: `Bearer ${token}` } })
-                    .then(r => { setUser(r.data); })
-                    .catch(() => {});
+                fetchUser();
             }
         }, 60000);
         
@@ -354,12 +427,23 @@ export default function Attack({ toggleTheme, theme, setIsAuth }) {
     }, []);
 
     useEffect(() => {
-        const token = localStorage.getItem('token');
-        axios.get(`${API_URL}/api/panel/stats`, {
-            headers: { Authorization: `Bearer ${token}` }
-        })
-            .then(r => setStats(r.data))
-            .catch(() => {});
+        const fetchStats = async () => {
+            try {
+                const token = localStorage.getItem('token');
+                const requestData = { timestamp: Date.now() };
+                const dataHash = createHash(requestData);
+                const encryptedPayload = encryptData(requestData);
+                
+                const response = await axios.get(`${API_URL}/api/panel/stats`, {
+                    headers: { Authorization: `Bearer ${token}` },
+                    params: { encrypted: encryptedPayload, hash: dataHash }
+                });
+                
+                const decrypted = decryptResponse(response.data.encrypted, response.data.hash);
+                setStats(decrypted);
+            } catch {}
+        };
+        fetchStats();
     }, [API_URL]);
 
     /* ── Captcha ── */
@@ -415,7 +499,7 @@ export default function Attack({ toggleTheme, theme, setIsAuth }) {
         return errs;
     };
 
-    /* ── Launch ── */
+    /* ── Launch with encryption ── */
     const launch = async () => {
         setLaunchError('');
         setLaunched(false);
@@ -440,17 +524,31 @@ export default function Attack({ toggleTheme, theme, setIsAuth }) {
 
         setLaunching(true);
         try {
-            const token  = localStorage.getItem('token');
-            const { data } = await axios.post(
+            const token = localStorage.getItem('token');
+            
+            const requestData = {
+                ip: form.ip,
+                port: form.port,
+                duration: form.duration,
+                captchaToken: captchaToken,
+                timestamp: Date.now(),
+            };
+            
+            const dataHash = createHash(requestData);
+            const encryptedPayload = encryptData(requestData);
+            
+            const response = await axios.post(
                 `${API_URL}/api/panel/attack`,
-                { ip: form.ip, port: form.port, duration: form.duration, captchaToken },
+                { encrypted: encryptedPayload, hash: dataHash, clientVersion: '1.0.0' },
                 { headers: { Authorization: `Bearer ${token}` } }
             );
             
+            const decrypted = decryptResponse(response.data.encrypted, response.data.hash);
+            
             // Update user data
-            if (data.user) {
-                setUser(data.user);
-                localStorage.setItem('user', JSON.stringify(data.user));
+            if (decrypted.user) {
+                setUser(decrypted.user);
+                localStorage.setItem('user', JSON.stringify(decrypted.user));
             }
 
             const status = {
@@ -458,36 +556,54 @@ export default function Attack({ toggleTheme, theme, setIsAuth }) {
                 ip:        form.ip,
                 port:      parseInt(form.port),
                 duration:  parseInt(form.duration),
-                startedAt: data.attack.startedAt,
+                startedAt: decrypted.attack.startedAt,
             };
             addToHistory(status);
             setAttackStatus(status);
             setLaunched(true);
-            startCountdown(data.attack.startedAt, parseInt(form.duration));
+            startCountdown(decrypted.attack.startedAt, parseInt(form.duration));
             startStatusPolling();
             setTimeout(() => setLaunched(false), 3000);
             resetCaptcha();
             setForm({ ip: '', port: '', duration: '' });
             
             // Refresh stats after attack
-            axios.get(`${API_URL}/api/panel/stats`, {
-                headers: { Authorization: `Bearer ${token}` }
-            })
-                .then(r => setStats(r.data))
-                .catch(() => {});
+            const statsRequest = { timestamp: Date.now() };
+            const statsHash = createHash(statsRequest);
+            const statsEncrypted = encryptData(statsRequest);
+            
+            const statsResponse = await axios.get(`${API_URL}/api/panel/stats`, {
+                headers: { Authorization: `Bearer ${token}` },
+                params: { encrypted: statsEncrypted, hash: statsHash }
+            });
+            
+            const statsDecrypted = decryptResponse(statsResponse.data.encrypted, statsResponse.data.hash);
+            setStats(statsDecrypted);
                 
         } catch (err) {
-            const status  = err.response?.status;
-            const msg     = err.response?.data?.message;
-            const credits = err.response?.data?.credits;
-            const remainingAttacks = err.response?.data?.remainingAttacks;
-
-            if (remainingAttacks !== undefined) {
-                setUser(prev => ({ ...prev, remainingAttacks }));
+            let errorMessage = 'Launch failed. Please try again.';
+            let cooldownTime = 5;
+            
+            try {
+                if (err.response?.data?.encrypted) {
+                    const errorDecrypted = decryptResponse(err.response.data.encrypted, err.response.data.hash);
+                    errorMessage = errorDecrypted.message || errorMessage;
+                    cooldownTime = errorDecrypted.cooldown || 5;
+                    
+                    if (errorDecrypted.remainingAttacks !== undefined) {
+                        setUser(prev => ({ ...prev, remainingAttacks: errorDecrypted.remainingAttacks }));
+                    }
+                    if (errorDecrypted.credits !== undefined) {
+                        setUser(prev => ({ ...prev, credits: errorDecrypted.credits }));
+                    }
+                } else {
+                    errorMessage = err.response?.data?.message || errorMessage;
+                }
+            } catch {
+                errorMessage = err.response?.data?.message || errorMessage;
             }
 
-            if (status === 429) {
-                const cooldownTime = err.response?.data?.cooldown || 5;
+            if (err.response?.status === 429) {
                 setLaunchError(`Server is busy. Too many attacks running. Please wait ${cooldownTime} seconds`);
                 setCooldown(cooldownTime);
                 clearInterval(cooldownTimerRef.current);
@@ -497,13 +613,9 @@ export default function Attack({ toggleTheme, theme, setIsAuth }) {
                         return prev - 1;
                     });
                 }, 1000);
-            } else if (msg?.includes('Max concurrent')) {
-                setLaunchError('Server busy. Please try again shortly.');
             } else {
-                setLaunchError(msg || 'Launch failed. Please try again.');
+                setLaunchError(errorMessage);
             }
-
-            if (credits !== undefined) setUser(prev => ({ ...prev, credits }));
             resetCaptcha();
         } finally {
             setLaunching(false);
@@ -569,7 +681,7 @@ export default function Attack({ toggleTheme, theme, setIsAuth }) {
                                 </div>
                             </div>
 
-                            {/* Total Attacks Card - FIXED */}
+                            {/* Total Attacks Card */}
                             <div className={`rounded-2xl p-4 sm:p-5 border transition-all ${cardCls}`}>
                                 <div className="flex items-center gap-3">
                                     <div className="w-9 h-9 rounded-xl bg-red-600/10 border border-red-600/20 flex items-center justify-center shrink-0">
