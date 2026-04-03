@@ -2,14 +2,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
     FaSignOutAlt, FaKey, FaExclamationTriangle, FaBolt, FaCopy, FaCheck,
-    FaCode, FaTerminal, FaPython, FaJs, FaChartLine, FaClock, FaStopCircle,
+    FaCode, FaTerminal, FaPython, FaJs, FaChartLine, FaClock,
     FaCalendarAlt
 } from 'react-icons/fa';
 import { MdWbSunny, MdNightlight } from 'react-icons/md';
 import AnimatedBackground from '../components/AnimatedBackground';
 import Toast from '../admin/Toast';
 import apiUserApiClient from '../utils/apiUserApiClient';
-import axios from 'axios';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 
