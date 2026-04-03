@@ -12,7 +12,7 @@ import {
   FaExclamationCircle,
 } from 'react-icons/fa';
 import { MdWbSunny, MdNightlight } from 'react-icons/md';
-import CaptchaWidget from '../components/CaptchaWidget';
+import HCaptchaWidget from '../components/HCaptchaWidget'; // Changed to hCaptcha
 import PasswordInput from '../components/PasswordInput';
 import AnimatedBackground from '../components/AnimatedBackground';
 
@@ -25,7 +25,7 @@ export default function Login({ toggleTheme, theme, setIsAuth }) {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Stores encrypted captcha data from CaptchaWidget
+  // Stores captcha data from HCaptchaWidget
   const captchaDataRef = useRef(null);
   const captchaRef = useRef(null);
 
@@ -80,9 +80,10 @@ export default function Login({ toggleTheme, theme, setIsAuth }) {
     }
   };
 
-  // Called by CaptchaWidget once PoW + puzzle are both solved
-  const handleVerify = useCallback((encryptedData) => {
-    captchaDataRef.current = encryptedData; // { encrypted, hash }
+  // Called by HCaptchaWidget once captcha is solved
+  const handleVerify = useCallback((captchaData) => {
+    // captchaData contains { token, ekey, timestamp }
+    captchaDataRef.current = captchaData;
     setCaptchaReady(true);
   }, []);
 
@@ -97,7 +98,7 @@ export default function Login({ toggleTheme, theme, setIsAuth }) {
       const requestData = {
         email: form.email,
         password: form.password,
-        captchaData: captchaDataRef.current,
+        captchaData: captchaDataRef.current, // Send the captcha data object
         hp: '',
         timestamp: Date.now(),
       };
@@ -265,14 +266,14 @@ export default function Login({ toggleTheme, theme, setIsAuth }) {
               />
             </div>
 
-            {/* ── CAPTCHA SECTION ── */}
+            {/* ── HCAPTCHA SECTION ── */}
             <div>
               <label className={`bd-label flex items-center gap-1.5 mb-1.5 ${dark ? '' : 'text-slate-500'}`}>
                 <FaShieldAlt size={10} className="text-red-500/70" />
                 Human Verification
               </label>
 
-              <CaptchaWidget
+              <HCaptchaWidget
                 ref={captchaRef}
                 onVerify={handleVerify}
                 onExpire={resetCaptcha}

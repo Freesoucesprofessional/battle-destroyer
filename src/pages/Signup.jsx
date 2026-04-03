@@ -14,7 +14,7 @@ import {
   FaCheckCircle,
 } from 'react-icons/fa';
 import { MdWbSunny, MdNightlight } from 'react-icons/md';
-import CaptchaWidget from '../components/CaptchaWidget';
+import HCaptchaWidget from '../components/HCaptchaWidget'; // Import hCaptcha
 import PasswordInput from '../components/PasswordInput';
 import PasswordStrength from '../components/PasswordStrength';
 import AnimatedBackground from '../components/AnimatedBackground';
@@ -58,8 +58,10 @@ export default function Signup({ toggleTheme, theme, setIsAuth }) {
     captchaRef.current?.reset();
   }, []);
 
-  const handleVerify = useCallback((encryptedData) => {
-    captchaDataRef.current = encryptedData;
+  // Handle hCaptcha verification
+  const handleVerify = useCallback((captchaData) => {
+    // captchaData contains { token, ekey, timestamp } from HCaptchaWidget
+    captchaDataRef.current = captchaData;
     setCaptchaReady(true);
   }, []);
 
@@ -113,7 +115,7 @@ export default function Signup({ toggleTheme, theme, setIsAuth }) {
         email: form.email,
         password: form.password,
         referralCode: form.referralCode,
-        captchaData: captchaDataRef.current,
+        captchaData: captchaDataRef.current, // This is { token, ekey, timestamp }
         fingerprint: fingerprint,
         hp: '',
         timestamp: Date.now(),
@@ -280,7 +282,7 @@ export default function Signup({ toggleTheme, theme, setIsAuth }) {
                 Human Verification
               </label>
 
-              <CaptchaWidget
+              <HCaptchaWidget
                 ref={captchaRef}
                 onVerify={handleVerify}
                 onExpire={resetCaptcha}
