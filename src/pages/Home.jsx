@@ -688,10 +688,6 @@ export default function Home({ toggleTheme, theme }) {
 
                             <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4 mb-6 sm:mb-8">
                                 <div className={`flex items-center gap-2 rounded-full px-2 sm:px-3 py-1 ${dark ? 'bg-white/10' : 'bg-black/5'}`}>
-                                    <FaCode className="text-red-400 text-xs" />
-                                    <span className="text-[10px] sm:text-xs font-mono text-slate-600 dark:text-slate-400">Free API access for resellers</span>
-                                </div>
-                                <div className={`flex items-center gap-2 rounded-full px-2 sm:px-3 py-1 ${dark ? 'bg-white/10' : 'bg-black/5'}`}>
                                     <FaRobot className="text-red-400 text-xs" />
                                     <span className="text-[10px] sm:text-xs font-mono text-slate-600 dark:text-slate-400">Custom bot creation</span>
                                 </div>
