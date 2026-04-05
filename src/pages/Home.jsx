@@ -99,25 +99,39 @@ const STEPS = [
 ];
 
 /* ─── CIRCULAR ANIMATED RED BORDER IMAGE ─── */
-const CircleAnimatedImage = ({ src, alt = '', size = 280 }) => {
-    // Responsive size handling
-    const responsiveSize = typeof window !== 'undefined' && window.innerWidth < 640 ? size * 0.7 : size;
-    
+const CircleAnimatedImage = ({ src, alt = '', size = 120 }) => {
     return (
         <div
-            className="circle-image-wrapper"
-            style={{ width: responsiveSize, height: responsiveSize, position: 'relative', flexShrink: 0, margin: '0 auto' }}
+            style={{
+                width: size,
+                height: size,
+                position: 'relative',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                margin: '0 auto',
+                flexShrink: 0,
+            }}
         >
+            {/* Blur glow ring */}
             <div className="circle-ring circle-ring--blur" />
+            {/* Sharp spinning ring */}
             <div className="circle-ring circle-ring--sharp" />
-            <div
-                className="circle-img"
+            {/* Image */}
+            <img
+                src={src}
+                alt={alt}
                 style={{
-                    backgroundImage: `url(${src})`,
-                    backgroundSize: 'cover',
-                    backgroundPosition: 'center',
+                    position: 'relative',
+                    zIndex: 1,
+                    width: '82%',
+                    height: '82%',
+                    borderRadius: '50%',
+                    objectFit: 'cover',
+                    objectPosition: 'center',
+                    display: 'block',
                 }}
-                aria-label={alt}
+                onError={e => { e.target.style.display = 'none'; }}
             />
         </div>
     );
@@ -142,10 +156,10 @@ export default function Home({ toggleTheme, theme }) {
     const trustRef    = useRef(null);
 
     const STATS = [
-        { value: '10/10', label: 'Success Ratio', icon: FaMedal, gradient: 'from-red-400 to-red-600' },
-        { value: liveStats.totalUsers.toLocaleString(), label: 'Trusted Users', icon: FaUsers, gradient: 'from-red-500 to-red-700' },
-        { value: liveStats.totalAttacks.toLocaleString(), label: 'Attacks Launched', icon: FaBullseye, gradient: 'from-red-600 to-red-800' },
-        { value: '24/7', label: 'Live Support', icon: FaHeadset, gradient: 'from-red-400 to-red-600' },
+        { value: '10/10', label: 'Success Ratio', icon: FaMedal },
+        { value: liveStats.totalUsers.toLocaleString(), label: 'Trusted Users', icon: FaUsers },
+        { value: liveStats.totalAttacks.toLocaleString(), label: 'Attacks Launched', icon: FaBullseye },
+        { value: '24/7', label: 'Live Support', icon: FaHeadset },
     ];
 
     const TRUST_BADGES = [
@@ -164,31 +178,23 @@ export default function Home({ toggleTheme, theme }) {
                 if (res.data) {
                     let attacks = 0;
                     let users = 0;
-
                     if (res.data.totalAttacks !== undefined) attacks = res.data.totalAttacks;
                     else if (res.data.attacks !== undefined) attacks = res.data.attacks;
                     else if (res.data.total_attacks !== undefined) attacks = res.data.total_attacks;
-
                     if (res.data.totalUsers !== undefined) users = res.data.totalUsers;
                     else if (res.data.users !== undefined) users = res.data.users;
                     else if (res.data.total_users !== undefined) users = res.data.total_users;
-
                     if (res.data.data) {
                         if (res.data.data.totalAttacks !== undefined) attacks = res.data.data.totalAttacks;
                         else if (res.data.data.attacks !== undefined) attacks = res.data.data.attacks;
                         if (res.data.data.totalUsers !== undefined) users = res.data.data.totalUsers;
                         else if (res.data.data.users !== undefined) users = res.data.data.users;
                     }
-
                     if (Array.isArray(res.data) && res.data.length > 0) {
                         attacks = res.data[0].totalAttacks || res.data[0].attacks || 0;
                         users = res.data[0].totalUsers || res.data[0].users || 0;
                     }
-
-                    setLiveStats({
-                        totalAttacks: attacks || 1250000,
-                        totalUsers: users || 15000,
-                    });
+                    setLiveStats({ totalAttacks: attacks || 1250000, totalUsers: users || 15000 });
                     setApiError(null);
                 } else {
                     setLiveStats({ totalAttacks: 1250000, totalUsers: 15000 });
@@ -200,7 +206,6 @@ export default function Home({ toggleTheme, theme }) {
                 setLoading(false);
             }
         };
-
         fetchStats();
         const interval = setInterval(fetchStats, 30000);
         return () => clearInterval(interval);
@@ -211,68 +216,48 @@ export default function Home({ toggleTheme, theme }) {
         const ctx = gsap.context(() => {
             if (heroRef.current) {
                 const els = heroRef.current.querySelectorAll('.reveal-up');
-                gsap.fromTo(
-                    Array.from(els),
+                gsap.fromTo(Array.from(els),
                     { opacity: 0, y: -28 },
                     { opacity: 1, y: 0, duration: 0.65, ease: 'power3.out', stagger: 0.13, delay: 0.1 }
                 );
             }
-
             statsRef.current?.querySelectorAll('.reveal-up').forEach((el, i) => {
-                gsap.fromTo(
-                    el,
+                gsap.fromTo(el,
                     { opacity: 0, scale: 0.8, y: 30 },
-                    {
-                        opacity: 1, scale: 1, y: 0, duration: 0.5, ease: 'back.out(1.4)', delay: i * 0.07,
-                        scrollTrigger: { trigger: el, start: 'top 90%', toggleActions: 'play none none reverse' },
-                    }
+                    { opacity: 1, scale: 1, y: 0, duration: 0.5, ease: 'back.out(1.4)', delay: i * 0.07,
+                      scrollTrigger: { trigger: el, start: 'top 90%', toggleActions: 'play none none reverse' } }
                 );
             });
-
             featuresRef.current?.querySelectorAll('.reveal-up').forEach((el, i) => {
                 const isHeading = el.closest('.text-center');
-                gsap.fromTo(
-                    el,
+                gsap.fromTo(el,
                     { opacity: 0, y: isHeading ? 30 : 70, x: isHeading ? 0 : (i % 2 === 0 ? -40 : 40), scale: isHeading ? 1 : 0.88 },
-                    {
-                        opacity: 1, y: 0, x: 0, scale: 1, duration: 0.55, ease: 'power3.out',
-                        delay: isHeading ? 0 : (i % 3) * 0.07,
-                        scrollTrigger: { trigger: el, start: 'top 88%', toggleActions: 'play none none reverse' },
-                    }
+                    { opacity: 1, y: 0, x: 0, scale: 1, duration: 0.55, ease: 'power3.out',
+                      delay: isHeading ? 0 : (i % 3) * 0.07,
+                      scrollTrigger: { trigger: el, start: 'top 88%', toggleActions: 'play none none reverse' } }
                 );
             });
-
             stepsRef.current?.querySelectorAll('.reveal-up').forEach((el, i) => {
-                gsap.fromTo(
-                    el,
+                gsap.fromTo(el,
                     { opacity: 0, y: 60, scale: 0.9 },
-                    {
-                        opacity: 1, y: 0, scale: 1, duration: 0.55, ease: 'power3.out', delay: i * 0.09,
-                        scrollTrigger: { trigger: el, start: 'top 90%', toggleActions: 'play none none reverse' },
-                    }
+                    { opacity: 1, y: 0, scale: 1, duration: 0.55, ease: 'power3.out', delay: i * 0.09,
+                      scrollTrigger: { trigger: el, start: 'top 90%', toggleActions: 'play none none reverse' } }
                 );
             });
-
             trustRef.current?.querySelectorAll('.reveal-up').forEach((el, i) => {
-                gsap.fromTo(
-                    el,
+                gsap.fromTo(el,
                     { opacity: 0, y: 40, rotationX: 15 },
-                    {
-                        opacity: 1, y: 0, rotationX: 0, duration: 0.5, ease: 'back.out(1)',
-                        delay: i * 0.08,
-                        scrollTrigger: { trigger: el, start: 'top 92%', toggleActions: 'play none none reverse' },
-                    }
+                    { opacity: 1, y: 0, rotationX: 0, duration: 0.5, ease: 'back.out(1)',
+                      delay: i * 0.08,
+                      scrollTrigger: { trigger: el, start: 'top 92%', toggleActions: 'play none none reverse' } }
                 );
             });
-
             if (ctaRef.current) {
                 gsap.fromTo(
                     ctaRef.current.querySelector('.reveal-up') ?? ctaRef.current,
                     { opacity: 0, scale: 0.93, y: 40 },
-                    {
-                        opacity: 1, scale: 1, y: 0, duration: 0.65, ease: 'power3.out',
-                        scrollTrigger: { trigger: ctaRef.current, start: 'top 88%', toggleActions: 'play none none reverse' },
-                    }
+                    { opacity: 1, scale: 1, y: 0, duration: 0.65, ease: 'power3.out',
+                      scrollTrigger: { trigger: ctaRef.current, start: 'top 88%', toggleActions: 'play none none reverse' } }
                 );
             }
         });
@@ -285,7 +270,6 @@ export default function Home({ toggleTheme, theme }) {
             <div className="fixed inset-0 bg-grid opacity-30 pointer-events-none z-0" />
 
             <style>{`
-                /* ── Spin slow ── */
                 @keyframes spin-slow {
                     0%   { transform: rotate(0deg); }
                     100% { transform: rotate(360deg); }
@@ -293,7 +277,6 @@ export default function Home({ toggleTheme, theme }) {
                 .animate-spin-slow { animation: spin-slow 3s linear infinite; }
                 .animation-delay-150 { animation-delay: 1.5s; }
 
-                /* ── Text gradient ── */
                 .text-gradient-red {
                     background: linear-gradient(135deg, #ef4444, #dc2626);
                     -webkit-background-clip: text;
@@ -301,7 +284,6 @@ export default function Home({ toggleTheme, theme }) {
                     color: transparent !important;
                 }
 
-                /* ── Section tag pill ── */
                 .bd-section-tag {
                     display: inline-block;
                     padding: 0.25rem 1rem;
@@ -314,8 +296,10 @@ export default function Home({ toggleTheme, theme }) {
                     color: #f87171 !important;
                     border: 1px solid rgba(220, 38, 38, 0.2);
                 }
+                @media (max-width: 768px) {
+                    .bd-section-tag { font-size: 0.6rem; padding: 0.2rem 0.8rem; }
+                }
 
-                /* ── Stat value ── */
                 .stat-value {
                     font-weight: 900;
                     font-size: 1rem;
@@ -325,43 +309,21 @@ export default function Home({ toggleTheme, theme }) {
                     color: transparent;
                 }
                 @media (min-width: 480px) { .stat-value { font-size: 1.25rem; } }
-                @media (min-width: 640px)  { .stat-value { font-size: 1.5rem; } }
-                @media (min-width: 768px)  { .stat-value { font-size: 2rem;  } }
+                @media (min-width: 640px) { .stat-value { font-size: 1.5rem; } }
+                @media (min-width: 768px) { .stat-value { font-size: 2rem; } }
 
-                /* ── @property for conic angle ── */
                 @property --bd-angle {
                     syntax: "<angle>";
                     initial-value: 0deg;
                     inherits: false;
                 }
-
-                /* ── Conic spin keyframe ── */
                 @keyframes bd-spin {
                     from { --bd-angle: 0deg; }
                     to   { --bd-angle: 360deg; }
                 }
 
-                /* ── Circle image wrapper ── */
-                .circle-image-wrapper {
-                    position: relative;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                }
-
-                /* Actual image circle (sits on top, z-index 1) */
-                .circle-img {
-                    position: relative;
-                    z-index: 1;
-                    width: 90%;
-                    height: 90%;
-                    border-radius: 50%;
-                    overflow: hidden;
-                }
-
-                /* Shared ring styles */
+                /* ── Circle rings ── */
                 .circle-ring {
-                    content: '';
                     position: absolute;
                     top: 50%;
                     left: 50%;
@@ -380,39 +342,19 @@ export default function Home({ toggleTheme, theme }) {
                     animation: bd-spin 3.5s linear infinite;
                     pointer-events: none;
                 }
-
-                /* Blurred glow layer behind */
                 .circle-ring--blur {
-                    filter: blur(1rem);
-                    opacity: 0.65;
+                    filter: blur(0.9rem);
+                    opacity: 0.7;
                     z-index: 0;
                 }
-
-                /* Sharp visible ring */
                 .circle-ring--sharp {
                     z-index: 2;
-                    -webkit-mask: radial-gradient(
-                        farthest-side,
-                        transparent calc(100% - 4px),
-                        white calc(100% - 4px)
-                    );
-                    mask: radial-gradient(
-                        farthest-side,
-                        transparent calc(100% - 4px),
-                        white calc(100% - 4px)
-                    );
-                }
-
-                /* Mobile menu improvements */
-                @media (max-width: 768px) {
-                    .bd-section-tag {
-                        font-size: 0.6rem;
-                        padding: 0.2rem 0.8rem;
-                    }
+                    -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 4px), white calc(100% - 4px));
+                    mask: radial-gradient(farthest-side, transparent calc(100% - 4px), white calc(100% - 4px));
                 }
             `}</style>
 
-            {/* ── TOP BAR - Mobile Optimized ── */}
+            {/* ── TOP BAR ── */}
             <header className={`relative z-50 border-b ${dark ? 'border-white/[0.06] bg-surface-900/80 backdrop-blur-xl' : 'border-black/[0.07] bg-white/80 backdrop-blur-xl'}`}>
                 <div className="max-w-6xl mx-auto px-3 sm:px-6 h-14 sm:h-16 flex items-center justify-between">
                     <div className="flex items-center gap-2 sm:gap-3">
@@ -428,10 +370,7 @@ export default function Home({ toggleTheme, theme }) {
                         </span>
                         <span className="inline xs:hidden text-red-500 tracking-[0.1em] font-bold text-[10px]"
                             style={{ fontFamily: "'Rajdhani', sans-serif" }}>
-                            B-DESTROYER
-                        </span>
-                        <span className="hidden md:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-500/20 text-red-400 border border-red-500/30">
-                            #1 BGMI
+                            BATTLE-DESTROYER
                         </span>
                     </div>
 
@@ -446,8 +385,7 @@ export default function Home({ toggleTheme, theme }) {
                                 ].map(item => (
                                     <Link key={item.to} to={item.to}
                                         className={`relative flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold transition-all ${dark ? 'text-slate-400 hover:text-white hover:bg-white/[0.05]' : 'text-slate-500 hover:text-slate-900 hover:bg-black/[0.04]'}`}>
-                                        <item.icon size={14} />
-                                        <span>{item.label}</span>
+                                        <item.icon size={14} /><span>{item.label}</span>
                                     </Link>
                                 ))}
                             </>
@@ -474,8 +412,7 @@ export default function Home({ toggleTheme, theme }) {
                             <Link to="/dashboard"
                                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-white bg-red-600 hover:bg-red-500 transition-all active:scale-95"
                                 style={{ boxShadow: '0 2px 10px rgba(220,38,38,0.35)' }}>
-                                <FaBolt size={11} /> <span className="hidden xs:inline">DASHBOARD</span>
-                                <span className="xs:hidden">DASH</span>
+                                <FaBolt size={11} /><span className="hidden xs:inline">DASHBOARD</span><span className="xs:hidden">DASH</span>
                             </Link>
                         ) : (
                             <Link to="/login"
@@ -487,17 +424,19 @@ export default function Home({ toggleTheme, theme }) {
                 </div>
             </header>
 
-            {/* ── HERO - Mobile Optimized ── */}
+            {/* ── HERO ── */}
             <section ref={heroRef} className="relative z-10 pt-8 sm:pt-20 pb-12 sm:pb-24 px-3 sm:px-6 text-center overflow-hidden">
                 <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[500px] rounded-full pointer-events-none"
                     style={{ background: 'radial-gradient(ellipse at center, rgba(220,38,38,0.15) 0%, rgba(220,38,38,0.08) 50%, transparent 80%)' }} />
 
-                <div className="max-w-5xl mx-auto">
-                    <div className="inline-block mb-4 sm:mb-8">
+                <div className="max-w-5xl mx-auto flex flex-col items-center">
+
+                    {/* ── Centered circle image ── */}
+                    <div className="mb-5 sm:mb-8 flex items-center justify-center w-full">
                         <CircleAnimatedImage
                             src="/bgmi.png"
                             alt="BGMI"
-                            size={100}
+                            size={110}
                         />
                     </div>
 
@@ -519,11 +458,11 @@ export default function Home({ toggleTheme, theme }) {
                     </h1>
 
                     <p className={`reveal-up text-xs sm:text-base md:text-xl mt-3 sm:mt-6 md:mt-8 max-w-2xl mx-auto leading-relaxed font-medium px-2 ${dark ? 'text-slate-300' : 'text-slate-600'}`}>
-                        India's most trusted BGMI Ddos platform.{' '}
+                        India's most trusted BGMI DDoS platform.{' '}
                         <span className="text-red-500 font-bold">10/10 success ratio</span> • Reseller Panel • API • Custom bots • 24/7 support
                     </p>
 
-                    <div className="reveal-up flex flex-col sm:flex-row items-center justify-center gap-2.5 sm:gap-4 mt-5 sm:mt-8 md:mt-10">
+                    <div className="reveal-up flex flex-col sm:flex-row items-center justify-center gap-2.5 sm:gap-4 mt-5 sm:mt-8 md:mt-10 w-full sm:w-auto">
                         {isLoggedIn ? (
                             <Link to="/dashboard"
                                 className="flex items-center gap-2 px-4 sm:px-8 py-2.5 sm:py-4 rounded-xl font-bold text-xs sm:text-base text-white bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 transition-all active:scale-95 group w-full sm:w-auto justify-center"
@@ -558,7 +497,7 @@ export default function Home({ toggleTheme, theme }) {
                 </div>
             </section>
 
-            {/* ── STATS - Mobile Optimized ── */}
+            {/* ── STATS ── */}
             <section ref={statsRef} className="relative z-10 py-8 sm:py-12 px-3 sm:px-6">
                 <div className="max-w-5xl mx-auto">
                     <div className={`rounded-2xl p-3 sm:p-6 md:p-8 border grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-6 ${dark ? 'bg-white/[0.03] border-white/[0.07]' : 'bg-black/[0.02] border-black/[0.07]'}`}>
@@ -573,14 +512,12 @@ export default function Home({ toggleTheme, theme }) {
                         ))}
                     </div>
                     {apiError && (
-                        <p className="text-center text-[10px] text-red-400 mt-3">
-                            Using demo data. API Error: {apiError}
-                        </p>
+                        <p className="text-center text-[10px] text-red-400 mt-3">Using demo data. API Error: {apiError}</p>
                     )}
                 </div>
             </section>
 
-            {/* ── FEATURES - Mobile Optimized ── */}
+            {/* ── FEATURES ── */}
             <section ref={featuresRef} className="relative z-10 py-12 sm:py-20 px-3 sm:px-6">
                 <div className="max-w-6xl mx-auto">
                     <div className="text-center mb-8 sm:mb-14">
@@ -607,7 +544,7 @@ export default function Home({ toggleTheme, theme }) {
                 </div>
             </section>
 
-            {/* ── HOW IT WORKS - Mobile Optimized ── */}
+            {/* ── HOW IT WORKS ── */}
             <section ref={stepsRef} className="relative z-10 py-12 sm:py-20 px-3 sm:px-6 bg-gradient-to-b from-transparent via-red-500/5 to-transparent">
                 <div className="max-w-5xl mx-auto">
                     <div className="text-center mb-8 sm:mb-14">
@@ -637,7 +574,7 @@ export default function Home({ toggleTheme, theme }) {
                 </div>
             </section>
 
-            {/* ── TRUST / TESTIMONIALS - Mobile Optimized ── */}
+            {/* ── TESTIMONIALS ── */}
             <section ref={trustRef} className="relative z-10 py-12 sm:py-16 px-3 sm:px-6">
                 <div className="max-w-6xl mx-auto">
                     <div className="text-center mb-8 sm:mb-12">
@@ -674,7 +611,7 @@ export default function Home({ toggleTheme, theme }) {
                 </div>
             </section>
 
-            {/* ── RESELLER CTA - Mobile Optimized ── */}
+            {/* ── RESELLER CTA ── */}
             <section ref={ctaRef} className="relative z-10 py-12 sm:py-20 px-3 sm:px-6">
                 <div className="max-w-5xl mx-auto">
                     <div className={`reveal-up rounded-2xl sm:rounded-3xl p-5 sm:p-10 md:p-14 border relative overflow-hidden ${dark ? 'bg-gradient-to-br from-red-600/10 via-red-900/20 to-surface-800 border-red-600/30' : 'bg-gradient-to-br from-red-50 via-red-50 to-white border-red-200'}`}>
@@ -684,22 +621,22 @@ export default function Home({ toggleTheme, theme }) {
 
                         <div className="relative z-10 text-center">
                             <p className="bd-section-tag mb-2.5">Start Earning Today</p>
-
                             <h2 className="text-xl sm:text-3xl md:text-5xl font-bold mb-3 text-slate-800 dark:text-white">
                                 Become a <span className="text-gradient-red">Reseller</span>
                             </h2>
-
                             <p className={`text-xs sm:text-base md:text-lg mb-4 sm:mb-6 max-w-xl mx-auto ${dark ? 'text-slate-300' : 'text-slate-600'}`}>
                                 Buy credits in bulk (as low as ₹250/attack). Set your own prices. Complete panel + API access. Earn 4x profit instantly.
                             </p>
-
                             <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-4 mb-5 sm:mb-8">
+                                <div className={`flex items-center gap-1.5 rounded-full px-2 py-1 ${dark ? 'bg-white/10' : 'bg-black/5'}`}>
+                                    <FaCode className="text-red-400 text-[10px]" />
+                                    <span className="text-[9px] sm:text-xs font-mono text-slate-600 dark:text-slate-400">Free API access for resellers</span>
+                                </div>
                                 <div className={`flex items-center gap-1.5 rounded-full px-2 py-1 ${dark ? 'bg-white/10' : 'bg-black/5'}`}>
                                     <FaRobot className="text-red-400 text-[10px]" />
                                     <span className="text-[9px] sm:text-xs font-mono text-slate-600 dark:text-slate-400">Custom bot creation</span>
                                 </div>
                             </div>
-
                             <div className="flex flex-col sm:flex-row items-center justify-center gap-2.5 sm:gap-4">
                                 {isLoggedIn ? (
                                     <Link to="/reseller"
