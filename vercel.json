@@ -1,5 +1,18 @@
 {
   "rewrites": [
     { "source": "/(.*)", "destination": "/" }
+  ],
+  "redirects": [
+    {
+      "source": "/(.*)",
+      "has": [
+        {
+          "type": "host",
+          "value": "battle-destroyer-beta.vercel.app"
+        }
+      ],
+      "destination": "https://www.battle-destroyer.shop/$1",
+      "permanent": true
+    }
   ]
 }
