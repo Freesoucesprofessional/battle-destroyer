@@ -8,7 +8,18 @@
       "has": [
         {
           "type": "host",
-          "value": "battle-destroyer-beta.vercel.app"
+          "value": "battle-destroyer-ten.vercel.app"
+        }
+      ],
+      "destination": "https://www.battle-destroyer.shop/$1",
+      "permanent": true
+    },
+    {
+      "source": "/(.*)",
+      "has": [
+        {
+          "type": "host",
+          "value": "battle-destroyer-lpuq0hq1n-sunnyrajput12345s-projects.vercel.app"
         }
       ],
       "destination": "https://www.battle-destroyer.shop/$1",
