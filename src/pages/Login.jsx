@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import apiClient from '../utils/apiClient'; // Use apiClient
+import { Link } from 'react-router-dom';
+import apiClient from '../utils/apiClient';
 import {
   FaBullseye,
   FaGem,
@@ -9,6 +9,7 @@ import {
   FaArrowRight,
   FaShieldAlt,
   FaExclamationCircle,
+  FaEnvelope,
 } from 'react-icons/fa';
 import { MdWbSunny, MdNightlight } from 'react-icons/md';
 import HCaptchaWidget from '../components/HCaptchaWidget';
@@ -20,11 +21,12 @@ export default function Login({ toggleTheme, theme, setIsAuth }) {
   const [captchaReady, setCaptchaReady] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showResend, setShowResend] = useState(false);
+  const [resendEmail, setResendEmail] = useState('');
 
   const captchaDataRef = useRef(null);
   const captchaRef = useRef(null);
 
-  const navigate = useNavigate();
   const dark = theme !== 'light';
 
   const handle = e => setForm(f => ({ ...f, [e.target.name]: e.target.value }));
@@ -40,9 +42,49 @@ export default function Login({ toggleTheme, theme, setIsAuth }) {
     setCaptchaReady(true);
   }, []);
 
+  const handleResendVerification = async () => {
+    if (!resendEmail && !form.email) {
+      setError('Email is required to resend verification');
+      return;
+    }
+    
+    const emailToResend = resendEmail || form.email;
+    setLoading(true);
+    
+    try {
+      // First, check if user exists and is unverified
+      const response = await apiClient.post('/api/auth/resend-verification-email', {
+        email: emailToResend,
+        captchaData: captchaDataRef.current,
+      });
+      
+      const decryptedResponse = response.data;
+      
+      if (decryptedResponse.success) {
+        setError('');
+        setShowResend(false);
+        // Show success message
+        const successDiv = document.createElement('div');
+        successDiv.className = 'flex items-center gap-2.5 bg-green-500/10 border border-green-500/30 text-green-400 rounded-xl px-4 py-3 mb-5 text-sm';
+        successDiv.innerHTML = `<span>✅ ${decryptedResponse.message}</span>`;
+        const errorContainer = document.querySelector('.error-container');
+        if (errorContainer) errorContainer.innerHTML = '';
+        document.querySelector('form').prepend(successDiv);
+        setTimeout(() => successDiv.remove(), 5000);
+      } else {
+        setError(decryptedResponse.message);
+      }
+    } catch (err) {
+      setError(err.message || 'Failed to resend verification code');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const submit = async e => {
     e.preventDefault();
     setError('');
+    setShowResend(false);
 
     if (!captchaDataRef.current) {
       setError('Please complete the human check.');
@@ -58,19 +100,31 @@ export default function Login({ toggleTheme, theme, setIsAuth }) {
         hp: '',
       });
 
-      // apiClient already decrypts the response
       const decryptedResponse = response.data;
 
       if (!decryptedResponse.success) {
         throw new Error(decryptedResponse.message);
       }
 
+      // Login successful
       localStorage.setItem('token', decryptedResponse.token);
       localStorage.setItem('user', JSON.stringify(decryptedResponse.user));
       setIsAuth(true);
-      navigate('/dashboard');
+      
+      // Use window.location for guaranteed navigation
+      window.location.href = '/dashboard';
+      
     } catch (err) {
-      setError(err.message || 'Login failed. Please try again.');
+      console.error('Login error:', err);
+      
+      // Check if error is about unverified email
+      if (err.message.includes('verify') || err.message.includes('verification')) {
+        setError(`${err.message} Would you like us to resend the verification code?`);
+        setShowResend(true);
+        setResendEmail(form.email);
+      } else {
+        setError(err.message || 'Login failed. Please try again.');
+      }
       resetCaptcha();
     } finally {
       setLoading(false);
@@ -171,9 +225,20 @@ export default function Login({ toggleTheme, theme, setIsAuth }) {
           </p>
 
           {error && (
-            <div className="flex items-center gap-2.5 bg-red-500/10 border border-red-500/30 text-red-400 rounded-xl px-4 py-3 mb-5 text-sm">
-              <FaExclamationCircle size={15} className="shrink-0" />
-              {error}
+            <div className="error-container flex items-start gap-2.5 bg-red-500/10 border border-red-500/30 text-red-400 rounded-xl px-4 py-3 mb-5 text-sm">
+              <FaExclamationCircle size={15} className="shrink-0 mt-0.5" />
+              <div className="flex-1">
+                {error}
+                {showResend && (
+                  <button
+                    onClick={handleResendVerification}
+                    className="block text-red-300 hover:text-red-200 text-xs mt-2 underline"
+                  >
+                    <FaEnvelope className="inline mr-1" size={10} />
+                    Resend Verification Code
+                  </button>
+                )}
+              </div>
             </div>
           )}
 

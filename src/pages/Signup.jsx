@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import apiClient from '../utils/apiClient'; // Use apiClient instead of axios
+import apiClient from '../utils/apiClient';
 import FingerprintJS from '@fingerprintjs/fingerprintjs';
 import {
   FaBullseye,
@@ -25,6 +25,168 @@ const FEATURES = [
   { icon: FaShieldAlt, text: 'Access to Attack Hub' },
 ];
 
+// OTP Verification Component
+function OTPVerification({ email, userId, onVerified, onBack, theme, onResendOTP }) {
+  const [otp, setOtp] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const dark = theme !== 'light';
+
+  const handleVerify = async (e) => {
+    e.preventDefault();
+    if (otp.length !== 6) {
+      setError('Please enter the 6-digit code');
+      return;
+    }
+
+    setError('');
+    setLoading(true);
+
+    try {
+      const response = await apiClient.post('/api/auth/complete-signup', {
+        userId: userId,
+        otp: otp,
+      });
+
+      const decryptedResponse = response.data;
+
+      if (decryptedResponse.success) {
+        localStorage.setItem('token', decryptedResponse.token);
+        localStorage.setItem('user', JSON.stringify(decryptedResponse.user));
+        onVerified(decryptedResponse);
+      } else {
+        setError(decryptedResponse.message || 'Verification failed');
+      }
+    } catch (err) {
+      setError(err.message || 'Verification failed. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResend = async () => {
+    if (resendCooldown > 0) return;
+
+    setError('');
+    setLoading(true);
+
+    try {
+      const response = await apiClient.post('/api/auth/resend-verification', {
+        userId: userId,
+      });
+
+      const decryptedResponse = response.data;
+
+      if (decryptedResponse.success) {
+        setResendCooldown(60);
+        const timer = setInterval(() => {
+          setResendCooldown(prev => {
+            if (prev <= 1) clearInterval(timer);
+            return prev - 1;
+          });
+        }, 1000);
+        setError('');
+      } else {
+        setError(decryptedResponse.message || 'Failed to resend code');
+      }
+    } catch (err) {
+      setError(err.message || 'Failed to resend verification code');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const inputCls = `w-full rounded-xl px-4 py-3 text-sm border outline-none transition text-center text-2xl tracking-wider font-mono ${dark
+    ? 'bg-white/[0.04] border-white/[0.1] text-slate-100 placeholder-slate-600 focus:border-red-500/60'
+    : 'bg-white border-slate-200 text-slate-900 placeholder-slate-400 focus:border-red-500'
+    }`;
+
+  return (
+    <div className="space-y-4">
+      <div className="text-center">
+        <div className="flex justify-center mb-4">
+          <div className="w-16 h-16 rounded-full bg-red-500/10 flex items-center justify-center">
+            <FaShieldAlt className="text-red-500" size={28} />
+          </div>
+        </div>
+        <h3 className={`text-xl font-bold mb-2 ${dark ? 'text-white' : 'text-slate-900'}`}>
+          Verify Your Email
+        </h3>
+        <p className={`text-sm ${dark ? 'text-slate-400' : 'text-slate-500'}`}>
+          We sent a verification code to<br />
+          <strong className="text-red-400">{email}</strong>
+        </p>
+      </div>
+
+      {error && (
+        <div className="bg-red-500/10 border border-red-500/30 text-red-400 rounded-xl px-4 py-3 text-sm">
+          {error}
+        </div>
+      )}
+
+      <form onSubmit={handleVerify} className="space-y-4">
+        <div>
+          <label className={`block text-sm font-medium mb-2 ${dark ? 'text-slate-300' : 'text-slate-700'}`}>
+            Enter 6-Digit Code
+          </label>
+          <input
+            type="text"
+            maxLength={6}
+            value={otp}
+            onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
+            placeholder="000000"
+            className={inputCls}
+            autoFocus
+            autoComplete="off"
+          />
+        </div>
+
+        <button
+          type="submit"
+          disabled={loading || otp.length !== 6}
+          className="w-full flex items-center justify-center gap-2.5 py-3.5 rounded-xl font-bold text-base text-white transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+          style={{
+            background: 'linear-gradient(135deg, #ef4444, #dc2626)',
+            boxShadow: '0 4px 12px rgba(220,38,38,0.3)',
+          }}
+        >
+          {loading ? (
+            <>
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              VERIFYING...
+            </>
+          ) : (
+            <>
+              <FaCheckCircle size={15} />
+              VERIFY EMAIL
+            </>
+          )}
+        </button>
+      </form>
+
+      <div className="text-center space-y-2">
+        <button
+          onClick={handleResend}
+          disabled={resendCooldown > 0 || loading}
+          className={`text-sm transition-colors disabled:opacity-50 ${dark ? 'text-slate-400 hover:text-red-400' : 'text-slate-500 hover:text-red-500'}`}
+        >
+          {resendCooldown > 0 ? `Resend code in ${resendCooldown}s` : 'Resend verification code'}
+        </button>
+
+        <div>
+          <button
+            onClick={onBack}
+            className={`text-sm transition-colors ${dark ? 'text-slate-500 hover:text-slate-400' : 'text-slate-400 hover:text-slate-500'}`}
+          >
+            ← Back to signup
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Signup({ toggleTheme, theme, setIsAuth }) {
   const [form, setForm] = useState({ username: '', email: '', password: '', referralCode: '' });
   const [captchaReady, setCaptchaReady] = useState(false);
@@ -32,6 +194,9 @@ export default function Signup({ toggleTheme, theme, setIsAuth }) {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showOTP, setShowOTP] = useState(false);
+  const [pendingUserId, setPendingUserId] = useState('');
+  const [pendingEmail, setPendingEmail] = useState('');
 
   const captchaDataRef = useRef(null);
   const captchaRef = useRef(null);
@@ -59,6 +224,31 @@ export default function Signup({ toggleTheme, theme, setIsAuth }) {
     setCaptchaReady(true);
   }, []);
 
+  const handleOTPVerified = (userData) => {
+    console.log('OTP verified, user data:', userData);
+
+    if (userData.token) {
+      localStorage.setItem('token', userData.token);
+      localStorage.setItem('user', JSON.stringify(userData.user));
+      setIsAuth(true);
+
+      setSuccess('Email verified! Redirecting to dashboard...');
+      setTimeout(() => {
+        window.location.href = '/dashboard';
+      }, 500);
+    } else {
+      setError('Something went wrong. Please try logging in manually.');
+      setShowOTP(false);
+    }
+  };
+
+  const handleBackToSignup = () => {
+    setShowOTP(false);
+    setPendingUserId('');
+    setPendingEmail('');
+    resetCaptcha();
+  };
+
   const submit = async e => {
     e.preventDefault();
     setError('');
@@ -68,7 +258,7 @@ export default function Signup({ toggleTheme, theme, setIsAuth }) {
       setError('Please complete the human check.');
       return;
     }
-    
+
     if (!fingerprint) {
       setError('Fingerprint not ready, please wait a moment.');
       return;
@@ -76,7 +266,6 @@ export default function Signup({ toggleTheme, theme, setIsAuth }) {
 
     setLoading(true);
     try {
-      // Use apiClient instead of raw axios - it handles encryption automatically
       const response = await apiClient.post('/api/auth/signup', {
         username: form.username,
         email: form.email,
@@ -87,20 +276,27 @@ export default function Signup({ toggleTheme, theme, setIsAuth }) {
         hp: '',
       });
 
-      // apiClient already decrypts the response
       const decryptedResponse = response.data;
 
       if (!decryptedResponse.success) {
         throw new Error(decryptedResponse.message);
       }
 
-      localStorage.setItem('token', decryptedResponse.token);
-      localStorage.setItem('user', JSON.stringify(decryptedResponse.user));
-      setSuccess(decryptedResponse.message || 'Account created! Redirecting…');
-      setIsAuth(true);
-      setTimeout(() => navigate('/dashboard'), 1500);
+      // Check if OTP verification is required
+      if (decryptedResponse.requiresOTP) {
+        setPendingUserId(decryptedResponse.userId);
+        setPendingEmail(form.email);
+        setShowOTP(true);
+        setSuccess('Verification code sent to your email! Please check your inbox.');
+      } else {
+        // Fallback for old flow
+        localStorage.setItem('token', decryptedResponse.token);
+        localStorage.setItem('user', JSON.stringify(decryptedResponse.user));
+        setSuccess(decryptedResponse.message || 'Account created! Redirecting…');
+        setIsAuth(true);
+        setTimeout(() => navigate('/dashboard'), 1500);
+      }
     } catch (err) {
-      // The error message is already extracted by apiClient
       setError(err.message || 'Signup failed. Please try again.');
       resetCaptcha();
     } finally {
@@ -177,103 +373,115 @@ export default function Signup({ toggleTheme, theme, setIsAuth }) {
             </h1>
           </div>
 
-          <h2
-            className={`text-3xl font-bold mb-1 ${dark ? 'text-white' : 'text-slate-900'}`}
-            style={{ fontFamily: "'Rajdhani', sans-serif", letterSpacing: '0.03em' }}
-          >
-            Create account
-          </h2>
-          <p className={`text-sm mb-6 ${dark ? 'text-slate-400' : 'text-slate-500'}`}>
-            Join the battle — free to start
-          </p>
+          {!showOTP ? (
+            <>
+              <h2
+                className={`text-3xl font-bold mb-1 ${dark ? 'text-white' : 'text-slate-900'}`}
+                style={{ fontFamily: "'Rajdhani', sans-serif", letterSpacing: '0.03em' }}
+              >
+                Create account
+              </h2>
+              <p className={`text-sm mb-6 ${dark ? 'text-slate-400' : 'text-slate-500'}`}>
+                Join the battle — free to start
+              </p>
 
-          {error && (
-            <div className="flex items-center gap-2.5 bg-red-500/10 border border-red-500/30 text-red-400 rounded-xl px-4 py-3 mb-4 text-sm">
-              <FaExclamationCircle size={15} className="shrink-0" />{error}
-            </div>
-          )}
-          {success && (
-            <div className="flex items-center gap-2.5 bg-green-500/10 border border-green-500/30 text-green-400 rounded-xl px-4 py-3 mb-4 text-sm">
-              <FaCheckCircle size={15} className="shrink-0" />{success}
-            </div>
-          )}
-
-          <form onSubmit={submit} className="space-y-4">
-            <input
-              name="hp"
-              type="text"
-              tabIndex={-1}
-              autoComplete="off"
-              aria-hidden="true"
-              style={{ display: 'none' }}
-            />
-
-            <div>
-              <label className="bd-label">Username</label>
-              <input name="username" value={form.username} onChange={handle} required placeholder="WarriorXX (3–20 chars)" className={inputCls} />
-            </div>
-            <div>
-              <label className="bd-label">Email</label>
-              <input name="email" type="email" value={form.email} onChange={handle} required placeholder="you@example.com" className={inputCls} />
-            </div>
-            <div>
-              <label className="bd-label">Password</label>
-              <PasswordInput name="password" value={form.password} onChange={handle} theme={theme} placeholder="Min 8 chars, uppercase, number, special" />
-              <PasswordStrength password={form.password} theme={theme} />
-            </div>
-            <div>
-              <label className="bd-label">
-                Referral Code{' '}
-                <span className={`normal-case font-normal ${dark ? 'text-slate-500' : 'text-slate-400'}`}>(optional — get bonus)</span>
-              </label>
-              <input name="referralCode" value={form.referralCode} onChange={handle} placeholder="Enter referral code" className={inputCls} />
-            </div>
-
-            <div>
-              <label className={`bd-label flex items-center gap-1.5 mb-1.5 ${dark ? '' : 'text-slate-500'}`}>
-                <FaShieldAlt size={10} className="text-red-500/70" />
-                Human Verification
-              </label>
-
-              <HCaptchaWidget
-                ref={captchaRef}
-                onVerify={handleVerify}
-                onExpire={resetCaptcha}
-                onError={resetCaptcha}
-                theme={theme}
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading || !captchaReady}
-              className="w-full flex items-center justify-center gap-2.5 py-3.5 rounded-xl font-bold text-base text-white transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100"
-              style={{
-                background: 'linear-gradient(135deg, #ef4444, #dc2626)',
-                boxShadow: captchaReady ? '0 6px 24px rgba(220,38,38,0.35)' : 'none',
-                fontFamily: "'Rajdhani', sans-serif",
-                letterSpacing: '0.06em',
-              }}
-            >
-              {loading ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  CREATING ACCOUNT...
-                </>
-              ) : (
-                <>
-                  <FaBullseye size={15} />
-                  CREATE ACCOUNT
-                  <FaArrowRight size={13} />
-                </>
+              {error && (
+                <div className="flex items-center gap-2.5 bg-red-500/10 border border-red-500/30 text-red-400 rounded-xl px-4 py-3 mb-4 text-sm">
+                  <FaExclamationCircle size={15} className="shrink-0" />{error}
+                </div>
               )}
-            </button>
-          </form>
+              {success && (
+                <div className="flex items-center gap-2.5 bg-green-500/10 border border-green-500/30 text-green-400 rounded-xl px-4 py-3 mb-4 text-sm">
+                  <FaCheckCircle size={15} className="shrink-0" />{success}
+                </div>
+              )}
 
-          <p className={`text-sm text-center mt-5 ${dark ? 'text-slate-500' : 'text-slate-400'}`}>
-            Already have an account?{' '}
-            <Link to="/login" className="text-red-400 hover:text-red-300 font-semibold transition-colors">Login</Link>
-          </p>
+              <form onSubmit={submit} className="space-y-4">
+                <input
+                  name="hp"
+                  type="text"
+                  tabIndex={-1}
+                  autoComplete="off"
+                  aria-hidden="true"
+                  style={{ display: 'none' }}
+                />
+
+                <div>
+                  <label className="bd-label">Username</label>
+                  <input name="username" value={form.username} onChange={handle} required placeholder="WarriorXX (3–20 chars)" className={inputCls} />
+                </div>
+                <div>
+                  <label className="bd-label">Email</label>
+                  <input name="email" type="email" value={form.email} onChange={handle} required placeholder="you@example.com" className={inputCls} />
+                </div>
+                <div>
+                  <label className="bd-label">Password</label>
+                  <PasswordInput name="password" value={form.password} onChange={handle} theme={theme} placeholder="Min 8 chars, uppercase, number, special" />
+                  <PasswordStrength password={form.password} theme={theme} />
+                </div>
+                <div>
+                  <label className="bd-label">
+                    Referral Code{' '}
+                    <span className={`normal-case font-normal ${dark ? 'text-slate-500' : 'text-slate-400'}`}>(optional — get bonus)</span>
+                  </label>
+                  <input name="referralCode" value={form.referralCode} onChange={handle} placeholder="Enter referral code" className={inputCls} />
+                </div>
+
+                <div>
+                  <label className={`bd-label flex items-center gap-1.5 mb-1.5 ${dark ? '' : 'text-slate-500'}`}>
+                    <FaShieldAlt size={10} className="text-red-500/70" />
+                    Human Verification
+                  </label>
+
+                  <HCaptchaWidget
+                    ref={captchaRef}
+                    onVerify={handleVerify}
+                    onExpire={resetCaptcha}
+                    onError={resetCaptcha}
+                    theme={theme}
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loading || !captchaReady}
+                  className="w-full flex items-center justify-center gap-2.5 py-3.5 rounded-xl font-bold text-base text-white transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100"
+                  style={{
+                    background: 'linear-gradient(135deg, #ef4444, #dc2626)',
+                    boxShadow: captchaReady ? '0 6px 24px rgba(220,38,38,0.35)' : 'none',
+                    fontFamily: "'Rajdhani', sans-serif",
+                    letterSpacing: '0.06em',
+                  }}
+                >
+                  {loading ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      CREATING ACCOUNT...
+                    </>
+                  ) : (
+                    <>
+                      <FaBullseye size={15} />
+                      CREATE ACCOUNT
+                      <FaArrowRight size={13} />
+                    </>
+                  )}
+                </button>
+              </form>
+
+              <p className={`text-sm text-center mt-5 ${dark ? 'text-slate-500' : 'text-slate-400'}`}>
+                Already have an account?{' '}
+                <Link to="/login" className="text-red-400 hover:text-red-300 font-semibold transition-colors">Login</Link>
+              </p>
+            </>
+          ) : (
+            <OTPVerification
+              email={pendingEmail}
+              userId={pendingUserId}
+              onVerified={handleOTPVerified}
+              onBack={handleBackToSignup}
+              theme={theme}
+            />
+          )}
         </div>
       </div>
     </div>
