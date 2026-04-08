@@ -381,7 +381,6 @@ export default function Home({ toggleTheme, theme }) {
                                     { to: '/dashboard', icon: FaBolt,     label: 'Dashboard' },
                                     { to: '/attack',    icon: FaBullseye, label: 'Attack'    },
                                     { to: '/reseller',  icon: FaGem,      label: 'Reseller'  },
-                                    { to: '/api-docs',  icon: FaCode,     label: 'API'       },
                                 ].map(item => (
                                     <Link key={item.to} to={item.to}
                                         className={`relative flex items-center gap-2 px-4 py-2 rounded-xl text-base font-semibold transition-all ${dark ? 'text-slate-400 hover:text-white hover:bg-white/[0.05]' : 'text-slate-500 hover:text-slate-900 hover:bg-black/[0.04]'}`}>
@@ -394,10 +393,6 @@ export default function Home({ toggleTheme, theme }) {
                                 <Link to="/reseller"
                                     className={`relative flex items-center gap-2 px-4 py-2 rounded-xl text-base font-semibold transition-all ${dark ? 'text-slate-400 hover:text-white hover:bg-white/[0.05]' : 'text-slate-500 hover:text-slate-900 hover:bg-black/[0.04]'}`}>
                                     <FaGem size={16} /><span>Reseller</span>
-                                </Link>
-                                <Link to="/api-docs"
-                                    className={`relative flex items-center gap-2 px-4 py-2 rounded-xl text-base font-semibold transition-all ${dark ? 'text-slate-400 hover:text-white hover:bg-white/[0.05]' : 'text-slate-500 hover:text-slate-900 hover:bg-black/[0.04]'}`}>
-                                    <FaCode size={16} /><span>API</span>
                                 </Link>
                             </>
                         )}
