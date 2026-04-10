@@ -24,7 +24,7 @@ const plans = [
         bg: 'from-blue-600/10 to-blue-600/5', 
         border: 'border-blue-600/20', 
         popular: false,
-        attacksPerDay: 30,
+        attacksPerDay: "Unlimited",
         maxDuration: 300
     },
     { 
@@ -37,7 +37,7 @@ const plans = [
         bg: 'from-green-600/10 to-green-600/5', 
         border: 'border-green-600/20', 
         popular: true,
-        attacksPerDay: 30,
+        attacksPerDay: "Unlimited",
         maxDuration: 300
     },
     { 
@@ -50,7 +50,7 @@ const plans = [
         bg: 'from-yellow-600/10 to-yellow-600/5', 
         border: 'border-yellow-600/20', 
         popular: false,
-        attacksPerDay: 30,
+        attacksPerDay: "Unlimited",
         maxDuration: 300
     },
 ];
@@ -366,7 +366,7 @@ export default function Contact({ toggleTheme, theme, setIsAuth }) {
                                 PRO FEATURES
                             </p>
                             <p className={`text-xs leading-relaxed ${dark ? 'text-slate-400' : 'text-slate-500'}`}>
-                                Pro users get <span className="font-semibold">Unlitmited attacks per day</span> with{' '}
+                                Pro users get <span className="font-semibold">Unlimited attacks per day</span> with{' '}
                                 <span className="font-semibold">300 seconds max duration</span>. 
                                 Upgrade from your dashboard after logging in.
                             </p>
@@ -386,7 +386,7 @@ export default function Contact({ toggleTheme, theme, setIsAuth }) {
                             <div className="flex items-center gap-2">
                                 <FaBolt className="text-blue-400" size={12} />
                                 <span className={`text-xs ${dark ? 'text-slate-400' : 'text-slate-500'}`}>
-                                     attacks per day
+                                    Unlimited attacks per day
                                 </span>
                             </div>
                             <div className="flex items-center gap-2">
