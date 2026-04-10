@@ -216,7 +216,7 @@ export default function Dashboard({ toggleTheme, theme, setIsAuth }) {
     ];
 
     const howItWorks = user.isPro ? [
-        { icon: FaCrown, title: 'Pro Subscription', desc: '30 attacks per day with 300s max duration — no credits needed', color: 'text-purple-400', bg: 'bg-purple-600/10 border-purple-600/20' },
+        { icon: FaCrown, title: 'Pro Subscription', desc: 'Unlimited attacks with 300s max duration — no credits needed', color: 'text-purple-400', bg: 'bg-purple-600/10 border-purple-600/20' },
         { icon: FaLink, title: 'Refer Friends', desc: 'Share your referral link — earn bonus credits for every successful signup', color: 'text-green-400', bg: 'bg-green-600/10 border-green-600/20' },
         { icon: FaBullseye, title: 'Launch Attacks', desc: 'Enter IP, port, duration. Pass CAPTCHA and fire when ready', color: 'text-red-400', bg: 'bg-red-600/10 border-red-600/20' },
     ] : [
