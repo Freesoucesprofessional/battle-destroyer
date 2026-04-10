@@ -204,7 +204,7 @@ export default function Dashboard({ toggleTheme, theme, setIsAuth }) {
 
     // Stats cards data
     const stats = user.isPro ? [
-        { icon: FaInfinity, label: 'Daily Attacks', value: 'Unlimited', color: 'text-purple-400', iconBg: 'bg-purple-600/10 border-purple-600/20', subtext: '30 attacks / day' },
+        { icon: FaInfinity, label: 'Daily Attacks', value: 'Unlimited', color: 'text-purple-400', iconBg: 'bg-purple-600/10 border-purple-600/20', subtext: 'Unlimited attacks / day' },
         { icon: FaClock, label: 'Max Duration', value: '300', unit: 's', color: 'text-green-400', iconBg: 'bg-green-600/10 border-green-600/20', subtext: 'Pro benefit' },
         { icon: FaCalendarAlt, label: 'Expires In', value: user.subscriptionStatus?.daysLeft ?? 0, unit: ' days', color: (user.subscriptionStatus?.daysLeft ?? 99) <= 3 ? 'text-red-400' : 'text-yellow-400', iconBg: 'bg-yellow-600/10 border-yellow-600/20', subtext: user.subscriptionStatus?.plan || 'Pro Plan' },
         { icon: FaKey, label: 'User ID', value: user.userId, color: 'text-blue-400', iconBg: 'bg-blue-600/10 border-blue-600/20', isId: true },
