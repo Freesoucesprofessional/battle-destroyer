@@ -304,7 +304,7 @@ export default function Dashboard({ toggleTheme, theme, setIsAuth }) {
                     {/* Quick Nav */}
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
                         {[
-                            { to: '/attack', icon: FaBullseye, iconCls: 'text-red-400', iconBg: 'bg-red-600/10 border-red-600/20', label: 'Attack Panel', desc: user.isPro ? '30/day · up to 300s' : `${user.credits} credits · up to 60s`, accentCls: 'text-red-500/40 group-hover:text-red-400' },
+                            { to: '/attack', icon: FaBullseye, iconCls: 'text-red-400', iconBg: 'bg-red-600/10 border-red-600/20', label: 'Attack Panel', desc: user.isPro ? 'Unlimited · up to 300s' : `${user.credits} credits · up to 60s`, accentCls: 'text-red-500/40 group-hover:text-red-400' },
                             { to: '/contact', icon: FaCrown, iconCls: 'text-yellow-400', iconBg: 'bg-yellow-600/10 border-yellow-600/20', label: user.isPro ? 'Manage Plan' : 'Upgrade to Pro', desc: user.isPro ? 'Extend or change plan' : 'Unlimited · 300s · from ₹850', accentCls: 'text-yellow-500/40 group-hover:text-yellow-400' },
                             { to: '/reseller-prices', icon: FaStore, iconCls: 'text-purple-400', iconBg: 'bg-purple-600/10 border-purple-600/20', label: 'Reseller Plans', desc: 'Bulk pricing & reseller deals', accentCls: 'text-purple-500/40 group-hover:text-purple-400' },
                         ].map(item => (
