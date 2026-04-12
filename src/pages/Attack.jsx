@@ -105,7 +105,7 @@ export default function Attack({ toggleTheme, theme, setIsAuth }) {
     const [stats, setStats]                     = useState({ totalAttacks: 0, totalUsers: 0 });
 
     const cooldownTimerRef    = useRef(null);
-    const captchaDataRef      = useRef(null);    // Stores { token, ekey, timestamp }
+    const captchaDataRef      = useRef(null);
     const captchaIssuedRef    = useRef(null);
     const expiryTimerRef      = useRef(null);
     const captchaRef          = useRef(null);

@@ -413,11 +413,20 @@ export default function ConsoleAdminPanel({ toggleTheme, theme }) {
     const extendApiUserExpiry = async (apiUserId, days) => {
         setModalLoading(true);
         try {
-            const { data } = await apiClient.post(`${API_URL}/api/admin/api-users/${apiUserId}/extend`, { days: parseInt(days) });
+            const { data } = await makeEncryptedRequest(
+                'post',
+                `${API_URL}/api/admin/api-users/${apiUserId}/extend`,
+                { days: parseInt(days) }
+            );
             toast(`✅ Expiration extended by ${days} days! New expiry: ${new Date(data.expiresAt).toLocaleDateString()}`);
-            setExtendExpiryModal(null); loadApiUsers(token, apiUsersSearch, apiUsersPage, apiUsersStatus); loadStats();
-        } catch (err) { toast(err.response?.data?.message || 'Failed to extend expiration', 'error'); }
-        finally { setModalLoading(false); }
+            setExtendExpiryModal(null);
+            loadApiUsers(token, apiUsersSearch, apiUsersPage, apiUsersStatus);
+            loadStats();
+        } catch (err) {
+            toast(err.response?.data?.message || 'Failed to extend expiration', 'error');
+        } finally {
+            setModalLoading(false);
+        }
     };
 
     const doDeleteApiUser = async () => {
