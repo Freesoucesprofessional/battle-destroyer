@@ -1,9 +1,10 @@
-// src/pages/ApiUserDashboard.jsx - WITH ENCRYPTION SUPPORT
+// src/pages/ApiUserDashboard.jsx - WITH IP WHITELIST MANAGEMENT
+
 import React, { useState, useEffect, useCallback } from 'react';
 import {
     FaSignOutAlt, FaKey, FaExclamationTriangle, FaBolt, FaCopy, FaCheck,
     FaCode, FaTerminal, FaPython, FaJs, FaChartLine, FaClock,
-    FaCalendarAlt
+    FaCalendarAlt, FaShieldAlt
 } from 'react-icons/fa';
 import { MdWbSunny, MdNightlight } from 'react-icons/md';
 import AnimatedBackground from '../components/AnimatedBackground';
@@ -11,6 +12,241 @@ import Toast from '../admin/Toast';
 import apiUserApiClient from '../utils/apiUserApiClient';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+
+// IP Whitelist Management Component
+const IpWhitelistManager = ({ dark, token, onToast }) => {
+    const [enabled, setEnabled] = useState(false);
+    const [whitelistedIp, setWhitelistedIp] = useState('');
+    const [currentIp, setCurrentIp] = useState('');
+    const [newIp, setNewIp] = useState('');
+    const [loading, setLoading] = useState(false);
+    const [message, setMessage] = useState(null);
+
+    const fetchWhitelistStatus = useCallback(async () => {
+        try {
+            const response = await apiUserApiClient.get(`${API_URL}/api/ip-whitelist`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (response.data.success) {
+                setEnabled(response.data.enabled);
+                setWhitelistedIp(response.data.whitelistedIp || '');
+                setCurrentIp(response.data.currentIp);
+            }
+        } catch (err) {
+            console.error('Failed to fetch whitelist:', err);
+            if (err.response?.status === 404) {
+                console.log('Whitelist endpoint not available');
+            }
+        }
+    }, [token]); // Add token as dependency
+
+    useEffect(() => {
+        fetchWhitelistStatus();
+    }, [fetchWhitelistStatus]); // Add fetchWhitelistStatus as dependency
+
+    const showMessage = (msg, isError = false) => {
+        setMessage({ text: msg, isError });
+        if (onToast) onToast(msg, isError ? 'error' : 'success');
+        setTimeout(() => setMessage(null), 3000);
+    };
+
+    const addCurrentIp = async () => {
+        setLoading(true);
+        try {
+            const response = await apiUserApiClient.post(`${API_URL}/api/ip-whitelist/add-current`, 
+                {},
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+            if (response.data.success) {
+                setWhitelistedIp(response.data.whitelistedIp);
+                showMessage(`✅ Current IP (${response.data.whitelistedIp}) added to whitelist`);
+            }
+        } catch (err) {
+            showMessage(`❌ ${err.response?.data?.error || 'Failed to add IP'}`, true);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const setCustomIp = async () => {
+        if (!newIp.trim()) {
+            showMessage('❌ Please enter an IP address', true);
+            return;
+        }
+        
+        const ipRegex = /^(\d{1,3}\.){3}\d{1,3}$/;
+        if (!ipRegex.test(newIp)) {
+            showMessage('❌ Invalid IP address format', true);
+            return;
+        }
+        
+        setLoading(true);
+        try {
+            const response = await apiUserApiClient.post(`${API_URL}/api/ip-whitelist/set`,
+                { ip: newIp },
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+            if (response.data.success) {
+                setWhitelistedIp(response.data.whitelistedIp);
+                setNewIp('');
+                showMessage(`✅ Whitelist IP set to: ${response.data.whitelistedIp}`);
+            }
+        } catch (err) {
+            showMessage(`❌ ${err.response?.data?.error || 'Failed to set IP'}`, true);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const removeWhitelist = async () => {
+        setLoading(true);
+        try {
+            const response = await apiUserApiClient.delete(`${API_URL}/api/ip-whitelist/remove`,
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+            if (response.data.success) {
+                setWhitelistedIp('');
+                setEnabled(false);
+                showMessage('✅ Whitelist removed');
+            }
+        } catch (err) {
+            showMessage(`❌ ${err.response?.data?.error || 'Failed to remove'}`, true);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const toggleWhitelist = async () => {
+        if (!enabled && !whitelistedIp) {
+            showMessage('❌ Please set an IP address first', true);
+            return;
+        }
+        
+        setLoading(true);
+        try {
+            const response = await apiUserApiClient.post(`${API_URL}/api/ip-whitelist/toggle`,
+                { enabled: !enabled },
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+            if (response.data.success) {
+                setEnabled(!enabled);
+                showMessage(`✅ Whitelist ${!enabled ? 'enabled' : 'disabled'}`);
+            }
+        } catch (err) {
+            showMessage(`❌ ${err.response?.data?.error || 'Failed to toggle'}`, true);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <div className={`rounded-xl p-5 border mb-6 ${dark ? 'bg-surface-800/70 border-white/[0.07]' : 'bg-white border-slate-200'}`}>
+            <div className="flex items-center gap-2 mb-4">
+                <FaShieldAlt className="text-blue-500" size={18} />
+                <h3 className={`font-bold text-sm ${dark ? 'text-white' : 'text-slate-900'}`}>
+                    IP Whitelist Security
+                </h3>
+                {whitelistedIp && (
+                    <span className={`ml-2 text-xs px-2 py-0.5 rounded-full ${enabled ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'}`}>
+                        {enabled ? 'Active' : 'Inactive'}
+                    </span>
+                )}
+            </div>
+
+            {message && (
+                <div className={`mb-4 p-3 rounded-lg text-sm ${message.isError ? 'bg-red-500/20 text-red-400' : 'bg-green-500/20 text-green-400'}`}>
+                    {message.text}
+                </div>
+            )}
+
+            <div className="space-y-4">
+                <div className={`p-3 rounded-lg ${dark ? 'bg-blue-500/10 border border-blue-500/20' : 'bg-blue-50 border border-blue-200'}`}>
+                    <p className="text-xs mb-2">
+                        <strong>Your current IP:</strong> {currentIp || 'Detecting...'}
+                    </p>
+                    <button
+                        onClick={addCurrentIp}
+                        disabled={loading}
+                        className="text-xs px-3 py-1.5 rounded-lg bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 transition-all"
+                    >
+                        Use This IP
+                    </button>
+                </div>
+
+                {whitelistedIp && (
+                    <div className={`p-3 rounded-lg ${dark ? 'bg-green-500/10 border border-green-500/20' : 'bg-green-50 border border-green-200'}`}>
+                        <p className="text-xs mb-1">
+                            <strong>Whitelisted IP:</strong>
+                        </p>
+                        <code className="text-sm font-mono">{whitelistedIp}</code>
+                        <div className="flex gap-2 mt-3">
+                            <button
+                                onClick={toggleWhitelist}
+                                disabled={loading}
+                                className={`text-xs px-3 py-1.5 rounded-lg transition-all ${
+                                    enabled 
+                                        ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30'
+                                        : 'bg-green-500/20 text-green-400 hover:bg-green-500/30'
+                                }`}
+                            >
+                                {enabled ? 'Disable Whitelist' : 'Enable Whitelist'}
+                            </button>
+                            <button
+                                onClick={removeWhitelist}
+                                disabled={loading}
+                                className="text-xs px-3 py-1.5 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-all"
+                            >
+                                Remove IP
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+                <div className="space-y-2">
+                    <label className={`text-xs font-semibold ${dark ? 'text-slate-300' : 'text-slate-700'}`}>
+                        Or set a custom IP address
+                    </label>
+                    <div className="flex gap-2">
+                        <input
+                            type="text"
+                            value={newIp}
+                            onChange={(e) => setNewIp(e.target.value)}
+                            placeholder="e.g., 203.0.113.5"
+                            className={`flex-1 px-3 py-2 rounded-lg text-sm ${
+                                dark 
+                                    ? 'bg-surface-900 border-white/10 text-white' 
+                                    : 'bg-slate-50 border-slate-200 text-slate-900'
+                            } border focus:outline-none focus:ring-1 focus:ring-cyan-500`}
+                        />
+                        <button
+                            onClick={setCustomIp}
+                            disabled={loading || !newIp.trim()}
+                            className="px-4 py-2 rounded-lg bg-cyan-600 text-white text-sm font-semibold hover:bg-cyan-500 disabled:opacity-50 transition-all"
+                        >
+                            Set IP
+                        </button>
+                    </div>
+                    <p className={`text-[10px] ${dark ? 'text-slate-500' : 'text-slate-400'}`}>
+                        Only this single IP will be allowed to access your API when whitelist is enabled
+                    </p>
+                </div>
+
+                {enabled && whitelistedIp && currentIp && whitelistedIp !== currentIp && (
+                    <div className={`p-3 rounded-lg text-xs ${dark ? 'bg-yellow-500/10 text-yellow-400' : 'bg-yellow-50 text-yellow-600'}`}>
+                        ⚠️ Warning: Whitelist is enabled but your current IP ({currentIp}) doesn't match the whitelisted IP ({whitelistedIp}). 
+                        You will be blocked from API access until you update the whitelist or disable it.
+                    </div>
+                )}
+
+                {enabled && whitelistedIp && currentIp && whitelistedIp === currentIp && (
+                    <div className={`p-3 rounded-lg text-xs ${dark ? 'bg-green-500/10 text-green-400' : 'bg-green-50 text-green-600'}`}>
+                        ✅ Whitelist is active. Only requests from IP {whitelistedIp} will be accepted.
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
 
 export default function ApiUserDashboard({ toggleTheme, theme, onLogout }) {
     const dark = theme !== 'light';
@@ -47,14 +283,12 @@ export default function ApiUserDashboard({ toggleTheme, theme, onLogout }) {
     const fetchDashboardData = useCallback(async () => {
         try {
             setError(null);
-            // Use encrypted API client instead of axios
             const response = await apiUserApiClient.get(`${API_URL}/api/api-auth/dashboard/stats`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
 
             console.log('Dashboard response:', response.data);
 
-            // Response is automatically decrypted by apiUserApiClient
             if (response.data.success) {
                 setUserData(response.data.user);
                 setStats(response.data.stats);
@@ -159,7 +393,6 @@ export default function ApiUserDashboard({ toggleTheme, theme, onLogout }) {
     const totalRequests = stats.totalRequests || 0;
     const apiKey = localStorage.getItem('apiUserApiKey') || '';
 
-    // Expiration info
     const isExpired = userData.isExpired || (userData.expiresAt && new Date(userData.expiresAt) < new Date());
     const daysRemaining = userData.daysRemaining || 0;
     const expiresAt = userData.expiresAt;
@@ -299,6 +532,9 @@ export default function ApiUserDashboard({ toggleTheme, theme, onLogout }) {
                             </div>
                         </div>
                     </div>
+
+                    {/* IP WHITELIST MANAGER - ADDED HERE */}
+                    <IpWhitelistManager dark={dark} token={token} onToast={toast} />
 
                     {/* Simple Demo Code Section */}
                     <div className={`rounded-xl p-5 border mb-6 ${cardCls}`}>
