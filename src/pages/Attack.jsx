@@ -73,6 +73,7 @@ function CaptchaSection({ dark, captchaReady, captchaRef, handleVerify, resetCap
         );
     }
 
+    // Show hCaptcha widget when not verified
     return (
         <HCaptchaWidget
             ref={captchaRef}
@@ -101,6 +102,8 @@ export default function Attack({ toggleTheme, theme, setIsAuth }) {
     const [captchaReady, setCaptchaReady] = useState(false);
     const [cooldown, setCooldown] = useState(0);
     const [stats, setStats] = useState({ totalAttacks: 0, totalUsers: 0 });
+    // Add a flag to track if component is mounted
+    const isMounted = useRef(true);
 
     const cooldownTimerRef = useRef(null);
     const captchaDataRef = useRef(null);
@@ -110,23 +113,17 @@ export default function Attack({ toggleTheme, theme, setIsAuth }) {
     const countdownRef = useRef(null);
     const statusPollRef = useRef(null);
     const runningHistoryIdRef = useRef(null);
-    const isProUserRef = useRef(false); // Add a ref to track Pro status persistently
 
     const TOKEN_MAX_AGE_MS = 270_000;
     const MAINTENANCE = false;
     const navigate = useNavigate();
     const dark = theme !== 'light';
 
-    // Calculate Pro status - update ref when it changes
+    // FIX: Use useMemo to prevent unnecessary recalculations
     const isProActive = useMemo(() => {
-        const proStatus = user?.subscription?.type === 'pro' &&
+        return user?.subscription?.type === 'pro' &&
             user?.subscription?.expiresAt &&
             new Date(user.subscription.expiresAt) > new Date();
-        
-        // Update ref to always have latest Pro status
-        isProUserRef.current = proStatus;
-        
-        return proStatus;
     }, [user?.subscription?.type, user?.subscription?.expiresAt]);
 
     const daysLeft = useMemo(() => {
@@ -143,7 +140,13 @@ export default function Attack({ toggleTheme, theme, setIsAuth }) {
         if (saved) { try { setAttackHistory(JSON.parse(saved)); } catch { } }
     }, []);
 
-    useEffect(() => () => clearInterval(cooldownTimerRef.current), []);
+    useEffect(() => {
+        isMounted.current = true;
+        return () => {
+            isMounted.current = false;
+            clearInterval(cooldownTimerRef.current);
+        };
+    }, []);
 
     const saveAttackHistory = useCallback((h) => {
         localStorage.setItem('attackHistory', JSON.stringify(h));
@@ -231,11 +234,15 @@ export default function Attack({ toggleTheme, theme, setIsAuth }) {
         const fetchUser = async () => {
             try {
                 const res = await api.get('/api/panel/me');
-                setUser(res.data);
-                localStorage.setItem('user', JSON.stringify(res.data));
+                if (isMounted.current) {
+                    setUser(res.data);
+                    localStorage.setItem('user', JSON.stringify(res.data));
+                }
             } catch {
-                localStorage.clear();
-                navigate('/login');
+                if (isMounted.current) {
+                    localStorage.clear();
+                    navigate('/login');
+                }
             }
         };
 
@@ -264,40 +271,38 @@ export default function Attack({ toggleTheme, theme, setIsAuth }) {
         const fetchStats = async () => {
             try {
                 const res = await api.get('/api/panel/stats');
-                setStats(res.data);
+                if (isMounted.current) {
+                    setStats(res.data);
+                }
             } catch { }
         };
         fetchStats();
     }, []);
 
-    /* ── Captcha Handlers (completely disabled for Pro users) ── */
+    /* ── Captcha Handlers (for non-Pro users only) ── */
     const resetCaptcha = useCallback(() => {
-        // CRITICAL FIX: Use ref to check Pro status, not state
-        if (isProUserRef.current) {
-            return; // Pro users - do nothing
+        // FIX: Only reset captcha if user is not Pro AND component is mounted
+        if (!isProActive && isMounted.current) {
+            captchaDataRef.current = null;
+            captchaIssuedRef.current = null;
+            setCaptchaReady(false);
+            clearTimeout(expiryTimerRef.current);
+            if (captchaRef.current) {
+                captchaRef.current?.reset();
+            }
         }
-        
-        captchaDataRef.current = null;
-        captchaIssuedRef.current = null;
-        setCaptchaReady(false);
-        clearTimeout(expiryTimerRef.current);
-        if (captchaRef.current) {
-            captchaRef.current.reset();
-        }
-    }, []);
+    }, [isProActive]);
 
     const handleVerify = useCallback((captchaData) => {
-        // CRITICAL FIX: Use ref to check Pro status, not state
-        if (isProUserRef.current) {
-            return; // Pro users - do nothing
+        // FIX: Only handle verification if user is not Pro AND component is mounted
+        if (!isProActive && isMounted.current) {
+            captchaDataRef.current = captchaData;
+            captchaIssuedRef.current = Date.now();
+            setCaptchaReady(true);
+            clearTimeout(expiryTimerRef.current);
+            expiryTimerRef.current = setTimeout(resetCaptcha, TOKEN_MAX_AGE_MS);
         }
-        
-        captchaDataRef.current = captchaData;
-        captchaIssuedRef.current = Date.now();
-        setCaptchaReady(true);
-        clearTimeout(expiryTimerRef.current);
-        expiryTimerRef.current = setTimeout(resetCaptcha, TOKEN_MAX_AGE_MS);
-    }, [resetCaptcha]);
+    }, [resetCaptcha, isProActive]);
 
     /* ── Form ── */
     const handle = e => {
@@ -330,12 +335,13 @@ export default function Attack({ toggleTheme, theme, setIsAuth }) {
         return errs;
     };
 
-    /* ── Launch ── */
+    /* ── Launch (Skip captcha for Pro users) ── */
     const launch = async () => {
         setLaunchError('');
         setLaunched(false);
         setAttackCompleted(false);
 
+        // Validate form first
         const errs = validate();
         if (Object.keys(errs).length > 0) {
             setErrors(errs);
@@ -347,11 +353,8 @@ export default function Attack({ toggleTheme, theme, setIsAuth }) {
             return;
         }
 
-        // Use ref for consistent Pro status check
-        const isPro = isProUserRef.current;
-
         // Only check captcha for non-Pro users
-        if (!isPro) {
+        if (!isProActive) {
             const captchaData = captchaDataRef.current;
             const issuedAt = captchaIssuedRef.current;
 
@@ -370,6 +373,7 @@ export default function Attack({ toggleTheme, theme, setIsAuth }) {
         setLaunching(true);
 
         try {
+            // Prepare request data - only include captchaData for non-Pro users
             const requestData = {
                 ip: form.ip,
                 port: form.port,
@@ -377,7 +381,7 @@ export default function Attack({ toggleTheme, theme, setIsAuth }) {
             };
 
             // Only add captchaData for non-Pro users
-            if (!isPro) {
+            if (!isProActive) {
                 requestData.captchaData = captchaDataRef.current;
             }
 
@@ -387,12 +391,9 @@ export default function Attack({ toggleTheme, theme, setIsAuth }) {
 
             const data = res.data;
 
-            // Update user but preserve Pro status check
-            if (data.user) {
+            if (data.user && isMounted.current) {
                 setUser(data.user);
                 localStorage.setItem('user', JSON.stringify(data.user));
-                // Update ref with new Pro status
-                isProUserRef.current = data.user.isPro || (data.user.subscription?.type === 'pro');
             }
 
             const status = {
@@ -409,25 +410,28 @@ export default function Attack({ toggleTheme, theme, setIsAuth }) {
             startStatusPolling();
             setTimeout(() => setLaunched(false), 3000);
 
-            // Only reset captcha for non-Pro users
-            if (!isProUserRef.current) {
+            // FIX: Only reset captcha for non-Pro users
+            if (!isProActive && isMounted.current) {
                 resetCaptcha();
             }
 
             setForm({ ip: '', port: '', duration: '' });
 
+            // Refresh stats
             const statsRes = await api.get('/api/panel/stats');
-            setStats(statsRes.data);
+            if (isMounted.current) {
+                setStats(statsRes.data);
+            }
 
         } catch (err) {
             const decoded = err.decrypted ?? {};
             let errorMessage = decoded.message || 'Launch failed. Please try again.';
             const cooldownTime = decoded.cooldown ?? 5;
 
-            if (decoded.remainingAttacks !== undefined) {
+            if (decoded.remainingAttacks !== undefined && isMounted.current) {
                 setUser(prev => ({ ...prev, remainingAttacks: decoded.remainingAttacks }));
             }
-            if (decoded.credits !== undefined) {
+            if (decoded.credits !== undefined && isMounted.current) {
                 setUser(prev => ({ ...prev, credits: decoded.credits }));
             }
 
@@ -445,12 +449,14 @@ export default function Attack({ toggleTheme, theme, setIsAuth }) {
                 setLaunchError(errorMessage);
             }
 
-            // Only reset captcha for non-Pro users
-            if (!isProUserRef.current) {
+            // FIX: Only reset captcha for non-Pro users
+            if (!isProActive && isMounted.current) {
                 resetCaptcha();
             }
         } finally {
-            setLaunching(false);
+            if (isMounted.current) {
+                setLaunching(false);
+            }
         }
     };
 
@@ -459,6 +465,9 @@ export default function Attack({ toggleTheme, theme, setIsAuth }) {
     const progressPct = attackStatus
         ? Math.min(100, Math.round(((attackStatus.duration - timeLeft) / attackStatus.duration) * 100))
         : 0;
+
+    // Force hide captcha for Pro users
+    const showCaptcha = !isProActive;
 
     /* ── Loading ── */
     if (!user) return (
@@ -671,7 +680,7 @@ export default function Attack({ toggleTheme, theme, setIsAuth }) {
                                 )}
 
                                 {/* CAPTCHA SECTION - Only show for non-Pro users */}
-                                {!isProActive && (
+                                {showCaptcha && (
                                     <CaptchaSection
                                         dark={dark}
                                         captchaReady={captchaReady}
