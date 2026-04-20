@@ -394,8 +394,6 @@ export default function Attack({ toggleTheme, theme, setIsAuth }) {
                 resetCaptcha();
             }
 
-            setForm({ ip: '', port: '', duration: '' });
-
             const statsRes = await api.get('/api/panel/stats');
             setStats(statsRes.data);
 
