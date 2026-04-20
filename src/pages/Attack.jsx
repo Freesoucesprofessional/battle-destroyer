@@ -153,149 +153,67 @@ export default function Attack({ toggleTheme, theme, setIsAuth }) {
 
     const markRunningComplete = useCallback(() => {
         const rid = runningHistoryIdRef.current;
-        if (rid) {
-            setAttackHistory(prev => {
-                const updated = prev.map(a =>
-                    a.id === rid ? { ...a, status: 'completed', completedAt: new Date().toISOString() } : a
-                );
-                localStorage.setItem('attackHistory', JSON.stringify(updated));
-                return updated;
-            });
-            runningHistoryIdRef.current = null;
-        }
+        setAttackHistory(prev => {
+            const updated = prev.map(a =>
+                a.id === rid ? { ...a, status: 'completed', completedAt: new Date().toISOString() } : a
+            );
+            localStorage.setItem('attackHistory', JSON.stringify(updated));
+            return updated;
+        });
+        runningHistoryIdRef.current = null;
     }, []);
 
     const clearHistory = useCallback(() => {
         if (window.confirm('Clear all attack history? This cannot be undone.')) saveAttackHistory([]);
     }, [saveAttackHistory]);
 
-    /* ── Fixed Countdown Timer ── */
+    /* ── Countdown + polling ── */
     const startCountdown = useCallback((startedAt, duration) => {
-        // Clear any existing timer
-        if (countdownRef.current) {
-            clearInterval(countdownRef.current);
-            countdownRef.current = null;
-        }
-        
-        // Parse the server timestamp correctly
-        const serverStartTime = new Date(startedAt).getTime();
-        
-        // Validate the timestamp
-        if (isNaN(serverStartTime)) {
-            console.error('Invalid startedAt timestamp:', startedAt);
-            return;
-        }
-        
-        const clientNow = Date.now();
-        
-        // Calculate initial elapsed time
-        let initialElapsed = (clientNow - serverStartTime) / 1000;
-        let remaining = Math.floor(duration - initialElapsed);
-        
-        // Log timing for debugging
-        console.log('Timer Debug:', {
-            serverStartTime: new Date(serverStartTime).toISOString(),
-            clientNow: new Date(clientNow).toISOString(),
-            initialElapsed: initialElapsed.toFixed(2),
-            duration,
-            remaining
-        });
-        
-        // If already expired, don't start countdown
-        if (remaining <= 0) {
-            setAttackStatus(null);
-            setTimeLeft(0);
-            setAttackCompleted(true);
-            markRunningComplete();
-            setTimeout(() => setAttackCompleted(false), 5000);
-            return;
-        }
-        
-        // Set initial time
-        setTimeLeft(remaining);
-        
-        // Start the countdown timer
+        if (countdownRef.current) clearInterval(countdownRef.current);
         const tick = () => {
-            const now = Date.now();
-            const elapsed = (now - serverStartTime) / 1000;
-            const newRemaining = Math.floor(duration - elapsed);
-            
-            if (newRemaining <= 0) {
-                // Attack completed
+            const elapsed = (Date.now() - new Date(startedAt).getTime()) / 1000;
+            const remaining = Math.max(0, Math.floor(duration - elapsed));
+            setTimeLeft(remaining);
+            if (remaining <= 0) {
                 clearInterval(countdownRef.current);
-                countdownRef.current = null;
                 setAttackStatus(null);
-                setTimeLeft(0);
                 setAttackCompleted(true);
                 markRunningComplete();
                 setTimeout(() => setAttackCompleted(false), 5000);
-            } else {
-                setTimeLeft(newRemaining);
             }
         };
-        
+        tick();
         countdownRef.current = setInterval(tick, 1000);
     }, [markRunningComplete]);
 
-    /* ── Fixed Status Polling ── */
     const startStatusPolling = useCallback(() => {
-        if (statusPollRef.current) {
-            clearInterval(statusPollRef.current);
-            statusPollRef.current = null;
-        }
-        
+        if (statusPollRef.current) clearInterval(statusPollRef.current);
         statusPollRef.current = setInterval(async () => {
             try {
                 const res = await api.get('/api/panel/attack-status');
-                const data = res.data?.data;
-                
-                if (data?.status === 'completed') {
-                    // Attack completed on server
+                if (res.data?.data?.status === 'completed') {
                     clearInterval(statusPollRef.current);
-                    statusPollRef.current = null;
-                    
-                    if (countdownRef.current) {
-                        clearInterval(countdownRef.current);
-                        countdownRef.current = null;
-                    }
-                    
+                    clearInterval(countdownRef.current);
                     setAttackStatus(null);
                     setTimeLeft(0);
                     setAttackCompleted(true);
                     markRunningComplete();
                     setTimeout(() => setAttackCompleted(false), 5000);
-                } else if (data?.status === 'running' && data?.startedAt && attackStatus) {
-                    // Sync with server if there's a significant time difference
-                    const serverStartTime = new Date(data.startedAt).getTime();
-                    const serverDuration = data.duration;
-                    const elapsed = (Date.now() - serverStartTime) / 1000;
-                    const serverRemaining = Math.floor(serverDuration - elapsed);
-                    
-                    // If difference is more than 2 seconds, resync
-                    if (Math.abs(serverRemaining - timeLeft) > 2 && serverRemaining > 0) {
-                        console.log('Resyncing timer:', { old: timeLeft, new: serverRemaining });
-                        setTimeLeft(serverRemaining);
-                    }
                 }
-            } catch (err) {
-                console.error('Status polling error:', err);
-            }
-        }, 5000); // Poll every 5 seconds instead of 10 for better accuracy
-    }, [attackStatus, timeLeft, markRunningComplete]);
+            } catch { }
+        }, 10000);
+    }, [markRunningComplete]);
 
     const checkAttackStatus = useCallback(async () => {
         try {
             const res = await api.get('/api/panel/attack-status');
             const data = res.data?.data;
-            
-            if (data?.status === 'running' && data?.startedAt && data?.duration) {
+            if (data?.status === 'running') {
                 setAttackStatus(data);
                 startCountdown(data.startedAt, data.duration);
                 startStatusPolling();
             }
-        } catch (err) {
-            console.error('Error checking attack status:', err);
-        }
+        } catch { }
     }, [startCountdown, startStatusPolling]);
 
     /* ── Bootstrap ── */
@@ -319,16 +237,16 @@ export default function Attack({ toggleTheme, theme, setIsAuth }) {
         }, 60000);
 
         return () => {
-            if (countdownRef.current) clearInterval(countdownRef.current);
-            if (statusPollRef.current) clearInterval(statusPollRef.current);
+            clearInterval(countdownRef.current);
+            clearInterval(statusPollRef.current);
             clearInterval(interval);
         };
     }, [navigate, checkAttackStatus]);
 
     useEffect(() => () => {
         clearTimeout(expiryTimerRef.current);
-        if (countdownRef.current) clearInterval(countdownRef.current);
-        if (statusPollRef.current) clearInterval(statusPollRef.current);
+        clearInterval(countdownRef.current);
+        clearInterval(statusPollRef.current);
     }, []);
 
     /* ── Stats ── */
@@ -398,7 +316,7 @@ export default function Attack({ toggleTheme, theme, setIsAuth }) {
         return errs;
     };
 
-    /* ── Fixed Launch Function ── */
+    /* ── Launch ── */
     const launch = async () => {
         setLaunchError('');
         setLaunched(false);
@@ -437,8 +355,8 @@ export default function Attack({ toggleTheme, theme, setIsAuth }) {
         try {
             const requestData = {
                 ip: form.ip,
-                port: parseInt(form.port),
-                duration: parseInt(form.duration)
+                port: form.port,
+                duration: form.duration
             };
 
             // Only include captcha for FREE users
@@ -457,45 +375,24 @@ export default function Attack({ toggleTheme, theme, setIsAuth }) {
                 localStorage.setItem('user', JSON.stringify(data.user));
             }
 
-            // Validate the attack data
-            if (!data.attack || !data.attack.startedAt) {
-                throw new Error('Invalid response from server');
-            }
-
-            const startedAt = data.attack.startedAt;
-            const duration = parseInt(form.duration);
-            
-            // Ensure startedAt is a valid timestamp
-            const serverStartTime = new Date(startedAt).getTime();
-            if (isNaN(serverStartTime)) {
-                throw new Error('Invalid timestamp received from server');
-            }
-
             const status = {
                 status: 'running',
                 ip: form.ip,
                 port: parseInt(form.port),
-                duration: duration,
-                startedAt: startedAt,
+                duration: parseInt(form.duration),
+                startedAt: data.attack.startedAt,
             };
-            
             addToHistory(status);
             setAttackStatus(status);
             setLaunched(true);
-            
-            // Start the countdown with the server timestamp
-            startCountdown(startedAt, duration);
+            startCountdown(data.attack.startedAt, parseInt(form.duration));
             startStatusPolling();
-            
             setTimeout(() => setLaunched(false), 3000);
 
             // Only reset captcha for FREE users
             if (!isProActive) {
                 resetCaptcha();
             }
-
-            // Clear form after successful launch (optional)
-            setForm({ ip: '', port: '', duration: '' });
 
             const statsRes = await api.get('/api/panel/stats');
             setStats(statsRes.data);
@@ -518,10 +415,7 @@ export default function Attack({ toggleTheme, theme, setIsAuth }) {
                 clearInterval(cooldownTimerRef.current);
                 cooldownTimerRef.current = setInterval(() => {
                     setCooldown(prev => {
-                        if (prev <= 1) { 
-                            clearInterval(cooldownTimerRef.current); 
-                            return 0; 
-                        }
+                        if (prev <= 1) { clearInterval(cooldownTimerRef.current); return 0; }
                         return prev - 1;
                     });
                 }, 1000);
@@ -540,8 +434,8 @@ export default function Attack({ toggleTheme, theme, setIsAuth }) {
 
     /* ── Derived ── */
     const MAX_DURATION = isProActive ? 300 : 60;
-    const progressPct = attackStatus && timeLeft > 0
-        ? Math.min(100, Math.max(0, Math.round(((attackStatus.duration - timeLeft) / attackStatus.duration) * 100)))
+    const progressPct = attackStatus
+        ? Math.min(100, Math.round(((attackStatus.duration - timeLeft) / attackStatus.duration) * 100))
         : 0;
 
     /* ── Loading ── */
@@ -801,7 +695,7 @@ export default function Attack({ toggleTheme, theme, setIsAuth }) {
                             </div>
 
                             {/* Live Attack Card */}
-                            {attackStatus?.status === 'running' && timeLeft > 0 && (
+                            {attackStatus?.status === 'running' && (
                                 <div className="rounded-xl p-4 mb-3 border-2" style={{ borderColor: 'rgba(220,38,38,0.5)', background: dark ? 'rgba(220,38,38,0.06)' : 'rgba(220,38,38,0.04)' }}>
                                     <div className="flex items-center justify-between mb-2">
                                         <div className="flex items-center gap-2 min-w-0">
