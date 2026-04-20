@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     FaExclamationTriangle, FaCheckCircle, FaTrash, FaHistory,
@@ -117,13 +117,18 @@ export default function Attack({ toggleTheme, theme, setIsAuth }) {
     const navigate = useNavigate();
     const dark = theme !== 'light';
 
-    const isProActive = user?.subscription?.type === 'pro' &&
-        user?.subscription?.expiresAt &&
-        new Date(user.subscription.expiresAt) > new Date();
+    // FIX: Use useMemo to prevent unnecessary recalculations
+    const isProActive = useMemo(() => {
+        return user?.subscription?.type === 'pro' &&
+            user?.subscription?.expiresAt &&
+            new Date(user.subscription.expiresAt) > new Date();
+    }, [user?.subscription?.type, user?.subscription?.expiresAt]);
 
-    const daysLeft = isProActive && user?.subscription?.expiresAt
-        ? Math.ceil((new Date(user.subscription.expiresAt) - new Date()) / (1000 * 60 * 60 * 24))
-        : 0;
+    const daysLeft = useMemo(() => {
+        return isProActive && user?.subscription?.expiresAt
+            ? Math.ceil((new Date(user.subscription.expiresAt) - new Date()) / (1000 * 60 * 60 * 24))
+            : 0;
+    }, [isProActive, user?.subscription?.expiresAt]);
 
     const canAttack = isProActive ? true : (user?.credits || 0) > 0;
 
@@ -262,20 +267,26 @@ export default function Attack({ toggleTheme, theme, setIsAuth }) {
 
     /* ── Captcha Handlers (for non-Pro users only) ── */
     const resetCaptcha = useCallback(() => {
-        captchaDataRef.current = null;
-        captchaIssuedRef.current = null;
-        setCaptchaReady(false);
-        clearTimeout(expiryTimerRef.current);
-        captchaRef.current?.reset();
-    }, []);
+        // FIX: Only reset captcha if user is not Pro
+        if (!isProActive) {
+            captchaDataRef.current = null;
+            captchaIssuedRef.current = null;
+            setCaptchaReady(false);
+            clearTimeout(expiryTimerRef.current);
+            captchaRef.current?.reset();
+        }
+    }, [isProActive]);
 
     const handleVerify = useCallback((captchaData) => {
-        captchaDataRef.current = captchaData;
-        captchaIssuedRef.current = Date.now();
-        setCaptchaReady(true);
-        clearTimeout(expiryTimerRef.current);
-        expiryTimerRef.current = setTimeout(resetCaptcha, TOKEN_MAX_AGE_MS);
-    }, [resetCaptcha]);
+        // FIX: Only handle verification if user is not Pro
+        if (!isProActive) {
+            captchaDataRef.current = captchaData;
+            captchaIssuedRef.current = Date.now();
+            setCaptchaReady(true);
+            clearTimeout(expiryTimerRef.current);
+            expiryTimerRef.current = setTimeout(resetCaptcha, TOKEN_MAX_AGE_MS);
+        }
+    }, [resetCaptcha, isProActive]);
 
     /* ── Form ── */
     const handle = e => {
@@ -383,7 +394,7 @@ export default function Attack({ toggleTheme, theme, setIsAuth }) {
             startStatusPolling();
             setTimeout(() => setLaunched(false), 3000);
 
-            // ONLY reset captcha for non-Pro users
+            // FIX: Only reset captcha for non-Pro users and only if they're not Pro
             if (!isProActive) {
                 resetCaptcha();
             }
@@ -420,7 +431,7 @@ export default function Attack({ toggleTheme, theme, setIsAuth }) {
                 setLaunchError(errorMessage);
             }
 
-            // ONLY reset captcha for non-Pro users
+            // FIX: Only reset captcha for non-Pro users
             if (!isProActive) {
                 resetCaptcha();
             }
