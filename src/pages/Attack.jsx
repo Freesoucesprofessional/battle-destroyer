@@ -112,7 +112,7 @@ export default function Attack({ toggleTheme, theme, setIsAuth }) {
     const runningHistoryIdRef = useRef(null);
 
     const TOKEN_MAX_AGE_MS = 270_000;
-    const MAINTENANCE = false;
+    const MAINTENANCE = true;
     const navigate = useNavigate();
     const dark = theme !== 'light';
 
